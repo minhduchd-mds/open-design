@@ -56,6 +56,26 @@ interface AnalyticsContextValue {
 
 const Ctx = createContext<AnalyticsContextValue | null>(null);
 
+// PR #1428 reviewer (Siri-Ray): the previous `url.includes('/api/')` check
+// matched absolute third-party URLs (https://provider.example/api/x), which
+// would leak our analytics headers outside the daemon boundary. This helper
+// is strictly same-origin + /api/ prefix and is shared by both the global
+// fetch wrapper and the per-track request_id wrapper.
+function isSameOriginApiCall(url: unknown): boolean {
+  if (typeof url !== 'string') return false;
+  if (url.startsWith('/api/')) return true;
+  if (typeof window === 'undefined') return false;
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return (
+      parsed.origin === window.location.origin &&
+      parsed.pathname.startsWith('/api/')
+    );
+  } catch {
+    return false;
+  }
+}
+
 // App version is read from a runtime endpoint rather than at build time so
 // the same web bundle reports the daemon-pinned version even when running
 // against a newer/older daemon during dev. Falls back to '0.0.0' until the
@@ -120,26 +140,29 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, [identity, locale, appVersion]);
-  const effectiveAnonId = resolvedAnonId ?? identity.anonymousId;
 
-  // Wrap window.fetch so every /api/* request carries the analytics context
-  // for the daemon to mirror result events back with the matching distinct
-  // id. Same-origin only, narrowed to /api/* to avoid touching outbound
-  // requests (e.g. external provider previews).
+  // Wrap window.fetch so every same-origin /api/* request carries the
+  // analytics context for the daemon to mirror result events back with the
+  // matching distinct id.
+  //
+  // Gated on `resolvedAnonId`: PR #1428 reviewer (codex-connector,
+  // lefarcen) — when Privacy → metrics is off, /api/analytics/config
+  // returns enabled=false → resolvedAnonId stays null → header injection
+  // never installs. That way an opted-out user can't produce daemon-side
+  // PostHog events even though POSTHOG_KEY exists in the daemon env
+  // (daemon's readAnalyticsContext treats the header as consent).
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (!resolvedAnonId) return;
     const original = window.fetch;
     const baseHeaders: Record<string, string> = {
-      [ANALYTICS_HEADER_ANONYMOUS_ID]: effectiveAnonId,
+      [ANALYTICS_HEADER_ANONYMOUS_ID]: resolvedAnonId,
       [ANALYTICS_HEADER_SESSION_ID]: identity.sessionId,
       [ANALYTICS_HEADER_CLIENT_TYPE]: identity.clientType,
     };
     window.fetch = async (input, init) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-      const sameApi =
-        typeof url === 'string' &&
-        (url.startsWith('/api/') || url.includes('/api/'));
-      if (!sameApi) return original(input, init);
+      if (!isSameOriginApiCall(url)) return original(input, init);
       const merged: HeadersInit = {
         ...baseHeaders,
         [ANALYTICS_HEADER_LOCALE]: locale,
@@ -150,7 +173,7 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
     return () => {
       window.fetch = original;
     };
-  }, [identity, locale, effectiveAnonId]);
+  }, [identity, locale, resolvedAnonId]);
 
   // Update PostHog's super-properties whenever locale changes so subsequent
   // captures carry the right `locale` field without us threading it through
@@ -193,10 +216,7 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
                 : input instanceof URL
                   ? input.href
                   : input.url;
-            const sameApi =
-              typeof url === 'string' &&
-              (url.startsWith('/api/') || url.includes('/api/'));
-            if (!sameApi) return baseFetch(input, init);
+            if (!isSameOriginApiCall(url)) return baseFetch(input, init);
             const merged: HeadersInit = {
               [ANALYTICS_HEADER_REQUEST_ID]: requestId,
               ...(init?.headers ?? {}),
@@ -230,7 +250,31 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AnalyticsContextValue>(
     () => ({
       track,
-      setConsent: (granted: boolean) => applyConsent(granted),
+      setConsent: (granted: boolean) => {
+        applyConsent(granted);
+        if (!granted) {
+          // Clear the header-injection state so the fetch wrapper effect
+          // tears down its hook on the next render. Daemon-side captures
+          // will see no x-od-analytics-* headers → readAnalyticsContext
+          // returns null → no events emitted, even if POSTHOG_KEY is set.
+          setResolvedAnonId(null);
+        } else {
+          // Re-trigger client init: getAnalyticsClient's null-cache fix
+          // (client.ts) allows a fresh /api/analytics/config fetch when
+          // the previous response was enabled=false. Resolved id propagates
+          // into the wrapper via setResolvedAnonId below.
+          void getAnalyticsClient({
+            anonymousId: identity.anonymousId,
+            sessionId: identity.sessionId,
+            clientType: identity.clientType,
+            locale,
+            appVersion,
+          }).then(() => {
+            const resolved = getResolvedAnonymousId();
+            if (resolved) setResolvedAnonId(resolved);
+          });
+        }
+      },
       setIdentity: (installationId: string | null) => {
         applyIdentity(installationId);
         // Keep the fetch wrapper's header in sync so daemon-side captures
@@ -241,7 +285,7 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
       sessionId: identity.sessionId,
       newRequestId: () => crypto.randomUUID(),
     }),
-    [track, identity],
+    [track, identity, locale, appVersion],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

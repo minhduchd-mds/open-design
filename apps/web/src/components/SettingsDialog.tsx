@@ -11,6 +11,7 @@ import {
   trackSettingsByokTestResult,
   trackSettingsCliTestResult,
   trackSettingsClickByokField,
+  trackSettingsClickByokProviderOption,
   trackSettingsClickCliProviderCard,
   trackSettingsClickExecutionModeTab,
   trackSettingsView,
@@ -1780,7 +1781,17 @@ export function SettingsDialog({
                       role="tab"
                       aria-selected={apiProtocol === tab.id}
                       className={'protocol-chip' + (apiProtocol === tab.id ? ' active' : '')}
-                      onClick={() => setApiProtocol(tab.id)}
+                      onClick={() => {
+                        trackSettingsClickByokProviderOption(analytics.track, {
+                          page: 'settings',
+                          area: 'execution_model',
+                          element: 'byok_provider_option',
+                          action: 'select_byok_provider',
+                          provider_id: tab.id,
+                          is_selected: apiProtocol === tab.id,
+                        });
+                        setApiProtocol(tab.id);
+                      }}
                     >
                       {tab.title}
                     </button>

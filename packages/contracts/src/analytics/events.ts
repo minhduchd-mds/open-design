@@ -219,6 +219,21 @@ export interface SettingsClickCliProviderCardProps {
   is_selected: boolean;
 }
 
+export interface SettingsClickByokProviderOptionProps {
+  page: 'settings';
+  area: 'execution_model';
+  element: 'byok_provider_option';
+  action: 'select_byok_provider';
+  // Code's `apiProtocol` matches the BYOK protocol chip Settings UI 1:1.
+  // Tracking doc names azure/google/ollama as azure_openai/google_gemini/
+  // ollama_cloud — we forward the code value verbatim and let dashboards
+  // map; see tracking-doc-issues.md §2.5.
+  provider_id: 'anthropic' | 'openai' | 'azure' | 'ollama' | 'google';
+  // True when the clicked chip was already the active protocol (no-op
+  // toggle); false when the click switches protocol.
+  is_selected: boolean;
+}
+
 export interface SettingsClickByokFieldProps {
   page: 'settings';
   area: 'execution_model';
@@ -361,6 +376,7 @@ export type AnalyticsEventPayload =
       props:
         | SettingsClickExecutionModeTabProps
         | SettingsClickCliProviderCardProps
+        | SettingsClickByokProviderOptionProps
         | SettingsClickByokFieldProps;
     }
   | { event: 'settings_cli_test_result'; props: SettingsCliTestResultProps }

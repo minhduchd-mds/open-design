@@ -2612,7 +2612,7 @@ export async function startServer({
     }
   });
 
-  const analyticsService = createAnalyticsService();
+  const analyticsService = createAnalyticsService({ dataDir: RUNTIME_DATA_DIR });
   const design = {
     runs: createChatRunService({ createSseResponse, createSseErrorPayload }),
     analytics: analyticsService,

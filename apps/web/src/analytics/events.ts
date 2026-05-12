@@ -15,6 +15,7 @@ import type {
   RunFinishedProps,
   SettingsByokTestResultProps,
   SettingsClickByokFieldProps,
+  SettingsClickByokProviderOptionProps,
   SettingsClickCliProviderCardProps,
   SettingsClickExecutionModeTabProps,
   SettingsCliTestResultProps,
@@ -87,6 +88,13 @@ export function trackSettingsClickCliProviderCard(
 export function trackSettingsClickByokField(
   track: Track,
   props: SettingsClickByokFieldProps,
+) {
+  track('settings_click', props as unknown as Record<string, unknown>);
+}
+
+export function trackSettingsClickByokProviderOption(
+  track: Track,
+  props: SettingsClickByokProviderOptionProps,
 ) {
   track('settings_click', props as unknown as Record<string, unknown>);
 }

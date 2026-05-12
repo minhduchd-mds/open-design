@@ -36,7 +36,14 @@ export async function getAnalyticsClient(
 ): Promise<PostHog | null> {
   if (client) return client;
   if (initPromise) return initPromise;
-  initPromise = (async () => {
+  // PR #1428 reviewer (Siri-Ray): the first /api/analytics/config response
+  // is cached forever if it resolves to null. On first launch before the
+  // user accepts the privacy banner the daemon returns enabled=false, this
+  // promise resolves null, and every later track() call returns the cached
+  // null without re-fetching the now-enabled config. Clear initPromise
+  // whenever the resolution is null so a subsequent setConsent(true) can
+  // trigger a fresh init.
+  const pending = (async () => {
     try {
       const res = await fetch('/api/analytics/config');
       if (!res.ok) return null;
@@ -116,7 +123,12 @@ export async function getAnalyticsClient(
       return null;
     }
   })();
-  return initPromise;
+  initPromise = pending;
+  // Clear the cache as soon as the result is null so a later opt-in retries.
+  void pending.then((result) => {
+    if (!result) initPromise = null;
+  });
+  return pending;
 }
 
 // Called from the AnalyticsProvider when the user toggles Privacy →
