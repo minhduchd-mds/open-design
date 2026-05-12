@@ -73,4 +73,42 @@ describe('readDesignSystemAssets', () => {
     expect(assets.tokensCss).toBeUndefined();
     expect(assets.fixtureHtml).toBeUndefined();
   });
+
+  // Reviewer feedback (nettee, PR-C #1385): the prior implementation
+  // swallowed every readFile() error as "absent", which would silently
+  // hide non-absence failures (EACCES, EISDIR, broken packaged
+  // resource paths, transient I/O) and ship the legacy DESIGN.md-only
+  // prompt as if the token channel had succeeded. That corrupts the
+  // exact signal the smoke-test rollout depends on. The reader now
+  // only swallows ENOENT / ENOTDIR; everything else must surface.
+  it('rejects on non-absence read failures so token-channel misconfigurations surface', async () => {
+    const root = fresh();
+    const dir = brandDir(root, 'broken-tokens');
+    // Plant a DIRECTORY at the tokens.css path. readFile() rejects
+    // with EISDIR — a real-world stand-in for permission / packaged-
+    // resource path bugs that should fail visibly, not silently fall
+    // back. EACCES would be more lifelike but is hard to simulate
+    // portably across CI runners; EISDIR exercises the exact same
+    // "non-absence error" branch.
+    mkdirSync(path.join(dir, 'tokens.css'));
+
+    await expect(readDesignSystemAssets(root, 'broken-tokens')).rejects.toThrow(
+      /EISDIR|illegal operation|directory/i,
+    );
+  });
+
+  it('still treats ENOENT as absence even when one sibling is present (per-file independence holds under the stricter contract)', async () => {
+    // Pin the flip side of the rejection test above: tightening the
+    // catch must NOT regress the legacy ~138-brand fallback. With
+    // tokens.css present and components.html absent, the reader
+    // returns the present side and undefined for the missing one,
+    // exactly as before.
+    const root = fresh();
+    const dir = brandDir(root, 'partial');
+    writeFileSync(path.join(dir, 'tokens.css'), ':root { --x: 1; }');
+
+    const assets = await readDesignSystemAssets(root, 'partial');
+    expect(assets.tokensCss).toBe(':root { --x: 1; }');
+    expect(assets.fixtureHtml).toBeUndefined();
+  });
 });

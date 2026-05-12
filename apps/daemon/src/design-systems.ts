@@ -93,9 +93,27 @@ export async function readDesignSystemAssets(
 async function readFileOptional(file: string): Promise<string | undefined> {
   try {
     return await readFile(file, 'utf8');
-  } catch {
-    return undefined;
+  } catch (err) {
+    // Only swallow "file genuinely does not exist" failures. Today the
+    // ~138 brands without hand-authored or derived tokens.css /
+    // components.html siblings hit this path on the empty side, which
+    // is the legacy fallback we deliberately preserve. Every other
+    // failure mode — permission denied (`EACCES`), parent-shadowed by
+    // a non-directory (`EPERM`), a directory at the file path
+    // (`EISDIR`), a broken packaged-resource symlink, a transient I/O
+    // error — means the token channel is misconfigured; the caller
+    // (and the smoke-test rollout) needs to see that explicitly
+    // instead of silently degrading to the DESIGN.md-only prompt and
+    // making the experiment look ineffective for the wrong reason.
+    if (isAbsenceError(err)) return undefined;
+    throw err;
   }
+}
+
+function isAbsenceError(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false;
+  const code = (err as { code?: unknown }).code;
+  return code === 'ENOENT' || code === 'ENOTDIR';
 }
 
 function summarize(raw: string): string {
