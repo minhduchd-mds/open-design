@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ChatComposer } from '../../src/components/ChatComposer';
 import { ANNOTATION_EVENT } from '../../src/components/PreviewDrawOverlay';
 import { uploadProjectFiles } from '../../src/providers/registry';
+import type { ChatAttachment, ChatCommentAttachment } from '../../src/types';
 
 vi.mock('../../src/providers/registry', async () => {
   const actual = await vi.importActual<typeof import('../../src/providers/registry')>(
@@ -27,6 +28,98 @@ afterEach(() => {
 });
 
 describe('ChatComposer /search command', () => {
+  it('keeps concurrent queued visual annotations distinct after uploads resolve', async () => {
+    const onSend = vi.fn();
+    const firstUpload = deferred<Awaited<ReturnType<typeof uploadProjectFiles>>>();
+    const secondUpload = deferred<Awaited<ReturnType<typeof uploadProjectFiles>>>();
+    mockedUploadProjectFiles
+      .mockReturnValueOnce(firstUpload.promise)
+      .mockReturnValueOnce(secondUpload.promise);
+
+    const { rerender } = render(
+      <ChatComposer
+        projectId="project-1"
+        projectFiles={[]}
+        streaming
+        onEnsureProject={async () => 'project-1'}
+        onSend={onSend}
+        onStop={vi.fn()}
+      />,
+    );
+
+    window.dispatchEvent(new CustomEvent(ANNOTATION_EVENT, {
+      detail: {
+        file: new File(['first'], 'first.png', { type: 'image/png' }),
+        note: 'first note',
+        action: 'send',
+        filePath: 'index.html',
+        markKind: 'stroke',
+        bounds: { x: 1, y: 2, width: 30, height: 40 },
+      },
+    }));
+    window.dispatchEvent(new CustomEvent(ANNOTATION_EVENT, {
+      detail: {
+        file: new File(['second'], 'second.png', { type: 'image/png' }),
+        note: 'second note',
+        action: 'send',
+        filePath: 'index.html',
+        markKind: 'stroke',
+        bounds: { x: 5, y: 6, width: 70, height: 80 },
+      },
+    }));
+
+    await waitFor(() => expect(mockedUploadProjectFiles).toHaveBeenCalledTimes(2));
+
+    await act(async () => {
+      secondUpload.resolve({
+        uploaded: [{ path: 'uploads/second.png', name: 'second.png', kind: 'image' }],
+        failed: [],
+      });
+      firstUpload.resolve({
+        uploaded: [{ path: 'uploads/first.png', name: 'first.png', kind: 'image' }],
+        failed: [],
+      });
+      await Promise.all([firstUpload.promise, secondUpload.promise]);
+    });
+
+    await waitFor(() => expect(screen.getByText('first.png')).toBeTruthy());
+    expect(screen.getByText('second.png')).toBeTruthy();
+    const input = screen.getByTestId('chat-composer-input') as HTMLTextAreaElement;
+    expect(input.value).toContain('first note');
+    expect(input.value).toContain('second note');
+    expect(screen.queryByTestId('staged-comment-attachments')).toBeNull();
+
+    rerender(
+      <ChatComposer
+        projectId="project-1"
+        projectFiles={[]}
+        streaming={false}
+        onEnsureProject={async () => 'project-1'}
+        onSend={onSend}
+        onStop={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('chat-send'));
+
+    await waitFor(() => expect(onSend).toHaveBeenCalledTimes(1));
+    const [, attachments, commentAttachments] = onSend.mock.calls[0]! as [
+      string,
+      ChatAttachment[],
+      ChatCommentAttachment[],
+    ];
+    expect(attachments).toEqual(expect.arrayContaining([
+      { path: 'uploads/first.png', name: 'first.png', kind: 'image' },
+      { path: 'uploads/second.png', name: 'second.png', kind: 'image' },
+    ]));
+    expect(commentAttachments).toHaveLength(2);
+    expect(new Set(commentAttachments.map((attachment) => attachment.id)).size).toBe(2);
+    expect(commentAttachments.map((attachment) => attachment.order)).toEqual([1, 2]);
+    expect(commentAttachments.map((attachment) => attachment.screenshotPath).sort()).toEqual([
+      'uploads/first.png',
+      'uploads/second.png',
+    ]);
+  });
+
   it('sends draw annotations directly when requested', async () => {
     const onSend = vi.fn();
     mockedUploadProjectFiles.mockResolvedValue({
@@ -384,3 +477,13 @@ describe('ChatComposer /search command', () => {
     expect((input as HTMLTextAreaElement).value).toBe('keep this draft');
   });
 });
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}

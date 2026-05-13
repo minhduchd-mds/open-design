@@ -41,6 +41,7 @@ export interface VisualAnnotationTarget {
 
 export interface VisualAnnotationAttachmentInput {
   order: number;
+  idSeed?: string;
   screenshotPath: string;
   markKind: PreviewVisualMarkKind;
   note: string;
@@ -178,11 +179,12 @@ export function buildBoardCommentAttachments(input: {
 export function buildVisualAnnotationAttachment(input: VisualAnnotationAttachmentInput): ChatCommentAttachment {
   const target = input.target ?? null;
   const intent = visualAnnotationIntent(input.markKind);
-  const elementId = target?.elementId?.trim() || `visual-mark-${input.order}`;
+  const visualId = sanitizeVisualAttachmentId(input.idSeed || input.screenshotPath || String(input.order));
+  const elementId = target?.elementId?.trim() || `visual-mark-${visualId}`;
   const label = target?.label?.trim() || 'Marked screenshot region';
   const comment = input.note.trim() || intent;
   return {
-    id: `${elementId}-visual-${input.order}`,
+    id: `${elementId}-visual-${visualId}`,
     order: input.order,
     filePath: target?.filePath?.trim() || input.screenshotPath,
     elementId,
@@ -198,6 +200,11 @@ export function buildVisualAnnotationAttachment(input: VisualAnnotationAttachmen
     intent,
     source: 'board-batch',
   };
+}
+
+function sanitizeVisualAttachmentId(value: string): string {
+  const id = value.trim().replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+  return id || 'mark';
 }
 
 export function messageContentWithCommentAttachments(

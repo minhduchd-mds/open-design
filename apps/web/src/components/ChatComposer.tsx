@@ -572,6 +572,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
         if (!detail) return;
         void (async () => {
           let uploaded: ChatAttachment[] = [];
+          let visualAttachmentInput: Parameters<typeof buildVisualAnnotationAttachment>[0] | null = null;
           let visualAttachment: ChatCommentAttachment | null = null;
           if (detail.file) {
             const id = await ensureProject();
@@ -586,8 +587,9 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
                 }
                 const screenshot = uploaded[0];
                 if (screenshot && detail.markKind && detail.bounds) {
-                  visualAttachment = buildVisualAnnotationAttachment({
-                    order: commentAttachments.length + stagedVisualComments.length + 1,
+                  visualAttachmentInput = {
+                    order: 1,
+                    idSeed: screenshot.path,
                     screenshotPath: screenshot.path,
                     markKind: detail.markKind,
                     note: detail.note,
@@ -606,9 +608,15 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
                           filePath: detail.filePath || screenshot.path,
                           position: detail.bounds,
                         },
-                  });
+                  };
                   if (detail.action !== 'send') {
-                    setStagedVisualComments((current) => [...current, visualAttachment!]);
+                    setStagedVisualComments((current) => [
+                      ...current,
+                      buildVisualAnnotationAttachment({
+                        ...visualAttachmentInput!,
+                        order: commentAttachments.length + current.length + 1,
+                      }),
+                    ]);
                   }
                 }
               }
@@ -624,10 +632,24 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
           if (detail.action === 'send') {
             if (streaming) {
               if (uploaded.length > 0) setStaged((s) => [...s, ...uploaded]);
-              if (visualAttachment) setStagedVisualComments((current) => [...current, visualAttachment!]);
+              if (visualAttachmentInput) {
+                setStagedVisualComments((current) => [
+                  ...current,
+                  buildVisualAnnotationAttachment({
+                    ...visualAttachmentInput!,
+                    order: commentAttachments.length + current.length + 1,
+                  }),
+                ]);
+              }
               if (detail.note) setDraft((d) => (d ? `${d}\n${detail.note}` : detail.note));
               textareaRef.current?.focus();
               return;
+            }
+            if (visualAttachmentInput) {
+              visualAttachment = buildVisualAnnotationAttachment({
+                ...visualAttachmentInput,
+                order: commentAttachments.length + stagedVisualComments.length + 1,
+              });
             }
             const prompt = [draft.trim(), detail.note].filter(Boolean).join('\n');
             const attachments = [...staged, ...uploaded];
