@@ -164,11 +164,23 @@ Flow:
 
 ### Change Scope
 
-- Area: Runtime abstraction foundation. Impact: add a small module under `apps/daemon/src/runtimes/` and keep protocol switches there. Files: `apps/daemon/src/runtimes/types.ts`, new `apps/daemon/src/runtimes/adapter.ts`. Source: `apps/daemon/src/runtimes/types.ts:37-68`
-- Area: Chat run spawn/stream handling. Impact: replace upper-level `def.streamFormat` / `def.eventParser` / `def.promptViaStdin` branches with adapter calls; keep existing spawn/env/invocation helpers. Files: `apps/daemon/src/server.ts`. Source: `apps/daemon/src/server.ts:3787-3867`, `apps/daemon/src/server.ts:4036-4268`
-- Area: Critique Theater gating. Impact: replace plain-stream string gate with `adapter.supportsCritiqueTheater()` while preserving current behavior. Files: `apps/daemon/src/server.ts`, `apps/daemon/tests/critique-spawn-wiring.test.ts`. Source: `apps/daemon/src/server.ts:3060-3138`, `apps/daemon/tests/critique-spawn-wiring.test.ts:174-214`
-- Area: Connection tests/runtime smoke path. Impact: reuse adapter attach/stdin behavior so daemon runtime checks do not maintain duplicate protocol branching. Files: `apps/daemon/src/connectionTest.ts`, `apps/daemon/tests/runtimes/*`. Source: `apps/daemon/src/connectionTest.ts:305-305`, `apps/daemon/tests/runtimes/agent-args.test.ts:148-175`
-- Area: Contracts/UI compatibility. Impact: avoid adding new `streamFormat` dependency to public contract; remove only if verified unused by clients. Files: `packages/contracts/src/sse/chat.ts`, web SSE consumers if needed. Source: `packages/contracts/src/sse/chat.ts:1-30`, `apps/daemon/src/server.ts:3789-3799`
+#### Impact Areas
+
+- Runtime abstraction foundation: add one small bottom-layer module that owns protocol selection and exposes semantic runtime behavior to daemon callers.
+- Chat run spawn/stream handling: remove upper-level branching on `def.streamFormat` / `def.eventParser` / `def.promptViaStdin`; keep existing spawn/env/invocation flow intact.
+- Critique Theater gating: preserve current plain-only behavior, but express it as adapter capability instead of a protocol-string check.
+- Connection/runtime smoke path: reuse the same adapter behavior so runtime checks do not maintain duplicate parser/stdin/session branching.
+- Contracts/UI compatibility: avoid making `streamFormat` a public contract dependency; remove or stop consuming it only after verifying no client requires it.
+
+#### Planned Files
+
+- `apps/daemon/src/runtimes/runtime-adapter.ts` - new adapter factory and semantic adapter contract.
+- `apps/daemon/src/runtimes/types.ts` - small shared type additions only if needed by the adapter contract.
+- `apps/daemon/src/server.ts` - replace protocol branches with adapter calls in prompt gating, spawn stdin behavior, stream attachment, and close classification.
+- `apps/daemon/src/connectionTest.ts` - route runtime smoke stream/stdin behavior through the adapter.
+- `apps/daemon/tests/runtimes/*` - add adapter coverage and update runtime behavior tests.
+- `apps/daemon/tests/critique-spawn-wiring.test.ts` - assert critique eligibility through adapter capability rather than stream format strings.
+- `packages/contracts/src/sse/chat.ts` and web SSE consumers - touch only if `streamFormat` cleanup is confirmed safe.
 
 ### Edge Cases
 
