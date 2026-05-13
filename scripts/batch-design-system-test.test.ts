@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 
 import {
   buildAssistantMessageUpdate,
+  cancelTimedOutRun,
+  createRunTimeoutError,
   dedupeDesignSystemIds,
   resolveDryRunDesignSystems,
   validateExplicitDesignSystemIds,
@@ -84,6 +86,52 @@ test("buildAssistantMessageUpdate keeps the daemon run id on final assistant upd
       producedFiles: [{ path: "index.html" }],
     },
   );
+});
+
+test("cancelTimedOutRun posts to the daemon cancel endpoint for timeout errors", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: Array<{ url: string; init: RequestInit | undefined }> = [];
+  globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+    calls.push({ url: String(url), init });
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  try {
+    const canceled = await cancelTimedOutRun("http://127.0.0.1:4321", createRunTimeoutError("run-123", 5000, "running"));
+    assert.equal(canceled, true);
+    assert.deepEqual(calls, [
+      {
+        url: "http://127.0.0.1:4321/api/runs/run-123/cancel",
+        init: {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({}),
+        },
+      },
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("cancelTimedOutRun ignores non-timeout errors", async () => {
+  const originalFetch = globalThis.fetch;
+  let called = false;
+  globalThis.fetch = (async () => {
+    called = true;
+    throw new Error("should not be called");
+  }) as typeof fetch;
+
+  try {
+    const canceled = await cancelTimedOutRun("http://127.0.0.1:4321", new Error("not a timeout"));
+    assert.equal(canceled, false);
+    assert.equal(called, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("CLI dry-run with explicit design systems succeeds without daemon discovery", () => {

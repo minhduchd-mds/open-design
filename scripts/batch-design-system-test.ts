@@ -128,6 +128,12 @@ interface AssistantMessageUpdate {
   producedFiles?: unknown[];
 }
 
+type RunTimeoutError = Error & {
+  code: 'RUN_TIMEOUT';
+  runId: string;
+  lastStatus?: RunStatusResponse['status'];
+};
+
 function buildRunPrompt(prompt: string, skipDiscoveryBrief: boolean): string {
   if (!skipDiscoveryBrief) return prompt;
   // The persisted skipDiscoveryBrief flag is understood by newer daemons, but
@@ -252,6 +258,29 @@ export function buildAssistantMessageUpdate(params: {
     ...(endedAt !== undefined ? { endedAt } : {}),
     ...(producedFiles !== undefined ? { producedFiles } : {}),
   };
+}
+
+export function createRunTimeoutError(
+  runId: string,
+  timeoutMs: number,
+  lastStatus?: RunStatusResponse['status'],
+): RunTimeoutError {
+  const error = new Error(
+    `run timed out after ${timeoutMs}ms${lastStatus ? ` (last status: ${lastStatus})` : ''}`,
+  ) as RunTimeoutError;
+  error.code = 'RUN_TIMEOUT';
+  error.runId = runId;
+  if (lastStatus !== undefined) error.lastStatus = lastStatus;
+  return error;
+}
+
+function isRunTimeoutError(error: unknown): error is RunTimeoutError {
+  return (
+    !!error &&
+    typeof error === 'object' &&
+    (error as { code?: unknown }).code === 'RUN_TIMEOUT' &&
+    typeof (error as { runId?: unknown }).runId === 'string'
+  );
 }
 
 function parseJsonObject(value: string, label: string): Record<string, unknown> {
@@ -489,7 +518,18 @@ async function waitForRun(daemonUrl: string, runId: string, timeoutMs: number): 
     if (terminal(last.status)) return last;
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
   }
-  throw new Error(`run timed out after ${timeoutMs}ms${last ? ` (last status: ${last.status})` : ''}`);
+  throw createRunTimeoutError(runId, timeoutMs, last?.status);
+}
+
+export async function cancelTimedOutRun(daemonUrl: string, error: unknown): Promise<boolean> {
+  if (!isRunTimeoutError(error)) return false;
+  await api<{ ok: true }>(
+    daemonUrl,
+    'POST',
+    `/api/runs/${encodeURIComponent(error.runId)}/cancel`,
+    {},
+  );
+  return true;
 }
 
 async function readRunAssistantText(daemonUrl: string, runId: string): Promise<string> {
@@ -587,7 +627,22 @@ async function runOne(params: {
     return { designSystemId, projectId, projectName, conversationId, runId: run.runId, status: 'queued', daemonUrl };
   }
 
-  const finalStatus = await waitForRun(daemonUrl, run.runId, config.timeoutMs);
+  let finalStatus: RunStatusResponse;
+  try {
+    finalStatus = await waitForRun(daemonUrl, run.runId, config.timeoutMs);
+  } catch (err) {
+    try {
+      const canceled = await cancelTimedOutRun(daemonUrl, err);
+      if (canceled) {
+        process.stderr.write(`warning: canceled timed-out run ${run.runId} for ${designSystemId}\n`);
+      }
+    } catch (cancelErr) {
+      process.stderr.write(
+        `warning: failed to cancel timed-out run ${run.runId} for ${designSystemId}: ${(cancelErr as Error).message || String(cancelErr)}\n`,
+      );
+    }
+    throw err;
+  }
   const assistantText = await readRunAssistantText(daemonUrl, run.runId).catch(() => '');
   const producedFiles = await api<ProjectFilesResponse>(daemonUrl, 'GET', `/api/projects/${projectId}/files`)
     .then((body) => body.files ?? [])
