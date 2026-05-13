@@ -69,6 +69,15 @@ import { runOrchestrator } from './critique/orchestrator.js';
 import { createRunRegistry } from './critique/run-registry.js';
 import { handleCritiqueInterrupt } from './critique/interrupt-handler.js';
 import { handleCritiqueArtifact } from './critique/artifact-handler.js';
+import { getCritiqueMetrics, register } from './metrics/index.js';
+import { readConformanceHistory } from './critique/conformance-history.js';
+import { evaluateRollout } from './critique/ratchet.js';
+import {
+  isCritiqueEnabled,
+  parseEnvEnabled,
+  parseRolloutPhase,
+  type SkillCritiquePolicy,
+} from './critique/rollout.js';
 import { createCopilotStreamHandler } from './copilot-stream.js';
 import { createJsonEventStreamHandler } from './json-event-stream.js';
 import { createQoderStreamHandler } from './qoder-stream.js';
@@ -2256,6 +2265,43 @@ export async function startServer({
     res.json({ version });
   });
 
+  if (process.env.OD_METRICS_ENDPOINT !== 'disabled') {
+    app.get('/api/metrics', async (_req, res) => {
+      res.setHeader('Content-Type', register.contentType);
+      res.send(await getCritiqueMetrics());
+    });
+  }
+
+  const parsePositiveInt = (raw: unknown, fallback: number): number => {
+    if (typeof raw !== 'string' || raw.length === 0) return fallback;
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+  };
+  const parseRate = (raw: unknown, fallback: number): number => {
+    if (typeof raw !== 'string' || raw.length === 0) return fallback;
+    const n = Number(raw);
+    return Number.isFinite(n) && n >= 0 && n <= 1 ? n : fallback;
+  };
+
+  app.get('/api/critique/conformance', async (req, res) => {
+    try {
+      const windowDays = parsePositiveInt(req.query.windowDays, 14);
+      const shippedThreshold = parseRate(req.query.shippedThreshold, 0.90);
+      const cleanParseThreshold = parseRate(req.query.cleanParseThreshold, 0.95);
+      const history = await readConformanceHistory(RUNTIME_DATA_DIR, windowDays);
+      const decision = evaluateRollout({
+        current: parseRolloutPhase(process.env.OD_CRITIQUE_ROLLOUT_PHASE),
+        history,
+        windowDays,
+        shippedThreshold,
+        cleanParseThreshold,
+      });
+      res.json({ window: { days: windowDays, history }, decision });
+    } catch (err) {
+      sendApiError(res, 500, 'INTERNAL_ERROR', err instanceof Error ? err.message : String(err));
+    }
+  });
+
   registerConnectorRoutes(app, {
     sendApiError,
     authorizeToolRequest,
@@ -2941,6 +2987,7 @@ export async function startServer({
     let skillMode;
     let skillCraftRequires = [];
     let activeSkillDir = null;
+    let skillCritiquePolicy: SkillCritiquePolicy = null;
     if (effectiveSkillId) {
       // Span both functional skills and design templates so a project
       // saved against either surface keeps its system prompt after the
@@ -2954,6 +3001,7 @@ export async function startServer({
         skillName = skill.name;
         skillMode = skill.mode;
         activeSkillDir = skill.dir;
+        skillCritiquePolicy = skill.critiquePolicy;
         if (Array.isArray(skill.craftRequires))
           skillCraftRequires = skill.craftRequires;
       }
@@ -3035,18 +3083,29 @@ export async function startServer({
         ? (getTemplate(db, metadata.templateId) ?? undefined)
         : undefined;
 
+    const rawProjectOverride =
+      metadata && typeof metadata === 'object'
+        ? (metadata as { critiqueTheaterEnabled?: unknown }).critiqueTheaterEnabled
+        : undefined;
+    const projectCritiqueOverride: boolean | null =
+      typeof rawProjectOverride === 'boolean' ? rawProjectOverride : null;
+    const critiqueEnabledForRun = isCritiqueEnabled({
+      phase: parseRolloutPhase(process.env.OD_CRITIQUE_ROLLOUT_PHASE),
+      skillPolicy: skillCritiquePolicy,
+      projectOverride: projectCritiqueOverride,
+      envOverride: parseEnvEnabled(process.env.OD_CRITIQUE_ENABLED),
+    });
+
     // Thread the critique config plus the active design-system / skill data
-    // into the composer when critique is enabled. Without this the spawned
-    // child receives the legacy single-pass prompt and the parser waits for
-    // <CRITIQUE_RUN> tags the model was never told to emit. The composer
-    // itself ignores these fields when cfg.enabled is false, so the legacy
-    // path stays untouched.
-    const critiqueBrand = critiqueCfg.enabled
+    // into the composer when the rollout resolver enables critique. Without
+    // this the spawned child receives the legacy single-pass prompt and the
+    // parser waits for <CRITIQUE_RUN> tags the model was never told to emit.
+    const critiqueBrand = critiqueEnabledForRun
       && typeof designSystemTitle === 'string'
       && typeof designSystemBody === 'string'
       ? { name: designSystemTitle, design_md: designSystemBody }
       : undefined;
-    const critiqueSkill = critiqueCfg.enabled && typeof effectiveSkillId === 'string'
+    const critiqueSkill = critiqueEnabledForRun && typeof effectiveSkillId === 'string'
       ? { id: effectiveSkillId }
       : undefined;
     // Single-source-of-truth eligibility check. The composer downstream
@@ -3069,7 +3128,7 @@ export async function startServer({
       metadata?.kind === 'video' ||
       metadata?.kind === 'audio';
     const isPlainAdapter = (streamFormat ?? 'plain') === 'plain';
-    const critiqueShouldRun = critiqueCfg.enabled
+    const critiqueShouldRun = critiqueEnabledForRun
       && critiqueBrand !== undefined
       && critiqueSkill !== undefined
       && !isMediaSurface
@@ -3095,7 +3154,7 @@ export async function startServer({
       memoryBody,
       metadata,
       template,
-      critique: critiqueShouldRun ? critiqueCfg : undefined,
+      critique: critiqueShouldRun ? { ...critiqueCfg, enabled: true } : undefined,
       critiqueBrand: critiqueShouldRun ? critiqueBrand : undefined,
       critiqueSkill: critiqueShouldRun ? critiqueSkill : undefined,
       streamFormat,
@@ -3933,7 +3992,26 @@ export async function startServer({
         // than wrapping the frame inside the legacy 'agent' channel. Clients
         // that subscribe to the new event names see them directly with the
         // contract payload as event.data.
-        const critiqueBus = { emit: (e) => send(e.event, e.data) };
+        const critiqueProjectIdForBus =
+          typeof projectId === 'string' && projectId ? projectId : null;
+        const critiqueBus = {
+          emit: (e) => {
+            send(e.event, e.data);
+            if (critiqueProjectIdForBus) {
+              const sinks = activeProjectEventSinks.get(critiqueProjectIdForBus);
+              if (sinks && sinks.size > 0) {
+                const payload = { ...e.data, type: e.event };
+                for (const sink of Array.from(sinks)) {
+                  try {
+                    sink(payload);
+                  } catch {
+                    sinks.delete(sink);
+                  }
+                }
+              }
+            }
+          },
+        };
 
         // Register this run with the in-process registry so the interrupt
         // endpoint can cascade an AbortController to the orchestrator. The
@@ -3977,6 +4055,9 @@ export async function startServer({
             artifactId: critiqueRunId,
             artifactDir: critiqueArtifactDir,
             adapter: typeof agentId === 'string' ? agentId : 'unknown',
+            skill: typeof effectiveSkillId === 'string' && effectiveSkillId
+              ? effectiveSkillId
+              : undefined,
             cfg: critiqueCfg,
             db,
             bus: critiqueBus,
