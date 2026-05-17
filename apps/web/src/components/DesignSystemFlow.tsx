@@ -55,7 +55,7 @@ import { Icon } from './Icon';
 
 interface CreationProps {
   onBack: () => void;
-  onCreated: (id: string) => void;
+  onCreated: (projectId: string) => void;
   onSystemsRefresh?: () => Promise<void> | void;
   config?: AppConfig;
   onOpenConnectorsTab?: () => void;
@@ -342,7 +342,7 @@ export function DesignSystemCreationFlow({
       // pending prompt ready for the user to send manually.
     }
     await onSystemsRefresh?.();
-    onCreated(created.id);
+    onCreated(workspace.project.id);
   }
 
   useEffect(() => {

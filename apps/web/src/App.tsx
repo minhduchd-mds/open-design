@@ -1162,7 +1162,7 @@ export function App() {
     appMain = (
       <DesignSystemCreationFlow
         onBack={() => navigate({ kind: 'home', view: 'design-systems' })}
-        onCreated={(id) => navigate({ kind: 'design-system-detail', designSystemId: id })}
+        onCreated={(projectId) => navigate({ kind: 'project', projectId, conversationId: null, fileName: null })}
         onSystemsRefresh={refreshDesignSystems}
         config={config}
         onOpenConnectorsTab={() => openSettings('composio')}

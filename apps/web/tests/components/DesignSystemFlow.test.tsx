@@ -125,7 +125,7 @@ describe('DesignSystemCreationFlow', () => {
     fireEvent.click(screen.getByText('Continue to generation'));
     fireEvent.click(screen.getByText('Generate'));
 
-    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(system.id));
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(project.id));
 
     expect(mocks.createDesignSystemDraft).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -154,7 +154,7 @@ describe('DesignSystemCreationFlow', () => {
       }),
     );
     expect(window.sessionStorage.getItem(`od:auto-send-first:${project.id}`)).toBe('1');
-    expect(onCreated).toHaveBeenCalledWith(system.id);
+    expect(onCreated).toHaveBeenCalledWith(project.id);
     expect(onSystemsRefresh).toHaveBeenCalled();
   });
 
