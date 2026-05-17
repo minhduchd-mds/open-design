@@ -66,6 +66,10 @@ import type {
   SkillSummary,
 } from '../types';
 import { testAgent, testApiProvider } from '../providers/connection-test';
+import {
+  fetchAgentIntegrationStatus,
+  startAgentIntegrationConnect,
+} from '../providers/daemon';
 import { fetchProviderModels } from '../providers/provider-models';
 import { fetchConnectors, fetchDesignTemplates } from '../providers/registry';
 import { MEDIA_PROVIDERS } from '../media/models';
@@ -703,6 +707,16 @@ export function SettingsDialog({
   const [agentRescanRunning, setAgentRescanRunning] = useState(false);
   const [agentRescanNotice, setAgentRescanNotice] =
     useState<RescanNotice | null>(null);
+  const [agentConnectingId, setAgentConnectingId] = useState<string | null>(
+    null,
+  );
+  const [agentConnectError, setAgentConnectError] = useState<
+    { id: string; message: string } | null
+  >(null);
+  // Tracks the active poll loop so the effect that runs while a connect is
+  // in progress can cancel itself when the dialog unmounts or the user
+  // gives up.
+  const agentConnectAbortRef = useRef<{ cancelled: boolean } | null>(null);
   const [agentTestState, setAgentTestState] = useState<TestState>({
     status: 'idle',
   });
@@ -886,6 +900,80 @@ export function SettingsDialog({
       setAgentRescanRunning(false);
     }
   };
+
+  // Agents that go through a daemon-managed OAuth flow. The daemon kicks
+  // off `<bin> login --callback open-design://...` in the background; the
+  // Electron protocol handler routes the callback back to the daemon,
+  // which writes credentials and our /status polling notices the flip.
+  const AGENTS_WITH_DAEMON_CONNECT = useMemo(() => new Set(['amr']), []);
+  const handleConnectAgent = useCallback(
+    async (agentId: string) => {
+      if (agentConnectingId) return;
+      // Mark any prior poll as cancelled so a stale tick can't flip state
+      // after the new flow has started.
+      if (agentConnectAbortRef.current) {
+        agentConnectAbortRef.current.cancelled = true;
+      }
+      const abort = { cancelled: false };
+      agentConnectAbortRef.current = abort;
+      setAgentConnectingId(agentId);
+      setAgentConnectError(null);
+      const started = await startAgentIntegrationConnect(agentId);
+      if (!started.ok) {
+        abort.cancelled = true;
+        setAgentConnectingId(null);
+        setAgentConnectError({ id: agentId, message: started.error });
+        return;
+      }
+      if (started.alreadyConnected) {
+        abort.cancelled = true;
+        setAgentConnectingId(null);
+        try {
+          await onRefreshAgents(agentRefreshOptionsForConfig(cfg));
+        } catch {}
+        return;
+      }
+      const startedAt = Date.now();
+      const POLL_MS = 1500;
+      const TIMEOUT_MS = 5 * 60_000;
+      while (!abort.cancelled && Date.now() - startedAt < TIMEOUT_MS) {
+        await new Promise((r) => setTimeout(r, POLL_MS));
+        if (abort.cancelled) return;
+        const status = await fetchAgentIntegrationStatus(agentId);
+        if (abort.cancelled) return;
+        if (status?.connected) {
+          setAgentConnectingId(null);
+          try {
+            await onRefreshAgents(agentRefreshOptionsForConfig(cfg));
+          } catch {}
+          return;
+        }
+        if (status?.connectState.status === 'error') {
+          setAgentConnectingId(null);
+          setAgentConnectError({
+            id: agentId,
+            message: status.connectState.message,
+          });
+          return;
+        }
+      }
+      if (!abort.cancelled) {
+        setAgentConnectingId(null);
+        setAgentConnectError({
+          id: agentId,
+          message: t('settings.agentConnectFailed'),
+        });
+      }
+    },
+    [agentConnectingId, cfg, onRefreshAgents, t],
+  );
+  useEffect(() => {
+    return () => {
+      if (agentConnectAbortRef.current) {
+        agentConnectAbortRef.current.cancelled = true;
+      }
+    };
+  }, []);
 
   const handleTestAgent = async () => {
     if (agentTestState.status === 'running') {
@@ -1944,9 +2032,53 @@ export function SettingsDialog({
                             <div className="agent-card-name">{a.name}</div>
                             <div className="agent-card-meta">
                               {a.authStatus === 'missing' ? (
-                                <span title={a.authMessage ?? a.path ?? ''}>
-                                  {t('settings.agentAuthRequired')}
-                                </span>
+                                <>
+                                  <span title={a.authMessage ?? a.path ?? ''}>
+                                    {agentConnectingId === a.id
+                                      ? t('settings.agentConnecting')
+                                      : t('settings.agentAuthRequired')}
+                                  </span>
+                                  {AGENTS_WITH_DAEMON_CONNECT.has(a.id) ? (
+                                    <span
+                                      role="button"
+                                      tabIndex={0}
+                                      className="agent-card-link agent-card-link--ghost agent-card-connect"
+                                      aria-disabled={
+                                        agentConnectingId === a.id || undefined
+                                      }
+                                      title={
+                                        agentConnectingId === a.id
+                                          ? t('settings.agentConnectCheckBrowser')
+                                          : t('settings.agentConnect')
+                                      }
+                                      onClick={(ev) => {
+                                        ev.stopPropagation();
+                                        if (agentConnectingId) return;
+                                        void handleConnectAgent(a.id);
+                                      }}
+                                      onKeyDown={(ev) => {
+                                        if (ev.key !== 'Enter' && ev.key !== ' ') return;
+                                        ev.preventDefault();
+                                        ev.stopPropagation();
+                                        if (agentConnectingId) return;
+                                        void handleConnectAgent(a.id);
+                                      }}
+                                    >
+                                      {agentConnectingId === a.id
+                                        ? t('settings.agentConnecting')
+                                        : t('settings.agentConnect')}
+                                    </span>
+                                  ) : null}
+                                  {agentConnectError &&
+                                  agentConnectError.id === a.id ? (
+                                    <span
+                                      className="agent-card-connect-error"
+                                      title={agentConnectError.message}
+                                    >
+                                      {t('settings.agentConnectFailed')}
+                                    </span>
+                                  ) : null}
+                                </>
                               ) : a.authStatus === 'unknown' ? (
                                 <span title={a.authMessage ?? a.path ?? ''}>
                                   {t('settings.agentAuthUnknown')}

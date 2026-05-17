@@ -99,6 +99,12 @@ export const de: Dict = {
     'Noch keine Agents erkannt. Installieren Sie Claude Code, Codex, Devin for Terminal, Gemini CLI, OpenCode, Cursor Agent, Qwen oder GitHub Copilot CLI und klicken Sie dann auf Neu scannen.',
   'settings.agentAuthRequired': 'Authentifizierung erforderlich',
   'settings.agentAuthUnknown': 'Authentifizierungsstatus unbekannt',
+  'settings.agentConnect': 'Verbinden',
+  'settings.agentConnecting': 'Warte auf Browser…',
+  'settings.agentConnectFailed': 'Verbindung fehlgeschlagen',
+  'settings.agentConnectCheckBrowser':
+    'Bestätige die Anfrage im soeben geöffneten Browser-Tab.',
+  'settings.agentDisconnect': 'Trennen',
   'settings.apiSection': 'Anthropic API',
   'settings.quickFillProvider': 'Anbieter schnell ausfüllen',
   'settings.customProvider': 'Benutzerdefinierter Anbieter',

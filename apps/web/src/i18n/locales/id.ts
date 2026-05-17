@@ -98,6 +98,12 @@ export const id: Dict = {
     'Belum ada agent terdeteksi. Pasang salah satu dari Claude Code, Codex, Devin for Terminal, Gemini CLI, OpenCode, Cursor Agent, Qwen, atau GitHub Copilot CLI, lalu klik pindai ulang.',
   'settings.agentAuthRequired': 'Autentikasi diperlukan',
   'settings.agentAuthUnknown': 'Status autentikasi tidak diketahui',
+  'settings.agentConnect': 'Hubungkan',
+  'settings.agentConnecting': 'Menunggu peramban…',
+  'settings.agentConnectFailed': 'Koneksi gagal',
+  'settings.agentConnectCheckBrowser':
+    'Setujui permintaan di tab peramban yang baru saja terbuka.',
+  'settings.agentDisconnect': 'Putuskan',
   'settings.apiSection': 'Anthropic API',
   'settings.quickFillProvider': 'Provider isi cepat',
   'settings.customProvider': 'Provider kustom',

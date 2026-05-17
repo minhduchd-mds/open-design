@@ -99,6 +99,12 @@ export const ja: Dict = {
     'エージェントが検出されませんでした。Claude Code、Codex、Gemini CLI、OpenCode、Cursor Agent、Qwen、または GitHub Copilot CLI のいずれかをインストールして、再スキャンをクリックしてください。',
   'settings.agentAuthRequired': '認証が必要です',
   'settings.agentAuthUnknown': '認証状態は不明です',
+  'settings.agentConnect': '連携する',
+  'settings.agentConnecting': 'ブラウザを待機中…',
+  'settings.agentConnectFailed': '接続に失敗しました',
+  'settings.agentConnectCheckBrowser':
+    '開いたブラウザタブで承認してください。',
+  'settings.agentDisconnect': '切断',
   'settings.apiSection': 'Anthropic API',
   'settings.quickFillProvider': 'プロバイダーをクイック入力',
   'settings.customProvider': 'カスタムプロバイダー',

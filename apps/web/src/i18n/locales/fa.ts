@@ -99,6 +99,12 @@ export const fa: Dict = {
     'هنوز هیچ عاملی شناسایی نشده. یکی از Claude Code، Codex، Gemini CLI، OpenCode، Cursor Agent، Qwen یا GitHub Copilot CLI را نصب کنید، سپس روی اسکن مجدد کلیک کنید.',
   'settings.agentAuthRequired': 'احراز هویت لازم است',
   'settings.agentAuthUnknown': 'وضعیت احراز هویت نامشخص است',
+  'settings.agentConnect': 'اتصال',
+  'settings.agentConnecting': 'در انتظار مرورگر…',
+  'settings.agentConnectFailed': 'اتصال ناموفق',
+  'settings.agentConnectCheckBrowser':
+    'درخواست را در زبانهٔ مرورگری که اکنون باز شد تأیید کنید.',
+  'settings.agentDisconnect': 'قطع اتصال',
   'settings.apiSection': 'Anthropic API',
   'settings.quickFillProvider': 'پر کردن سریع ارائه‌دهنده',
   'settings.customProvider': 'ارائه‌دهنده سفارشی',

@@ -4940,6 +4940,25 @@ a.avatar-item:visited {
   border-color: var(--border-strong);
   text-decoration: none;
 }
+/* Inline Connect button for agents that go through a daemon-managed
+   OAuth flow (today: AMR). Sits inside .agent-card-meta next to the
+   "Authentication required" pill so the affordance is reachable without
+   leaving the card. Reuses --ghost for the outlined look but trims
+   spacing so the row fits in the card's 64px min-height. */
+.agent-card-connect {
+  margin-left: 8px;
+  padding: 1px 8px;
+  cursor: pointer;
+}
+.agent-card-connect[aria-disabled="true"] {
+  cursor: progress;
+  opacity: 0.7;
+}
+.agent-card-connect-error {
+  margin-left: 8px;
+  color: var(--danger, #c0392b);
+  font-size: 11px;
+}
 .agent-install-commands {
   display: flex;
   flex-direction: column;

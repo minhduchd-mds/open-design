@@ -38,6 +38,7 @@ apps/web/playwright/
 tsconfig.tsbuildinfo
 
 .claude-sessions/*
+**/**/.claude-sessions/*
 
 .cursor/
 .agents/

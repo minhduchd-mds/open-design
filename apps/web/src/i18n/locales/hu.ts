@@ -99,6 +99,12 @@ export const hu: Dict = {
     'Még nincs észlelt ügynök. Telepítsd a Claude Code, Codex, Devin for Terminal, Gemini CLI, OpenCode, Cursor Agent, Qwen vagy GitHub Copilot CLI valamelyikét, majd kattints az Újraellenőrzésre.',
   'settings.agentAuthRequired': 'Hitelesítés szükséges',
   'settings.agentAuthUnknown': 'A hitelesítési állapot ismeretlen',
+  'settings.agentConnect': 'Csatlakozás',
+  'settings.agentConnecting': 'Várakozás a böngészőre…',
+  'settings.agentConnectFailed': 'A csatlakozás sikertelen',
+  'settings.agentConnectCheckBrowser':
+    'Hagyd jóvá a kérést az imént megnyílt böngészőfülön.',
+  'settings.agentDisconnect': 'Lecsatlakozás',
   'settings.apiSection': 'Anthropic API',
   'settings.quickFillProvider': 'Szolgáltató gyors kitöltése',
   'settings.customProvider': 'Egyéni szolgáltató',

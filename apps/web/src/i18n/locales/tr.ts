@@ -99,6 +99,12 @@ export const tr: Dict = {
     'Hiçbir ajan tespit edilemedi. Claude Code, Codex, Devin for Terminal, Gemini CLI, OpenCode, Cursor Agent, Qwen, veya GitHub Copilot CLI’lardan birini kurun ve yeniden tarayın.',
   'settings.agentAuthRequired': 'Kimlik doğrulama gerekli',
   'settings.agentAuthUnknown': 'Kimlik doğrulama durumu bilinmiyor',
+  'settings.agentConnect': 'Bağlan',
+  'settings.agentConnecting': 'Tarayıcı bekleniyor…',
+  'settings.agentConnectFailed': 'Bağlantı başarısız',
+  'settings.agentConnectCheckBrowser':
+    'Az önce açılan tarayıcı sekmesinde isteği onaylayın.',
+  'settings.agentDisconnect': 'Bağlantıyı kes',
   'settings.apiSection': 'Anthropic API',
   'settings.quickFillProvider': 'Sağlayıcıyı hızlı doldur',
   'settings.customProvider': 'Özel sağlayıcı',

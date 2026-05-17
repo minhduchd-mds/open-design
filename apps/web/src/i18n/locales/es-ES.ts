@@ -99,6 +99,12 @@ export const esES: Dict = {
     'Aún no se ha detectado ningún agente. Instala Claude Code, Codex, Devin for Terminal, Gemini CLI, OpenCode, Cursor Agent, Qwen o GitHub Copilot CLI y pulsa Reescanear.',
   'settings.agentAuthRequired': 'Autenticación requerida',
   'settings.agentAuthUnknown': 'Estado de autenticación desconocido',
+  'settings.agentConnect': 'Conectar',
+  'settings.agentConnecting': 'Esperando al navegador…',
+  'settings.agentConnectFailed': 'Conexión fallida',
+  'settings.agentConnectCheckBrowser':
+    'Aprueba la solicitud en la pestaña del navegador que se acaba de abrir.',
+  'settings.agentDisconnect': 'Desconectar',
   'settings.apiSection': 'API de Anthropic',
   'settings.quickFillProvider': 'Rellenar proveedor',
   'settings.customProvider': 'Proveedor personalizado',
