@@ -539,6 +539,7 @@ export async function readUserDesignSystemFile(
 
 async function ensureGeneratedDesignSystemFiles(root: string, id: string): Promise<void> {
   const metadata = await readUserMetadata(root, id);
+  await migrateLegacyDesignSystemPackage(root, id, metadata);
   if (metadata.artifactMode === 'agent-managed') return;
   try {
     const existing = await stat(path.join(root, id, 'README.md'));
@@ -562,6 +563,98 @@ async function ensureGeneratedDesignSystemFiles(root: string, id: string): Promi
     });
   } catch {
     // Listing/reading still returns whatever exists.
+  }
+}
+
+async function migrateLegacyDesignSystemPackage(
+  root: string,
+  id: string,
+  metadata: UserDesignSystemMetadata,
+): Promise<void> {
+  const dir = path.join(root, id);
+  let body = '';
+  try {
+    body = await readFile(path.join(dir, 'DESIGN.md'), 'utf8');
+  } catch {
+    return;
+  }
+  const title = normalizeTitle(metadata.title ?? firstHeading(body) ?? id);
+  const summary = summarize(body) || 'A reusable Open Design design system.';
+  const palette = normalizeSwatches(body);
+  const copyIfMissing = async (from: string, to: string): Promise<boolean> => {
+    const fromPath = path.join(dir, ...from.split('/'));
+    const toPath = path.join(dir, ...to.split('/'));
+    try {
+      const existing = await stat(toPath);
+      if (existing.isFile()) return false;
+    } catch (err) {
+      if (!isAbsenceError(err)) throw err;
+    }
+    let content: Buffer;
+    try {
+      content = await readFile(fromPath);
+    } catch (err) {
+      if (isAbsenceError(err)) return false;
+      throw err;
+    }
+    await mkdir(path.dirname(toPath), { recursive: true });
+    await writeFile(toPath, content);
+    return true;
+  };
+  const writeIfMissing = async (relativePath: string, content: string): Promise<boolean> => {
+    const target = path.join(dir, ...relativePath.split('/'));
+    try {
+      const existing = await stat(target);
+      if (existing.isFile()) return false;
+    } catch (err) {
+      if (!isAbsenceError(err)) throw err;
+    }
+    await mkdir(path.dirname(target), { recursive: true });
+    await writeFile(target, content, 'utf8');
+    return true;
+  };
+
+  const migratedArtifacts = await Promise.all([
+    copyIfMissing('preview/colors-ui-palette.html', 'preview/colors-primary.html'),
+    copyIfMissing('preview/colors-node-types.html', 'preview/colors-theme-light.html'),
+    copyIfMissing('preview/colors-node-types.html', 'preview/colors-theme-dark.html'),
+    copyIfMissing('preview/typography-scale.html', 'preview/typography-specimens.html'),
+    copyIfMissing('preview/spacing-system.html', 'preview/spacing-tokens.html'),
+    copyIfMissing('preview/spacing-system.html', 'preview/spacing-radius.html'),
+    copyIfMissing('preview/spacing-system.html', 'preview/spacing-shadows.html'),
+    copyIfMissing('preview/logo-variants.html', 'preview/brand-assets.html'),
+    copyIfMissing('ui_kits/generated_interface/index.html', 'ui_kits/app/index.html'),
+  ]);
+  const migratedAnyArtifact = migratedArtifacts.some(Boolean);
+  if (!migratedAnyArtifact) return;
+
+  const appKitExists = await fileExists(path.join(dir, 'ui_kits', 'app', 'index.html'));
+
+  await Promise.all([
+    writeIfMissing(
+      'preview/components-buttons.html',
+      renderComponentCatalogHtml('Buttons', title, summary, palette),
+    ),
+    writeIfMissing(
+      'preview/components-inputs.html',
+      renderComponentCatalogHtml('Inputs', title, summary, palette),
+    ),
+    appKitExists
+      ? writeIfMissing(
+          'ui_kits/app/README.md',
+          `# ${title} UI Kit\n\nThis package was migrated from an earlier Open Design design-system workspace. Use \`index.html\` as the applied interface example and replace it with source-backed modular components when new repository evidence is available.\n`,
+        )
+      : Promise.resolve(false),
+  ]);
+}
+
+async function fileExists(filePath: string): Promise<boolean> {
+  try {
+    const existing = await stat(filePath);
+    return existing.isFile();
+  } catch (err) {
+    if (isAbsenceError(err)) return false;
+    throw err;
   }
 }
 

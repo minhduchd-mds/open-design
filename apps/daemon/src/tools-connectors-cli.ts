@@ -1512,7 +1512,8 @@ async function auditDesignSystemPackage(
     addIssue('warning', 'old_generic_preview_names', `Replace old generic preview names with Claude-style focused cards: ${oldPreviewFiles.join(', ')}.`, 'preview/');
   }
   if (files.some((filePath) => filePath.startsWith('ui_kits/generated_interface/'))) {
-    addIssue('error', 'old_generated_interface', 'Replace ui_kits/generated_interface/ with the reusable Claude-style ui_kits/app/ package.', 'ui_kits/generated_interface/');
+    const level = fileSet.has('ui_kits/app/index.html') ? 'warning' : 'error';
+    addIssue(level, 'old_generated_interface', 'Replace ui_kits/generated_interface/ with the reusable Claude-style ui_kits/app/ package.', 'ui_kits/generated_interface/');
   }
 
   requireFile('ui_kits/app/index.html', 'Claude Design-style packages need an applied interface kit at ui_kits/app/index.html.');

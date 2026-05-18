@@ -166,6 +166,49 @@ describe('design systems registry', () => {
     );
   });
 
+  it('migrates older review artifact names into the Claude-style package structure', async () => {
+    await mkdir(path.join(root, 'legacy', 'preview'), { recursive: true });
+    await mkdir(path.join(root, 'legacy', 'ui_kits', 'generated_interface'), { recursive: true });
+    await writeFile(
+      path.join(root, 'legacy', 'DESIGN.md'),
+      '# Legacy System\n\n> Category: Custom\n> Surface: web\n\nLegacy body.\n',
+    );
+    await writeFile(path.join(root, 'legacy', 'README.md'), '# Legacy\n');
+    await writeFile(path.join(root, 'legacy', 'preview', 'colors-ui-palette.html'), '<!doctype html><html><body>colors</body></html>');
+    await writeFile(path.join(root, 'legacy', 'preview', 'colors-node-types.html'), '<!doctype html><html><body>nodes</body></html>');
+    await writeFile(path.join(root, 'legacy', 'preview', 'typography-scale.html'), '<!doctype html><html><body>type</body></html>');
+    await writeFile(path.join(root, 'legacy', 'preview', 'spacing-system.html'), '<!doctype html><html><body>spacing</body></html>');
+    await writeFile(path.join(root, 'legacy', 'preview', 'logo-variants.html'), '<!doctype html><html><body>logo</body></html>');
+    await writeFile(
+      path.join(root, 'legacy', 'ui_kits', 'generated_interface', 'index.html'),
+      '<!doctype html><html><body>legacy app kit</body></html>',
+    );
+
+    const files = await listUserDesignSystemFiles(root, 'user:legacy');
+
+    expect(files?.map((file) => file.path)).toEqual(
+      expect.arrayContaining([
+        'preview/colors-primary.html',
+        'preview/colors-theme-light.html',
+        'preview/colors-theme-dark.html',
+        'preview/typography-specimens.html',
+        'preview/spacing-tokens.html',
+        'preview/spacing-radius.html',
+        'preview/spacing-shadows.html',
+        'preview/components-buttons.html',
+        'preview/components-inputs.html',
+        'preview/brand-assets.html',
+        'ui_kits/app/index.html',
+        'ui_kits/app/README.md',
+      ]),
+    );
+    await expect(readUserDesignSystemFile(root, 'user:legacy', 'ui_kits/app/index.html'))
+      .resolves
+      .toMatchObject({
+        content: expect.stringContaining('legacy app kit'),
+      });
+  });
+
   it('does not backfill agent-managed review artifacts before the agent writes them', async () => {
     const created = await createUserDesignSystem(root, {
       title: 'Agent Managed',
