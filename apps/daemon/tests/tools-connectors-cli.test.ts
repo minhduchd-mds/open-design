@@ -556,7 +556,7 @@ describe('connectors tool CLI', () => {
     }
     await writeFile(path.join(tmpDir, 'ui_kits/app/index.html'), auditHtml('Cherry Studio UI kit'));
     await writeFile(path.join(tmpDir, 'ui_kits/app/README.md'), '# UI kit\n\nUse ui_kits/app/index.html and role components.\n');
-    for (const componentName of AUDIT_COMPONENT_FILES) {
+    for (const componentName of ['Foundation.jsx', 'Navigation.jsx', 'Workspace.jsx']) {
       await writeFile(
         path.join(tmpDir, 'ui_kits/app/components', componentName),
         auditComponent(componentName.replace(/\.jsx$/u, '')),
@@ -755,6 +755,66 @@ describe('connectors tool CLI', () => {
     expect(JSON.parse(stdoutOutput.join('')).errors).toEqual(expect.arrayContaining([
       expect.objectContaining({ code: 'insufficient_preserved_assets', path: 'assets/' }),
       expect.objectContaining({ code: 'insufficient_preserved_fonts', path: 'fonts/' }),
+    ]));
+
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it('warns when visual artifacts do not reference source-backed component names', async () => {
+    const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'od-package-audit-generic-visuals-'));
+    process.chdir(tmpDir);
+    await mkdir(path.join(tmpDir, 'preview'), { recursive: true });
+    await mkdir(path.join(tmpDir, 'ui_kits/app/components'), { recursive: true });
+    await mkdir(path.join(tmpDir, 'context/local-code/cherry/files/src/components'), { recursive: true });
+    await writeFile(path.join(tmpDir, 'DESIGN.md'), AUDIT_DESIGN_MD);
+    await writeFile(path.join(tmpDir, 'README.md'), AUDIT_README);
+    await writeFile(path.join(tmpDir, 'SKILL.md'), AUDIT_SKILL);
+    await writeFile(path.join(tmpDir, 'colors_and_type.css'), AUDIT_TOKENS_CSS);
+    for (const fileName of [
+      'colors-primary.html',
+      'colors-theme-light.html',
+      'typography-specimens.html',
+      'spacing-tokens.html',
+      'components-buttons.html',
+      'brand-assets.html',
+    ]) {
+      await writeFile(path.join(tmpDir, 'preview', fileName), auditHtml(fileName));
+    }
+    await writeFile(path.join(tmpDir, 'ui_kits/app/index.html'), auditHtml('Generic UI kit'));
+    await writeFile(path.join(tmpDir, 'ui_kits/app/README.md'), '# UI kit\n');
+    for (const componentName of ['Foundation.jsx', 'Navigation.jsx', 'Workspace.jsx']) {
+      await writeFile(
+        path.join(tmpDir, 'ui_kits/app/components', componentName),
+        auditComponent(componentName.replace(/\.jsx$/u, '')),
+      );
+    }
+    await writeFile(path.join(tmpDir, 'context/source-context.md'), '# Design System Source Context\n\n## Local Code\n\n- /tmp/cherry\n');
+    await writeFile(path.join(tmpDir, 'context/local-code/cherry.md'), [
+      '# Local Design Evidence: cherry',
+      '',
+      'Snapshot files written: 6',
+      '',
+      '### Reusable components',
+      '- src/components/ToolbarSurface.tsx -> `context/local-code/cherry/files/src/components/ToolbarSurface.tsx` (source)',
+      '- src/components/ArtifactPanel.tsx -> `context/local-code/cherry/files/src/components/ArtifactPanel.tsx` (source)',
+      '- src/components/ProviderAvatar.tsx -> `context/local-code/cherry/files/src/components/ProviderAvatar.tsx` (source)',
+      '- src/components/SettingsForm.tsx -> `context/local-code/cherry/files/src/components/SettingsForm.tsx` (source)',
+      '- src/components/TransferCard.tsx -> `context/local-code/cherry/files/src/components/TransferCard.tsx` (source)',
+      '- src/components/CodePreview.tsx -> `context/local-code/cherry/files/src/components/CodePreview.tsx` (source)',
+    ].join('\n'));
+    for (const componentName of ['ToolbarSurface', 'ArtifactPanel', 'ProviderAvatar', 'SettingsForm', 'TransferCard', 'CodePreview']) {
+      await writeFile(path.join(tmpDir, 'context/local-code/cherry/files/src/components', `${componentName}.tsx`), `export function ${componentName}(){ return null; }`);
+    }
+
+    const result = await runConnectorsToolCli(['design-system-package-audit', '--path', tmpDir]);
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(stdoutOutput.join('')).warnings).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'generic_visual_artifacts',
+        path: 'preview/',
+        message: expect.stringContaining('ToolbarSurface'),
+      }),
     ]));
 
     await rm(tmpDir, { recursive: true, force: true });

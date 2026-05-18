@@ -222,6 +222,12 @@ describe('DesignSystemCreationFlow', () => {
     expect(mocks.patchProject).toHaveBeenCalledWith(
       project.id,
       expect.objectContaining({
+        pendingPrompt: expect.stringContaining('name or model high-signal source components from the evidence'),
+      }),
+    );
+    expect(mocks.patchProject).toHaveBeenCalledWith(
+      project.id,
+      expect.objectContaining({
         pendingPrompt: expect.stringContaining('tools connectors design-system-package-audit --path .'),
       }),
     );
@@ -249,6 +255,11 @@ describe('DesignSystemCreationFlow', () => {
       project.id,
       'context/source-context.md',
       expect.stringContaining('must describe the final focused preview cards'),
+    );
+    expect(mocks.writeProjectTextFile).toHaveBeenCalledWith(
+      project.id,
+      'context/source-context.md',
+      expect.stringContaining('explicitly label or model source-backed modules'),
     );
     expect(mocks.writeProjectTextFile).toHaveBeenCalledWith(
       project.id,

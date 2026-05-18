@@ -1579,6 +1579,8 @@ async function auditDesignSystemPackage(
   const evidenceFontFiles = evidenceSnapshotFiles(files, evidenceText, /\.(ttf|otf|woff2?)$/iu);
   const preservedAssetFiles = files.filter((filePath) => /^assets\/.+\.(svg|png|jpe?g|webp|ico)$/iu.test(filePath));
   const preservedFontFiles = files.filter((filePath) => /^fonts\/.+\.(ttf|otf|woff2?|css)$/iu.test(filePath));
+  const evidenceComponentNames = sourceComponentNamesFromEvidence(files, evidenceText);
+  const visualSourceAnchors = await sourceComponentAnchorsInVisualArtifacts(projectPath, files, evidenceComponentNames);
   const hasComponentEvidence = evidenceHasReusableComponents(evidenceText)
     || files.some((filePath) => /^context\/(github|local-code)\/.+\/files\/.+(?:\/|^)(components?|ui|app|layout|shell|navbar|sidebar|chat|input|composer|assistant|message|model)[^/]*\/?.*\.(tsx|ts|jsx|js|css|scss|less)$/iu.test(filePath));
   const hasChatUiEvidence = evidenceHasChatInterface(evidenceText)
@@ -1613,6 +1615,14 @@ async function auditDesignSystemPackage(
         'ui_kits/app/components/',
       );
     }
+  }
+  if (hasComponentEvidence && evidenceComponentNames.length >= 6 && visualSourceAnchors.length < 3) {
+    addIssue(
+      'warning',
+      'generic_visual_artifacts',
+      `Source evidence includes ${evidenceComponentNames.length} component snapshots, but preview/UI-kit visuals only reference ${visualSourceAnchors.length} source component name(s). Model or label at least 3 source-backed components such as ${evidenceComponentNames.slice(0, 5).join(', ')}.`,
+      'preview/',
+    );
   }
   if (hasAssetEvidence) {
     if (preservedAssetFiles.length === 0) {
@@ -1744,6 +1754,50 @@ function evidenceSnapshotFiles(files: string[], evidenceText: string, pattern: R
     .map((match) => match[0])
     .filter((filePath) => pattern.test(filePath));
   return [...new Set([...fromFiles, ...fromText])];
+}
+
+function sourceComponentNamesFromEvidence(files: string[], evidenceText: string): string[] {
+  const paths = [
+    ...files.filter((filePath) => /^context\/(github|local-code)\/.+\/files\//u.test(filePath)),
+    ...[...evidenceText.matchAll(/context\/(?:github|local-code)\/[^`\s)]+\/files\/[^`\s)]+/giu)].map((match) => match[0]),
+  ];
+  const names = paths
+    .filter((filePath) => /\.(tsx|ts|jsx|js|css|scss|less)$/iu.test(filePath))
+    .map(sourceComponentNameFromPath)
+    .filter((name): name is string => name !== undefined);
+  return [...new Set(names)];
+}
+
+function sourceComponentNameFromPath(filePath: string): string | undefined {
+  const parts = filePath.split('/').filter(Boolean);
+  const fileName = parts.at(-1);
+  if (!fileName) return undefined;
+  const base = fileName.replace(/\.(tsx|ts|jsx|js|css|scss|less)$/iu, '');
+  const name = /^(index|style|styles|constants?|types?|utils?|hooks?)$/iu.test(base)
+    ? parts.at(-2)
+    : base;
+  if (!name || name.length < 4) return undefined;
+  if (/^(component|components|page|pages|button|input|card|modal|dialog|index)$/iu.test(name)) return undefined;
+  return name;
+}
+
+async function sourceComponentAnchorsInVisualArtifacts(
+  projectPath: string,
+  files: string[],
+  sourceNames: string[],
+): Promise<string[]> {
+  if (sourceNames.length === 0) return [];
+  const visualFiles = files.filter((filePath) =>
+    /^preview\/.+\.html$/u.test(filePath)
+    || /^ui_kits\/app\/(?:index\.html|components\/.+\.(jsx|tsx|js|ts|css|html))$/u.test(filePath),
+  );
+  const texts = await Promise.all(visualFiles.map(async (filePath) => await readAuditText(projectPath, filePath) ?? ''));
+  const normalizedText = normalizeAnchorText(texts.join('\n'));
+  return sourceNames.filter((name) => normalizedText.includes(normalizeAnchorText(name)));
+}
+
+function normalizeAnchorText(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9]+/gu, '');
 }
 
 function stalePackageReferences(text: string): string[] {
