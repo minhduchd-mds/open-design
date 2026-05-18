@@ -47,6 +47,15 @@ interface TestApp {
   close(): Promise<void>;
 }
 
+/** Cast `await jsonOf(r)` from `unknown` to a usable shape. The daemon's
+ * tsconfig.tests.json runs with `strict + exactOptionalPropertyTypes`,
+ * so direct field access on `unknown` is rejected. The endpoints under
+ * test return ad-hoc JSON shapes, so a permissive `any` keeps the
+ * call sites readable instead of repeating cast boilerplate. */
+async function jsonOf<T = any>(r: Response): Promise<T> {
+  return (await r.json()) as T;
+}
+
 async function startTestApp(projectRoot: string): Promise<TestApp> {
   const app = express();
   app.use(express.json());
@@ -132,7 +141,7 @@ describe('xai-routes', () => {
       body: '{}',
     });
     expect(r.status).toBe(200);
-    const body = await r.json();
+    const body = await jsonOf(r);
     expect(body.authorizeUrl).toContain(XAI_OAUTH_AUTHORIZATION_ENDPOINT);
     expect(body.state).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(body.callback).toEqual({ host: '127.0.0.1', port: 56121 });
@@ -151,14 +160,14 @@ describe('xai-routes', () => {
   it('GET /api/xai/auth/status returns connected:false when no token is stored', async () => {
     const r = await fetch(`${app.baseUrl}/api/xai/auth/status`);
     expect(r.status).toBe(200);
-    const body = await r.json();
+    const body = await jsonOf(r);
     expect(body).toEqual({ connected: false, listening: false });
   });
 
   it('GET /api/xai/auth/status reflects an in-flight listener', async () => {
     await fetch(`${app.baseUrl}/api/xai/oauth/start`, { method: 'POST' });
     const r = await fetch(`${app.baseUrl}/api/xai/auth/status`);
-    const body = await r.json();
+    const body = await jsonOf(r);
     expect(body.connected).toBe(false);
     expect(body.listening).toBe(true);
   });
@@ -168,7 +177,7 @@ describe('xai-routes', () => {
     const startResp = await fetch(`${app.baseUrl}/api/xai/oauth/start`, {
       method: 'POST',
     });
-    const { state } = await startResp.json();
+    const { state } = await jsonOf(startResp);
 
     // Stub the xAI token endpoint that completeXAIAuth will hit.
     globalThis.fetch = vi.fn(async (input: any, init?: any) => {
@@ -195,7 +204,7 @@ describe('xai-routes', () => {
 
     // Status should now report connected.
     const statusResp = await fetch(`${app.baseUrl}/api/xai/auth/status`);
-    const status = await statusResp.json();
+    const status = await jsonOf(statusResp);
     expect(status.connected).toBe(true);
     expect(status.scope).toBe('openid profile');
     expect(status.listening).toBe(false); // listener cleared after handleCallback
@@ -206,7 +215,7 @@ describe('xai-routes', () => {
     const startResp = await fetch(`${app.baseUrl}/api/xai/oauth/start`, {
       method: 'POST',
     });
-    const { state } = await startResp.json();
+    const { state } = await jsonOf(startResp);
 
     globalThis.fetch = vi.fn(async (input: any, init?: any) => {
       const url = typeof input === 'string' ? input : input.toString();
@@ -234,10 +243,10 @@ describe('xai-routes', () => {
       },
     );
     expect(completeResp.status).toBe(200);
-    expect((await completeResp.json()).ok).toBe(true);
+    expect((await jsonOf(completeResp)).ok).toBe(true);
 
     const status = await fetch(`${app.baseUrl}/api/xai/auth/status`).then(
-      (r) => r.json(),
+      (r) => jsonOf(r),
     );
     expect(status.connected).toBe(true);
     expect(status.scope).toBe('openid profile');
@@ -270,7 +279,7 @@ describe('xai-routes', () => {
       body: JSON.stringify({ state: 'never-issued', code: 'c' }),
     });
     expect(r.status).toBe(400);
-    const body = await r.json();
+    const body = await jsonOf(r);
     expect(body.error).toMatch(/state not found/i);
   });
 
@@ -282,7 +291,7 @@ describe('xai-routes', () => {
       error: 'access_denied',
     });
     const status = await fetch(`${app.baseUrl}/api/xai/auth/status`).then(
-      (r) => r.json(),
+      (r) => jsonOf(r),
     );
     expect(status.connected).toBe(false);
   });
@@ -310,7 +319,7 @@ describe('xai-routes', () => {
       body: JSON.stringify({ query: 'who launched grok 4.3' }),
     });
     expect(r.status).toBe(401);
-    const body = await r.json();
+    const body = await jsonOf(r);
     expect(body.error).toMatch(/no xAI credentials/i);
   });
 
@@ -393,7 +402,7 @@ describe('xai-routes', () => {
       }),
     });
     expect(r.status).toBe(200);
-    const body = await r.json();
+    const body = await jsonOf(r);
     expect(body.answer).toContain('xAI integration');
     expect(body.citations).toEqual([
       'https://x.com/NousResearch/status/123',
@@ -430,14 +439,14 @@ describe('xai-routes', () => {
       body: JSON.stringify({ query: 'q' }),
     });
     expect(r.status).toBe(502);
-    expect((await r.json()).error).toMatch(/xAI 429/);
+    expect((await jsonOf(r)).error).toMatch(/xAI 429/);
   });
 
   it('POST /api/xai/oauth/disconnect wipes a stored token', async () => {
     const startResp = await fetch(`${app.baseUrl}/api/xai/oauth/start`, {
       method: 'POST',
     });
-    const { state } = await startResp.json();
+    const { state } = await jsonOf(startResp);
 
     globalThis.fetch = vi.fn(async (input: any, init?: any) => {
       const url = typeof input === 'string' ? input : input.toString();
@@ -456,7 +465,7 @@ describe('xai-routes', () => {
 
     await onCallbackHolder.current!({ kind: 'ok', code: 'c', state });
     let status = await fetch(`${app.baseUrl}/api/xai/auth/status`).then((r) =>
-      r.json(),
+      jsonOf(r),
     );
     expect(status.connected).toBe(true);
 
@@ -464,10 +473,10 @@ describe('xai-routes', () => {
       method: 'POST',
     });
     expect(r.status).toBe(200);
-    expect((await r.json()).ok).toBe(true);
+    expect((await jsonOf(r)).ok).toBe(true);
 
     status = await fetch(`${app.baseUrl}/api/xai/auth/status`).then((r) =>
-      r.json(),
+      jsonOf(r),
     );
     expect(status.connected).toBe(false);
   });
@@ -579,16 +588,17 @@ describe('xai-routes — cross-origin guard', () => {
   });
 
   it('rejects all five endpoints when isLocalSameOrigin is false', async () => {
-    for (const [method, path] of [
+    const cases: ReadonlyArray<readonly [string, string]> = [
       ['POST', '/api/xai/oauth/start'],
       ['POST', '/api/xai/oauth/complete'],
       ['GET', '/api/xai/auth/status'],
       ['POST', '/api/xai/oauth/disconnect'],
       ['POST', '/api/xai/search'],
-    ]) {
+    ];
+    for (const [method, path] of cases) {
       const r = await fetch(`${app.baseUrl}${path}`, { method });
       expect(r.status).toBe(403);
-      expect((await r.json()).error).toMatch(/cross-origin/);
+      expect((await jsonOf(r)).error).toMatch(/cross-origin/);
     }
     expect(startMock).not.toHaveBeenCalled();
   });

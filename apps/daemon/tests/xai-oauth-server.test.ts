@@ -46,11 +46,11 @@ describe('startCallbackListener', () => {
   });
 
   it('invokes onCallback with kind=ok when code+state match', async () => {
-    let outcome: CallbackOutcome | null = null;
+    const outcomeRef: { current: CallbackOutcome | null } = { current: null };
     listener = await startCallbackListener({
       expectedState: 'state-abc',
       onCallback: async (o) => {
-        outcome = o;
+        outcomeRef.current = o;
       },
       port: TEST_PORT,
     });
@@ -63,7 +63,7 @@ describe('startCallbackListener', () => {
     expect(res.body).toContain('Authorized');
     // onCallback runs after the response; wait a tick for async resolution.
     await new Promise((r) => setTimeout(r, 30));
-    expect(outcome).toEqual({
+    expect(outcomeRef.current).toEqual({
       kind: 'ok',
       code: 'auth-code-1',
       state: 'state-abc',
@@ -71,11 +71,11 @@ describe('startCallbackListener', () => {
   });
 
   it('rejects state mismatch with kind=error', async () => {
-    let outcome: CallbackOutcome | null = null;
+    const outcomeRef: { current: CallbackOutcome | null } = { current: null };
     listener = await startCallbackListener({
       expectedState: 'state-abc',
       onCallback: async (o) => {
-        outcome = o;
+        outcomeRef.current = o;
       },
       port: TEST_PORT,
     });
@@ -86,18 +86,18 @@ describe('startCallbackListener', () => {
     expect(res.status).toBe(400);
     expect(res.body).toContain('Sign-in failed');
     await new Promise((r) => setTimeout(r, 30));
-    expect(outcome?.kind).toBe('error');
-    if (outcome?.kind === 'error') {
-      expect(outcome.error).toMatch(/state mismatch/);
+    expect(outcomeRef.current?.kind).toBe('error');
+    if (outcomeRef.current?.kind === 'error') {
+      expect(outcomeRef.current.error).toMatch(/state mismatch/);
     }
   });
 
   it('surfaces an explicit ?error= param', async () => {
-    let outcome: CallbackOutcome | null = null;
+    const outcomeRef: { current: CallbackOutcome | null } = { current: null };
     listener = await startCallbackListener({
       expectedState: 'unused',
       onCallback: async (o) => {
-        outcome = o;
+        outcomeRef.current = o;
       },
       port: TEST_PORT,
     });
@@ -106,9 +106,9 @@ describe('startCallbackListener', () => {
     });
     expect(res.status).toBe(400);
     await new Promise((r) => setTimeout(r, 30));
-    expect(outcome?.kind).toBe('error');
-    if (outcome?.kind === 'error') {
-      expect(outcome.error).toBe('access_denied');
+    expect(outcomeRef.current?.kind).toBe('error');
+    if (outcomeRef.current?.kind === 'error') {
+      expect(outcomeRef.current.error).toBe('access_denied');
     }
   });
 
@@ -184,19 +184,19 @@ describe('startCallbackListener', () => {
   });
 
   it('fires onCallback with a timeout error when nobody redirects in time', async () => {
-    let outcome: CallbackOutcome | null = null;
+    const outcomeRef: { current: CallbackOutcome | null } = { current: null };
     listener = await startCallbackListener({
       expectedState: 'state-slow',
       onCallback: async (o) => {
-        outcome = o;
+        outcomeRef.current = o;
       },
       port: TEST_PORT,
       timeoutMs: 50,
     });
     await new Promise((r) => setTimeout(r, 200));
-    expect(outcome?.kind).toBe('error');
-    if (outcome?.kind === 'error') {
-      expect(outcome.error).toMatch(/timed out/i);
+    expect(outcomeRef.current?.kind).toBe('error');
+    if (outcomeRef.current?.kind === 'error') {
+      expect(outcomeRef.current.error).toMatch(/timed out/i);
     }
     listener = null; // already self-closed
   });
