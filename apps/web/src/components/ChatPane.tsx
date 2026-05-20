@@ -1,16 +1,19 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
+import { useAnalytics } from '../analytics/provider';
+import { trackChatPanelClick } from '../analytics/events';
 import { useT } from '../i18n';
 import type { Dict } from '../i18n/types';
 import { copyToClipboard } from '../lib/copy-to-clipboard';
 import { projectRawUrl } from '../providers/registry';
 import type { TodoItem } from '../runtime/todos';
 import type { AppliedPluginSnapshot } from '@open-design/contracts';
+import type { TrackingProjectKind } from '@open-design/contracts/analytics';
 import {
   DESIGN_SYSTEM_WORKSPACE_DISPLAY_DESCRIPTION,
   DESIGN_SYSTEM_WORKSPACE_DISPLAY_TITLE,
   isDesignSystemWorkspacePrompt,
 } from '../design-system-auto-prompt';
-import { latestTodoWriteInputFromMessages } from '../runtime/todos';
+import { latestTodoWriteInputForPinnedCard } from '../runtime/todos';
 import { TodoCard } from './ToolCard';
 import type { AppConfig, ChatAttachment, ChatCommentAttachment, ChatMessage, ChatMessageFeedbackChange, Conversation, PreviewComment, ProjectFile, ProjectMetadata, SkillSummary } from '../types';
 import { dayKey, dayLabel, exactDateTime, messageTime, relativeTimeLong } from '../utils/chatTime';
@@ -208,6 +211,11 @@ interface Props {
   streaming: boolean;
   error: string | null;
   projectId: string | null;
+  // Analytics-only — forwarded to AssistantMessage so the feedback
+  // events know which project surface the rating applies to. Optional
+  // (defaults to null/'prototype') so unit tests can mount ChatPane
+  // without project context.
+  projectKindForTracking?: TrackingProjectKind | null;
   projectFiles: ProjectFile[];
   hasActiveDesignSystem?: boolean;
   sendDisabled?: boolean;
@@ -295,6 +303,7 @@ export function ChatPane({
   sendDisabled = false,
   error,
   projectId,
+  projectKindForTracking = null,
   projectFiles,
   hasActiveDesignSystem = false,
   projectFileNames,
@@ -338,6 +347,7 @@ export function ChatPane({
   onChangeByokImageModel,
 }: Props) {
   const t = useT();
+  const analytics = useAnalytics();
   const logRef = useRef<HTMLDivElement | null>(null);
   const historyWrapRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<ChatComposerHandle | null>(null);
@@ -659,7 +669,19 @@ export function ChatPane({
               aria-label={t('chat.conversationsAria')}
               aria-haspopup="menu"
               aria-expanded={showConvList}
-              onClick={() => setShowConvList((v) => !v)}
+              onClick={() => {
+                setShowConvList((v) => {
+                  const next = !v;
+                  if (next) {
+                    trackChatPanelClick(analytics.track, {
+                      page_name: 'chat_panel',
+                      area: 'chat_panel',
+                      element: 'history',
+                    });
+                  }
+                  return next;
+                });
+              }}
             >
               <Icon name="history" size={15} />
             </button>
@@ -717,7 +739,15 @@ export function ChatPane({
             data-testid="new-conversation"
             title={t('chat.newConversationsTitle')}
             aria-label={t('chat.newConversation')}
-            onClick={onNewConversation}
+            onClick={() => {
+              if (!onNewConversation || newConversationDisabled) return;
+              trackChatPanelClick(analytics.track, {
+                page_name: 'chat_panel',
+                area: 'chat_panel',
+                element: 'new_chat',
+              });
+              onNewConversation();
+            }}
             disabled={!onNewConversation || newConversationDisabled}
           >
             <Icon name="plus" size={16} />
@@ -729,7 +759,14 @@ export function ChatPane({
               data-testid="chat-collapse"
               title={t('workspace.focusMode')}
               aria-label={t('workspace.focusMode')}
-              onClick={onCollapse}
+              onClick={() => {
+                trackChatPanelClick(analytics.track, {
+                  page_name: 'chat_panel',
+                  area: 'chat_panel',
+                  element: 'back',
+                });
+                onCollapse();
+              }}
             >
               <Icon name="chevron-left" size={15} />
             </button>
@@ -755,7 +792,14 @@ export function ChatPane({
                         role="listitem"
                         className="chat-example"
                         style={{ animationDelay: `${i * 70}ms` }}
-                        onClick={() => composerRef.current?.setDraft(ex.prompt)}
+                        onClick={() => {
+                          trackChatPanelClick(analytics.track, {
+                            page_name: 'chat_panel',
+                            area: 'chat_panel',
+                            element: 'template_card',
+                          });
+                          composerRef.current?.setDraft(ex.prompt);
+                        }}
                         title={t('chat.fillInputTitle')}
                       >
                         <span className="chat-example-icon" aria-hidden>
@@ -804,6 +848,8 @@ export function ChatPane({
                         message={m}
                         streaming={messageStreaming}
                         projectId={projectId}
+                        projectKind={projectKindForTracking}
+                        conversationId={activeConversationId}
                         projectFiles={projectFiles}
                         projectFileNames={projectFileNames}
                         onRequestOpenFile={onRequestOpenFile}
@@ -915,7 +961,7 @@ function PinnedTodoSlot({
   // the slot tears down. Without it React would unmount immediately and
   // the card would pop out without animation.
   const [exiting, setExiting] = useState(false);
-  const input = latestTodoWriteInputFromMessages(messages);
+  const input = latestTodoWriteInputForPinnedCard(messages);
   if (input == null) return null;
   let snapshotKey: string;
   try {
