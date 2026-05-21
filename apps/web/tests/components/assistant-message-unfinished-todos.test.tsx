@@ -214,6 +214,36 @@ describe('AssistantMessage unfinished todo state', () => {
     ]);
   });
 
+  it('shows failed status details with user-facing labels and a regenerate action', () => {
+    const onRegenerate = vi.fn();
+    render(
+      <AssistantMessage
+        message={{
+          ...messageWithEvents([
+            {
+              kind: 'status',
+              label: 'agent_error',
+              detail: 'The agent stopped before finishing remaining tasks.',
+            },
+          ]),
+          runStatus: 'failed',
+        }}
+        streaming={false}
+        projectId="project-1"
+        isLast
+        onRegenerate={onRegenerate}
+      />,
+    );
+
+    expect(screen.getByText('Task failed')).toBeTruthy();
+    expect(screen.queryByText('agent_error')).toBeNull();
+    expect(screen.getByText('The agent stopped before finishing remaining tasks.')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Regenerate' }));
+
+    expect(onRegenerate).toHaveBeenCalled();
+  });
+
   it('expands hidden unfinished todos from the more affordance', () => {
     render(
       <AssistantMessage

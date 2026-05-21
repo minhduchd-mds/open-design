@@ -152,15 +152,17 @@ export function AssistantMessage({
     !streaming &&
     !!isLast &&
     !!onRegenerate;
+  const prominentRegenerate = message.runStatus === "failed";
   const regenerateControl = canRegenerate ? (
     <button
       type="button"
-      className="assistant-footer-action"
+      className={`assistant-footer-action${prominentRegenerate ? " assistant-footer-action-prominent" : ""}`}
       onClick={onRegenerate}
       aria-label={t("chat.regenerate")}
       title={t("chat.regenerate")}
     >
       <Icon name="reload" size={13} />
+      {prominentRegenerate ? <span>{t("chat.regenerate")}</span> : null}
     </button>
   ) : null;
   const showFeedback =
@@ -1441,12 +1443,28 @@ function StatusPill({
   label: string;
   detail?: string | undefined;
 }) {
+  const t = useT();
+  const status = displayStatusPill(label, t);
   return (
-    <div className="status-pill">
-      <span className="status-label">{label}</span>
+    <div className="status-pill" data-tone={status.tone}>
+      <span className="status-label">{status.label}</span>
       {detail ? <span className="status-detail">{detail}</span> : null}
     </div>
   );
+}
+
+function displayStatusPill(label: string, t: TranslateFn): { label: string; tone: "default" | "error" } {
+  if (label === "agent_error" || label === "error" || label === "failed") {
+    return { label: t("notify.failureTitle"), tone: "error" };
+  }
+  return { label: humanizeStatusLabel(label), tone: "default" };
+}
+
+function humanizeStatusLabel(label: string): string {
+  return label
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 interface ToolItem {
