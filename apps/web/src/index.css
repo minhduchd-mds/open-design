@@ -17035,9 +17035,19 @@ body.entry-resizing { cursor: col-resize; user-select: none; }
   margin-top: 3px;
 }
 .unfinished-todos-more {
+  display: inline-flex;
   margin-top: 6px;
+  padding: 0;
+  border: none;
+  background: transparent;
   font-size: 12px;
   color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.unfinished-todos-more:hover {
+  color: var(--text-strong);
+  text-decoration: underline;
 }
 
 /* ============================================================

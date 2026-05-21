@@ -1200,6 +1200,7 @@ export const uk: Dict = {
   'assistant.unfinishedLabel': 'Зупинено з незавершеною роботою',
   'assistant.unfinishedSummary': 'залишилось {n} завдання(нь)',
   'assistant.unfinishedMore': '+ще {n}',
+  'assistant.unfinishedLess': 'Показати менше',
   'assistant.continueRemaining': 'Продовжити залишкові завдання',
   'assistant.outTokens': '{n} вихід',
   'assistant.producedFiles': 'Файли з цієї черги',

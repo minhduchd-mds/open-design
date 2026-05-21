@@ -214,6 +214,42 @@ describe('AssistantMessage unfinished todo state', () => {
     ]);
   });
 
+  it('expands hidden unfinished todos from the more affordance', () => {
+    render(
+      <AssistantMessage
+        message={messageWithEvents([
+          {
+            kind: 'tool_use',
+            id: 'todo-1',
+            name: 'TodoWrite',
+            input: {
+              todos: [
+                { content: 'Done', status: 'completed' },
+                { content: 'Task 1', status: 'pending' },
+                { content: 'Task 2', status: 'pending' },
+                { content: 'Task 3', status: 'pending' },
+                { content: 'Task 4', status: 'pending' },
+              ],
+            },
+          },
+        ])}
+        streaming={false}
+        projectId="project-1"
+        isLast
+      />,
+    );
+
+    const more = screen.getByRole('button', { name: '+1 more' });
+    expect(more.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByText('Task 4')).toBeNull();
+
+    fireEvent.click(more);
+
+    expect(more.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByText('Task 4')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Show less' })).toBeTruthy();
+  });
+
   it('hides the continue button on older assistant turns', () => {
     render(
       <AssistantMessage

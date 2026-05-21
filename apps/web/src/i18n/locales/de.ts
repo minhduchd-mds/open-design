@@ -1046,6 +1046,7 @@ export const de: Dict = {
   'assistant.unfinishedLabel': 'Mit unerledigter Arbeit gestoppt',
   'assistant.unfinishedSummary': '{n} Aufgabe(n) offen',
   'assistant.unfinishedMore': '+{n} weitere',
+  'assistant.unfinishedLess': 'Weniger anzeigen',
   'assistant.continueRemaining': 'Offene Aufgaben fortsetzen',
   'assistant.outTokens': '{n} ausgehend',
   'assistant.producedFiles': 'Dateien aus diesem Turn',

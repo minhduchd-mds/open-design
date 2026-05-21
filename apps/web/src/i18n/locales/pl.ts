@@ -1158,6 +1158,7 @@ export const pl: Dict = {
   'assistant.unfinishedLabel': 'Zatrzymano z niedokończonymi zadaniami',
   'assistant.unfinishedSummary': 'pozostało {n} zadań',
   'assistant.unfinishedMore': '+{n} więcej',
+  'assistant.unfinishedLess': 'Pokaż mniej',
   'assistant.continueRemaining': 'Kontynuuj pozostałe zadania',
   'assistant.outTokens': '{n} wysłano',
   'assistant.producedFiles': 'Pliki z tej tury',

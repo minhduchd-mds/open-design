@@ -1158,6 +1158,7 @@ export const hu: Dict = {
   'assistant.unfinishedLabel': 'Befejezetlen munkával állt le',
   'assistant.unfinishedSummary': '{n} feladat hátravan',
   'assistant.unfinishedMore': '+{n} további',
+  'assistant.unfinishedLess': 'Kevesebb mutatása',
   'assistant.continueRemaining': 'Hátralévő feladatok folytatása',
   'assistant.outTokens': '{n} ki',
   'assistant.producedFiles': 'A körben létrehozott fájlok',

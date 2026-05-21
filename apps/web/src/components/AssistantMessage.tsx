@@ -854,7 +854,8 @@ function UnfinishedTodosPanel({
   onContinue: () => void;
 }) {
   const t = useT();
-  const visible = todos.slice(0, 3);
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? todos : todos.slice(0, 3);
   const hiddenCount = todos.length - visible.length;
   return (
     <div className="unfinished-todos">
@@ -881,10 +882,17 @@ function UnfinishedTodosPanel({
           </li>
         ))}
       </ul>
-      {hiddenCount > 0 ? (
-        <div className="unfinished-todos-more">
-          {t("assistant.unfinishedMore", { n: hiddenCount })}
-        </div>
+      {todos.length > 3 ? (
+        <button
+          type="button"
+          className="unfinished-todos-more"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((value) => !value)}
+        >
+          {expanded
+            ? t("assistant.unfinishedLess")
+            : t("assistant.unfinishedMore", { n: hiddenCount })}
+        </button>
       ) : null}
     </div>
   );

@@ -2005,6 +2005,7 @@ export interface Dict {
   'assistant.unfinishedLabel': string;
   'assistant.unfinishedSummary': string;
   'assistant.unfinishedMore': string;
+  'assistant.unfinishedLess': string;
   'assistant.continueRemaining': string;
   'assistant.outTokens': string;
   'assistant.producedFiles': string;

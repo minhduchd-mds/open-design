@@ -1723,6 +1723,7 @@ export const en: Dict = {
   'assistant.unfinishedLabel': 'Stopped with unfinished work',
   'assistant.unfinishedSummary': '{n} task(s) remain',
   'assistant.unfinishedMore': '+{n} more',
+  'assistant.unfinishedLess': 'Show less',
   'assistant.continueRemaining': 'Continue remaining tasks',
   'assistant.outTokens': '{n} out',
   'assistant.producedFiles': 'Files from this turn',

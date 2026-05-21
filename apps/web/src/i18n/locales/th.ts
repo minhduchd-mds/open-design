@@ -1119,6 +1119,7 @@ export const th: Dict = {
   'assistant.unfinishedLabel': 'พ้นจากโหมดเพราะงานตกค้าง',
   'assistant.unfinishedSummary': 'งาน {n} ขั้นลืมอยู่ข้างหลัง',
   'assistant.unfinishedMore': 'ทิ้งเพิ่มมาอีก +{n}',
+  'assistant.unfinishedLess': 'แสดงน้อยลง',
   'assistant.continueRemaining': 'สานต่อภาระหน้าที่หลงเหลือที',
   'assistant.outTokens': 'หมดการจ่ายใน {n} โทเคน',
   'assistant.producedFiles': 'ดึงงานมาจากระบบไฟล์',

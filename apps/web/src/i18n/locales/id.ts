@@ -1307,6 +1307,7 @@ export const id: Dict = {
   'assistant.unfinishedLabel': 'Belum selesai',
   'assistant.unfinishedSummary': '{n} tugas tersisa',
   'assistant.unfinishedMore': '+{n} lagi',
+  'assistant.unfinishedLess': 'Tampilkan lebih sedikit',
   'assistant.continueRemaining': 'Lanjutkan',
   'assistant.outTokens': '{n} keluar',
   'assistant.producedFiles': 'File yang dibuat',

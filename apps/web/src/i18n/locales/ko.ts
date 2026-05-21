@@ -1158,6 +1158,7 @@ export const ko: Dict = {
   'assistant.unfinishedLabel': '작업을 마치지 못하고 중지됨',
   'assistant.unfinishedSummary': '{n}개 작업 남음',
   'assistant.unfinishedMore': '+{n}개 추가',
+  'assistant.unfinishedLess': '간단히 보기',
   'assistant.continueRemaining': '남은 작업 계속하기',
   'assistant.outTokens': '{n} 출력',
   'assistant.producedFiles': '이 턴에서 생성된 파일',

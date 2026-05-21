@@ -1158,6 +1158,7 @@ export const fr: Dict = {
   'assistant.unfinishedLabel': 'Arrêté avec du travail non terminé',
   'assistant.unfinishedSummary': '{n} tâche(s) restante(s)',
   'assistant.unfinishedMore': '+{n} de plus',
+  'assistant.unfinishedLess': 'Afficher moins',
   'assistant.continueRemaining': 'Continuer les tâches restantes',
   'assistant.outTokens': '{n} sortie',
   'assistant.producedFiles': 'Fichiers de ce tour',

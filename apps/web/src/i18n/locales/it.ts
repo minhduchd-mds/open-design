@@ -1048,6 +1048,7 @@ export const it: Dict = {
   'assistant.unfinishedLabel': 'Fermato con lavoro non completato',
   'assistant.unfinishedSummary': '{n} attività rimanenti',
   'assistant.unfinishedMore': '+{n} in più',
+  'assistant.unfinishedLess': 'Mostra meno',
   'assistant.continueRemaining': 'Continua le attività rimanenti',
   'assistant.outTokens': '{n} output',
   'assistant.producedFiles': 'File di questo turno',

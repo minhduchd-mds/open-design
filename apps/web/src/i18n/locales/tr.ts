@@ -1145,6 +1145,7 @@ export const tr: Dict = {
   'assistant.unfinishedLabel': 'Bitmemiş işlerle durduruldu',
   'assistant.unfinishedSummary': '{n} görev kaldı',
   'assistant.unfinishedMore': '+{n} daha',
+  'assistant.unfinishedLess': 'Daha az göster',
   'assistant.continueRemaining': 'Kalan görevleri sürdür',
   'assistant.outTokens': '{n} çıktı',
   'assistant.producedFiles': 'Bu çalışmadan dosyalar',

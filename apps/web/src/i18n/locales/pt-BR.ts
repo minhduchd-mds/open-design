@@ -1199,6 +1199,7 @@ export const ptBR: Dict = {
   'assistant.unfinishedLabel': 'Interrompido com trabalho pendente',
   'assistant.unfinishedSummary': '{n} tarefa(s) restante(s)',
   'assistant.unfinishedMore': '+{n} mais',
+  'assistant.unfinishedLess': 'Mostrar menos',
   'assistant.continueRemaining': 'Continuar tarefas restantes',
   'assistant.outTokens': '{n} saída',
   'assistant.producedFiles': 'Arquivos deste turno',

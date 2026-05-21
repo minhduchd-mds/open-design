@@ -1047,6 +1047,7 @@ export const esES: Dict = {
   'assistant.unfinishedLabel': 'Detenido con tareas pendientes',
   'assistant.unfinishedSummary': 'quedan {n} tarea(s)',
   'assistant.unfinishedMore': '+{n} más',
+  'assistant.unfinishedLess': 'Mostrar menos',
   'assistant.continueRemaining': 'Continuar tareas pendientes',
   'assistant.outTokens': '{n} salida',
   'assistant.producedFiles': 'Archivos de este turno',
