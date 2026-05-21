@@ -10,7 +10,6 @@ import {
   getSystemsForCategory,
   type TagDescriptor,
 } from '../../../_lib/catalog';
-import { getLandingUiCopy, localeFromPath, localizedHref } from '../../../i18n';
 
 export async function getStaticPaths() {
   const tags = await getSystemCategoryIndex();
@@ -25,20 +24,20 @@ interface Props {
 }
 
 const { tag } = Astro.props as Props;
-const locale = localeFromPath(Astro.url.pathname);
-const ui = getLandingUiCopy(locale);
-const href = (path: string) => localizedHref(path, locale);
-const { records, label } = await getSystemsForCategory(tag.slug, locale);
+const { records, label } = await getSystemsForCategory(tag.slug);
 const heading = label ?? tag.label;
 
-const title = ui.catalog.systems.categoryHeading(heading, records.length);
-const description = ui.catalog.systems.categoryDescription(heading, records.length);
+const title = `${heading} design systems — ${records.length} portable visual systems · Open Design`;
+const description =
+  `Every Open Design design system tagged ${heading.toLowerCase()}. ` +
+  `${records.length} portable DESIGN.md token bundles — ready to pair with ` +
+  `any skill in the catalog for instant brand-grade output.`;
 
 const url = new URL(`/systems/category/${tag.slug}/`, Astro.site).toString();
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'CollectionPage',
-  name: title,
+  name: `${heading} design systems · Open Design`,
   description,
   url,
   numberOfItems: records.length,
@@ -47,26 +46,28 @@ const jsonLd = {
 
 <Layout title={title} description={description} active="systems" jsonLd={jsonLd}>
   <header class="catalog-head">
-    <nav class="breadcrumb" aria-label={ui.catalog.breadcrumbLabel}>
-      <a href={href('/systems/')}>{ui.catalog.systems.detailLabel}</a>
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="/systems/">Design Systems</a>
       <span aria-hidden="true">/</span>
-      <span>{ui.catalog.systems.category}</span>
+      <span>Category</span>
       <span aria-hidden="true">/</span>
       <span class="crumb-active">{heading}</span>
     </nav>
-    <span class="label">{ui.catalog.systems.label}</span>
+    <span class="label">Catalog · Nº 02 · Filter</span>
     <h1 class="display">
-      {ui.catalog.systems.categoryHeading(heading, records.length)}
+      <em>{heading}</em> — {records.length} portable visual systems<span class="dot">.</span>
     </h1>
     <p class="lead">
-      {ui.catalog.systems.categoryLead(label ?? tag.label)}
+      Filtered to category <code>{label ?? tag.label}</code>. Pick any of these
+      in the daemon top-bar and every skill in the catalog reads its tokens —
+      colors, type, spacing, voice — as part of its system prompt.
     </p>
     <p class="filter-clear">
-      <a href={href('/systems/')}>{ui.catalog.systems.allSystems}</a>
+      <a href="/systems/">← All design systems</a>
     </p>
   </header>
 
-  <section class="catalog-grid systems-grid" aria-label={ui.catalog.systems.allAria}>
+  <section class="catalog-grid systems-grid" aria-label={`${heading} systems`}>
     <ul>
       {records.map((s) => <SystemCard system={s} />)}
     </ul>

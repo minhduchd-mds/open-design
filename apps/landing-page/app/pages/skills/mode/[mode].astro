@@ -14,7 +14,6 @@ import {
   getSkillsForMode,
   type TagDescriptor,
 } from '../../../_lib/catalog';
-import { getLandingUiCopy, localeFromPath, localizedHref } from '../../../i18n';
 
 export async function getStaticPaths() {
   const tags = await getSkillModeIndex();
@@ -29,20 +28,20 @@ interface Props {
 }
 
 const { tag } = Astro.props as Props;
-const locale = localeFromPath(Astro.url.pathname);
-const ui = getLandingUiCopy(locale);
-const href = (path: string) => localizedHref(path, locale);
-const { records, label } = await getSkillsForMode(tag.slug, locale);
+const { records, label } = await getSkillsForMode(tag.slug);
 const heading = label ?? tag.label;
 
-const title = ui.catalog.skills.filterTitle(heading, records.length);
-const description = ui.catalog.skills.modeDescription(heading, records.length);
+const title = `${heading} skills — ${records.length} Open Design ${heading.toLowerCase()} agents`;
+const description =
+  `Every Open Design skill that produces ${heading.toLowerCase()} artifacts. ` +
+  `${records.length} ready-to-run, system-aware agents — installable through ` +
+  `the daemon, brand-locked through any DESIGN.md system.`;
 
 const url = new URL(`/skills/mode/${tag.slug}/`, Astro.site).toString();
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'CollectionPage',
-  name: title,
+  name: `${heading} skills · Open Design`,
   description,
   url,
   numberOfItems: records.length,
@@ -51,26 +50,28 @@ const jsonLd = {
 
 <Layout title={title} description={description} active="skills" jsonLd={jsonLd}>
   <header class="catalog-head">
-    <nav class="breadcrumb" aria-label={ui.catalog.breadcrumbLabel}>
-      <a href={href('/skills/')}>{ui.catalog.skills.detailLabel}</a>
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="/skills/">Skills</a>
       <span aria-hidden="true">/</span>
-      <span>{ui.catalog.skills.mode}</span>
+      <span>Mode</span>
       <span aria-hidden="true">/</span>
       <span class="crumb-active">{heading}</span>
     </nav>
-    <span class="label">{ui.catalog.skills.label}</span>
+    <span class="label">Catalog · Nº 01 · Filter</span>
     <h1 class="display">
-      {ui.catalog.skills.modeHeading(heading, records.length)}
+      <em>{heading}</em> — {records.length} brand-grade {heading.toLowerCase()} agents<span class="dot">.</span>
     </h1>
     <p class="lead">
-      {ui.catalog.skills.modeLead(label ?? tag.label)}
+      Filtered to <code>od.mode: {label ?? tag.label}</code>. Every skill below
+      reads the active <code>DESIGN.md</code> as a system prompt, so it inherits
+      colors, type, and spacing from any portable system you pair it with.
     </p>
     <p class="filter-clear">
-      <a href={href('/skills/')}>{ui.catalog.skills.allSkills(tag.count)}</a>
+      <a href="/skills/">← All skills ({tag.count} of total)</a>
     </p>
   </header>
 
-  <section class="catalog-grid catalog-grid-skills" aria-label={ui.catalog.skills.allAria}>
+  <section class="catalog-grid catalog-grid-skills" aria-label={`${heading} skills`}>
     <ol>
       {records.map((s, idx) => <SkillRow skill={s} index={idx} />)}
     </ol>

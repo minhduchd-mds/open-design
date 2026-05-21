@@ -11,19 +11,6 @@ import { getCollection, type CollectionEntry } from 'astro:content';
 import { existsSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import {
-  DEFAULT_LOCALE,
-  type LandingLocaleCode,
-  type LocalizedStringValue,
-} from '../i18n';
-import {
-  explicitLocalizedString,
-  localizeCraftText,
-  localizeSkillDescription,
-  localizeSystemText,
-  localizeTaxonomyValue,
-  localizeTemplateText,
-} from '../content-i18n';
 
 // ---------------------------------------------------------------------------
 // Preview imagery lookup
@@ -99,13 +86,9 @@ export interface SkillRecord {
   description: string;
   triggers: ReadonlyArray<string>;
   mode?: string;
-  modeLabel?: string;
   platform?: string;
-  platformLabel?: string;
   scenario?: string;
-  scenarioLabel?: string;
   category?: string;
-  categoryLabel?: string;
   featured?: number;
   upstream?: string;
   examplePrompt?: string;
@@ -129,20 +112,12 @@ function firstParagraph(text: string | undefined, fallback = ''): string {
 export function shapeSkill(
   entry: SkillEntry,
   previews: Map<string, string>,
-  locale: LandingLocaleCode = DEFAULT_LOCALE,
 ): SkillRecord {
   const slug = deriveSkillSlug(entry.id);
   const data = entry.data as {
-    name?: LocalizedStringValue;
-    description?: LocalizedStringValue;
+    name?: string;
+    description?: string;
     triggers?: string[];
-    i18n?: Record<string, {
-      name?: string;
-      description?: string;
-      triggers?: string[];
-      examplePrompt?: string;
-      example_prompt?: string;
-    }>;
     od?: {
       mode?: string;
       platform?: string;
@@ -150,54 +125,32 @@ export function shapeSkill(
       category?: string;
       featured?: number;
       upstream?: string;
-      example_prompt?: LocalizedStringValue;
+      example_prompt?: string;
     };
   };
-  const localized = data.i18n?.[locale];
-  const name = explicitLocalizedString(localized?.name ?? data.name, locale) ?? slug;
-  const rawDescription = explicitLocalizedString(data.description, DEFAULT_LOCALE) ?? '';
-  const description =
-    explicitLocalizedString(localized?.description ?? data.description, locale) ??
-    localizeSkillDescription({
-      name,
-      mode: data.od?.mode,
-      scenario: data.od?.scenario,
-      category: data.od?.category,
-      locale,
-      fallback: rawDescription,
-    });
-  const examplePrompt = explicitLocalizedString(
-    localized?.examplePrompt ?? localized?.example_prompt ?? data.od?.example_prompt,
-    locale,
-  ) ?? '';
+  const description = (data.description ?? '').trim();
   return {
     slug,
-    name,
+    name: data.name ?? slug,
     description,
-    triggers: localized?.triggers ?? (locale === DEFAULT_LOCALE ? data.triggers ?? [] : []),
+    triggers: data.triggers ?? [],
     mode: data.od?.mode,
-    modeLabel: localizeTaxonomyValue(data.od?.mode, locale),
     platform: data.od?.platform,
-    platformLabel: localizeTaxonomyValue(data.od?.platform, locale),
     scenario: data.od?.scenario,
-    scenarioLabel: localizeTaxonomyValue(data.od?.scenario, locale),
     category: data.od?.category,
-    categoryLabel: localizeTaxonomyValue(data.od?.category, locale),
     featured: data.od?.featured,
     upstream: data.od?.upstream,
-    examplePrompt,
+    examplePrompt: data.od?.example_prompt,
     source: `${REPO_TREE}/skills/${slug}`,
     body: entry.body ?? '',
     previewUrl: previewUrlFor('skills', slug, previews),
   };
 }
 
-export async function getSkillRecords(
-  locale: LandingLocaleCode = DEFAULT_LOCALE,
-): Promise<ReadonlyArray<SkillRecord>> {
+export async function getSkillRecords(): Promise<ReadonlyArray<SkillRecord>> {
   const previews = listPreviews('skills');
   const entries = await getCollection('skills');
-  const shaped = entries.map((entry) => shapeSkill(entry, previews, locale));
+  const shaped = entries.map((entry) => shapeSkill(entry, previews));
   return shaped.sort((a, b) => {
     // Featured (lower number = higher priority) first, then alphabetical.
     const af = a.featured ?? Number.POSITIVE_INFINITY;
@@ -217,7 +170,6 @@ export interface SystemRecord {
   slug: string;
   name: string;
   category: string;
-  categoryLabel: string;
   tagline: string;
   atmosphere: string;
   palette: ReadonlyArray<string>;
@@ -297,56 +249,29 @@ function extractPalette(body: string, limit = 5): ReadonlyArray<string> {
   return Array.from(seen);
 }
 
-export function shapeSystem(
-  entry: SystemEntry,
-  locale: LandingLocaleCode = DEFAULT_LOCALE,
-): SystemRecord {
+export function shapeSystem(entry: SystemEntry): SystemRecord {
   const slug = entry.id.split('/')[0] ?? entry.id;
   const body = entry.body ?? '';
-  const data = entry.data as {
-    i18n?: Record<string, {
-      name?: string;
-      category?: string;
-      tagline?: string;
-      atmosphere?: string;
-    }>;
-  };
-  const localized = data.i18n?.[locale];
   const h1 = extractH1(body) ?? slug;
   const { category, tagline } = extractCategoryBlock(body);
   const atmosphere = extractAtmosphere(body);
   const palette = extractPalette(body);
-  const name =
-    localized?.name ??
-    (h1.replace(/^Design System Inspired by\s+/i, '').trim() || slug);
-  const rawCategory = localized?.category ?? (category || 'Uncategorized');
-  const localizedText = localizeSystemText({
-    name,
-    category: rawCategory,
-    paletteCount: palette.length,
-    locale,
-    fallbackTagline: localized?.tagline ?? tagline,
-    fallbackAtmosphere: localized?.atmosphere ?? atmosphere,
-  });
   return {
     slug,
-    name,
-    category: rawCategory,
-    categoryLabel: localizedText.category,
-    tagline: localizedText.tagline,
-    atmosphere: localizedText.atmosphere,
+    name: h1.replace(/^Design System Inspired by\s+/i, '').trim() || slug,
+    category: category || 'Uncategorized',
+    tagline,
+    atmosphere,
     palette,
     source: `${REPO_TREE}/design-systems/${slug}`,
     body,
   };
 }
 
-export async function getSystemRecords(
-  locale: LandingLocaleCode = DEFAULT_LOCALE,
-): Promise<ReadonlyArray<SystemRecord>> {
+export async function getSystemRecords(): Promise<ReadonlyArray<SystemRecord>> {
   const entries = await getCollection('systems');
   return entries
-    .map((entry) => shapeSystem(entry, locale))
+    .map(shapeSystem)
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -453,41 +378,21 @@ function extractFirstProseParagraph(body: string): string {
   return stripMarkdownInline(buf.join(' '));
 }
 
-export function shapeCraft(
-  entry: CraftEntry,
-  locale: LandingLocaleCode = DEFAULT_LOCALE,
-): CraftRecord {
+export function shapeCraft(entry: CraftEntry): CraftRecord {
   const slug = entry.id;
   const body = entry.body ?? '';
-  const data = entry.data as {
-    i18n?: Record<string, {
-      name?: string;
-      summary?: string;
-    }>;
-  };
-  const localized = data.i18n?.[locale];
   const h1 = extractH1(body);
   const cleanH1 = h1 ? stripMarkdownInline(h1).replace(/\s+craft rules?$/i, '').trim() : '';
-  const fallbackName = localized?.name ?? (cleanH1 || titleizeSlug(slug));
-  const fallbackSummary = localized?.summary ?? extractFirstProseParagraph(body);
-  const localizedText = localizeCraftText({
-    slug,
-    name: fallbackName,
-    summary: fallbackSummary,
-    locale,
-  });
   return {
     slug,
-    name: localizedText.name,
-    summary: localizedText.summary,
+    name: cleanH1 || titleizeSlug(slug),
+    summary: extractFirstProseParagraph(body),
     source: `${REPO_BLOB}/craft/${slug}.md`,
     body,
   };
 }
 
-export async function getCraftRecords(
-  locale: LandingLocaleCode = DEFAULT_LOCALE,
-): Promise<ReadonlyArray<CraftRecord>> {
+export async function getCraftRecords(): Promise<ReadonlyArray<CraftRecord>> {
   const entries = await getCollection('craft');
   // Astro normalizes the entry id from `craft/README.md` to `readme`
   // (lowercase, extension stripped). Comparing the raw `'README'` string
@@ -497,7 +402,7 @@ export async function getCraftRecords(
   // also filtered out.
   return entries
     .filter((e) => e.id.toLowerCase() !== 'readme')
-    .map((entry) => shapeCraft(entry, locale))
+    .map(shapeCraft)
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -511,11 +416,8 @@ export interface TemplateRecord {
   summary: string;
   origin: 'design-template' | 'live-artifact';
   mode?: string;
-  modeLabel?: string;
   platform?: string;
-  platformLabel?: string;
   scenario?: string;
-  scenarioLabel?: string;
   featured?: number;
   source: string;
   detailHref: string;
@@ -530,17 +432,11 @@ export type DesignTemplateEntry = CollectionEntry<'designTemplates'>;
 export function shapeDesignTemplate(
   entry: DesignTemplateEntry,
   previews: Map<string, string>,
-  locale: LandingLocaleCode = DEFAULT_LOCALE,
 ): TemplateRecord {
   const slug = deriveSkillSlug(entry.id);
   const data = entry.data as {
-    name?: LocalizedStringValue;
-    description?: LocalizedStringValue;
-    i18n?: Record<string, {
-      name?: string;
-      description?: string;
-      summary?: string;
-    }>;
+    name?: string;
+    description?: string;
     od?: {
       mode?: string;
       platform?: string;
@@ -549,30 +445,19 @@ export function shapeDesignTemplate(
     };
   };
   const body = entry.body ?? '';
-  const localized = data.i18n?.[locale];
-  const name =
-    explicitLocalizedString(localized?.name ?? data.name, locale) ?? titleizeSlug(slug);
   const summary =
-    explicitLocalizedString(
-      localized?.summary ?? localized?.description ?? data.description,
-      locale,
-    ) ||
-    firstParagraph(explicitLocalizedString(data.description, DEFAULT_LOCALE)) ||
+    firstParagraph(data.description) ||
     extractFirstProseParagraph(body) ||
     'Open Design renderable design template.';
-  const localizedText = localizeTemplateText({ name, summary, locale });
 
   return {
     slug,
-    name: localizedText.name,
-    summary: localizedText.summary,
+    name: data.name ?? titleizeSlug(slug),
+    summary,
     origin: 'design-template',
     mode: data.od?.mode,
-    modeLabel: localizeTaxonomyValue(data.od?.mode, locale),
     platform: data.od?.platform,
-    platformLabel: localizeTaxonomyValue(data.od?.platform, locale),
     scenario: data.od?.scenario,
-    scenarioLabel: localizeTaxonomyValue(data.od?.scenario, locale),
     featured: data.od?.featured,
     source: `${REPO_TREE}/design-templates/${slug}`,
     detailHref: `/templates/${slug}/`,
@@ -584,17 +469,9 @@ export function shapeDesignTemplate(
 export function shapeLiveArtifactTemplate(
   entry: TemplateEntry,
   previews: Map<string, string>,
-  locale: LandingLocaleCode = DEFAULT_LOCALE,
 ): TemplateRecord {
   const slug = entry.id.split('/')[0] ?? entry.id;
   const body = entry.body ?? '';
-  const data = entry.data as {
-    i18n?: Record<string, {
-      name?: string;
-      summary?: string;
-    }>;
-  };
-  const localized = data.i18n?.[locale];
   const h1 = extractH1(body);
 
   // Some authors write `# \`otd-operations-brief\` · live-artifact template`
@@ -607,22 +484,15 @@ export function shapeLiveArtifactTemplate(
     .trim();
 
   const summary = extractFirstProseParagraph(body) || 'Open Design Live Artifact template.';
-  const localizedText = localizeTemplateText({
-    name: localized?.name ?? (cleanH1 || titleizeSlug(slug)),
-    summary: localized?.summary ?? summary,
-    locale,
-  });
 
   const liveSlug = `live-${slug}`;
   return {
     slug: liveSlug,
-    name: localizedText.name,
-    summary: localizedText.summary,
+    name: cleanH1 || titleizeSlug(slug),
+    summary,
     origin: 'live-artifact',
     mode: 'template',
-    modeLabel: localizeTaxonomyValue('template', locale),
     scenario: 'live-artifacts',
-    scenarioLabel: localizeTaxonomyValue('live-artifacts', locale),
     source: `${REPO_TREE}/templates/live-artifacts/${slug}`,
     detailHref: `/templates/${liveSlug}/`,
     body,
@@ -630,19 +500,13 @@ export function shapeLiveArtifactTemplate(
   };
 }
 
-export async function getTemplateRecords(
-  locale: LandingLocaleCode = DEFAULT_LOCALE,
-): Promise<ReadonlyArray<TemplateRecord>> {
+export async function getTemplateRecords(): Promise<ReadonlyArray<TemplateRecord>> {
   const previews = listPreviews('templates');
   const designEntries = await getCollection('designTemplates');
-  const designRecords = designEntries.map((entry) =>
-    shapeDesignTemplate(entry, previews, locale),
-  );
+  const designRecords = designEntries.map((entry) => shapeDesignTemplate(entry, previews));
 
   const liveEntries = await getCollection('templates');
-  const liveRecords = liveEntries.map((entry) =>
-    shapeLiveArtifactTemplate(entry, previews, locale),
-  );
+  const liveRecords = liveEntries.map((entry) => shapeLiveArtifactTemplate(entry, previews));
 
   return [...designRecords, ...liveRecords].sort((a, b) => {
     // Keep explicitly featured templates first, then group the canonical
@@ -816,95 +680,62 @@ export function tagIndex(values: ReadonlyArray<string | undefined>): ReadonlyArr
 // human label (preserving the original `od.mode` casing for the heading).
 // ---------------------------------------------------------------------------
 
-export async function getSkillsForMode(
-  slug: string,
-  locale: LandingLocaleCode = DEFAULT_LOCALE,
-): Promise<{
+export async function getSkillsForMode(slug: string): Promise<{
   label: string | null;
   records: ReadonlyArray<SkillRecord>;
 }> {
-  const all = await getSkillRecords(locale);
+  const all = await getSkillRecords();
   const matches = all.filter((s) => {
     const canonical = canonicalMode(s.mode);
     return canonical && slugifyTag(canonical) === slug;
   });
   return {
-    label:
-      localizeTaxonomyValue(canonicalMode(matches[0]?.mode), locale) ??
-      canonicalMode(matches[0]?.mode) ??
-      null,
+    label: canonicalMode(matches[0]?.mode) ?? null,
     records: matches,
   };
 }
 
-export async function getSkillsForScenario(
-  slug: string,
-  locale: LandingLocaleCode = DEFAULT_LOCALE,
-): Promise<{
+export async function getSkillsForScenario(slug: string): Promise<{
   label: string | null;
   records: ReadonlyArray<SkillRecord>;
 }> {
-  const all = await getSkillRecords(locale);
+  const all = await getSkillRecords();
   const matches = all.filter((s) => {
     const canonical = canonicalScenario(s.scenario);
     return canonical && slugifyTag(canonical) === slug;
   });
   return {
-    label:
-      localizeTaxonomyValue(canonicalScenario(matches[0]?.scenario), locale) ??
-      canonicalScenario(matches[0]?.scenario) ??
-      null,
+    label: canonicalScenario(matches[0]?.scenario) ?? null,
     records: matches,
   };
 }
 
-export async function getSystemsForCategory(
-  slug: string,
-  locale: LandingLocaleCode = DEFAULT_LOCALE,
-): Promise<{
+export async function getSystemsForCategory(slug: string): Promise<{
   label: string | null;
   records: ReadonlyArray<SystemRecord>;
 }> {
-  const all = await getSystemRecords(locale);
+  const all = await getSystemRecords();
   const matches = all.filter((s) => {
     const canonical = canonicalCategory(s.category);
     return canonical !== undefined && slugifyTag(canonical) === slug;
   });
   return {
-    label:
-      localizeTaxonomyValue(canonicalCategory(matches[0]?.category), locale) ??
-      canonicalCategory(matches[0]?.category) ??
-      null,
+    label: canonicalCategory(matches[0]?.category) ?? null,
     records: matches,
   };
 }
 
-export async function getSkillModeIndex(
-  locale: LandingLocaleCode = DEFAULT_LOCALE,
-): Promise<ReadonlyArray<TagDescriptor>> {
+export async function getSkillModeIndex(): Promise<ReadonlyArray<TagDescriptor>> {
   const all = await getSkillRecords();
-  return tagIndex(all.map((s) => canonicalMode(s.mode))).map((tag) => ({
-    ...tag,
-    label: localizeTaxonomyValue(tag.label, locale) ?? tag.label,
-  }));
+  return tagIndex(all.map((s) => canonicalMode(s.mode)));
 }
 
-export async function getSkillScenarioIndex(
-  locale: LandingLocaleCode = DEFAULT_LOCALE,
-): Promise<ReadonlyArray<TagDescriptor>> {
+export async function getSkillScenarioIndex(): Promise<ReadonlyArray<TagDescriptor>> {
   const all = await getSkillRecords();
-  return tagIndex(all.map((s) => canonicalScenario(s.scenario))).map((tag) => ({
-    ...tag,
-    label: localizeTaxonomyValue(tag.label, locale) ?? tag.label,
-  }));
+  return tagIndex(all.map((s) => canonicalScenario(s.scenario)));
 }
 
-export async function getSystemCategoryIndex(
-  locale: LandingLocaleCode = DEFAULT_LOCALE,
-): Promise<ReadonlyArray<TagDescriptor>> {
+export async function getSystemCategoryIndex(): Promise<ReadonlyArray<TagDescriptor>> {
   const all = await getSystemRecords();
-  return tagIndex(all.map((s) => canonicalCategory(s.category))).map((tag) => ({
-    ...tag,
-    label: localizeTaxonomyValue(tag.label, locale) ?? tag.label,
-  }));
+  return tagIndex(all.map((s) => canonicalCategory(s.category)));
 }
