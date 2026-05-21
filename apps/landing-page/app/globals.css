@@ -395,7 +395,13 @@ body::before {
   font-size: 18px;
 }
 .brand-mark {
-  width: 36px; height: 36px;
+  /*
+   * Bumped from 36px → 44px (≈22% larger). The new black brand mark
+   * needs the extra optical weight against the wordmark, especially
+   * given the speech-bubble negative space visually shrinks the glyph.
+   * (PR #2588's brand polish, restored on top of #2469.)
+   */
+  width: 44px; height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -409,6 +415,10 @@ body::before {
   height: 100%;
   object-fit: contain;
   display: block;
+  /* Round the corners of the brand glyph (~22% of side, app-icon
+   * silhouette convention) so the solid-fill square reads as a
+   * brand mark next to the wordmark rather than a screenshot. */
+  border-radius: 10px;
 }
 .brand-meta {
   font-family: var(--sans);

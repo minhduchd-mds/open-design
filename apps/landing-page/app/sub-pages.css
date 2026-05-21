@@ -340,17 +340,21 @@ body.sub-page {
   grid-template-columns: 60px 1fr auto auto;
   gap: 24px;
   align-items: center;
-  padding: 22px 0;
+  /*
+   * Horizontal 24px lockstep with the rest of the catalog tile
+   * families (featured-card / template-card / system-card / source-card).
+   * Hover used to push from 0 → 12px which produced a visible
+   * jolt; staying at 24 base + only changing background on hover
+   * keeps the row composition steady.
+   */
+  padding: 22px 24px;
   text-decoration: none;
   color: var(--ink);
-  transition: padding 0.16s ease;
 }
 .catalog-row-skill a {
   grid-template-columns: 60px 130px 1fr auto auto;
 }
 .catalog-row a:hover {
-  padding-left: 12px;
-  padding-right: 12px;
   background: var(--paper-warm);
 }
 .catalog-row a:hover .row-arrow { color: var(--coral); transform: translateX(4px); }

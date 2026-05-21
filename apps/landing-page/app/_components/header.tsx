@@ -121,8 +121,7 @@ export function Header({
                 className={
                   active === 'product' ||
                   active === 'home' ||
-                  active === 'html-anything' ||
-                  active === 'tutorials'
+                  active === 'html-anything'
                     ? 'is-active'
                     : undefined
                 }
@@ -161,18 +160,10 @@ export function Header({
                     </span>
                   </a>
                 </li>
-                <li role='none'>
-                  <a
-                    role='menuitem'
-                    href={href('/tutorials/')}
-                    className={linkClass('tutorials')}
-                  >
-                    <span className='dropdown-name'>{productMenuCopy.tutorialsName}</span>
-                    <span className='dropdown-blurb'>
-                      {productMenuCopy.tutorialsBlurb}
-                    </span>
-                  </a>
-                </li>
+                {/* Tutorials is a top-level nav item (see Library section
+                  below). Don't list it here too — duplicating it once at
+                  Product/Tutorials and again at top-level confuses users
+                  about whether the two link to the same page. */}
               </ul>
             </li>
             {/*
@@ -199,7 +190,7 @@ export function Header({
                 aria-haspopup='true'
                 aria-expanded='false'
               >
-                Library
+                {headerCopy.nav.library}
                 <span className='dropdown-caret' aria-hidden='true'>▾</span>
               </a>
               <ul className='nav-dropdown' role='menu'>
@@ -211,7 +202,6 @@ export function Header({
                   >
                     <span className='dropdown-name'>
                       {headerCopy.nav.skills}
-                      <span className='dropdown-num'>{counts.skills}</span>
                     </span>
                   </a>
                 </li>
@@ -223,7 +213,6 @@ export function Header({
                   >
                     <span className='dropdown-name'>
                       {headerCopy.nav.systems}
-                      <span className='dropdown-num'>{counts.systems}</span>
                     </span>
                   </a>
                 </li>
@@ -235,7 +224,6 @@ export function Header({
                   >
                     <span className='dropdown-name'>
                       {headerCopy.nav.templates}
-                      <span className='dropdown-num'>{counts.templates}</span>
                     </span>
                   </a>
                 </li>
@@ -247,7 +235,6 @@ export function Header({
                   >
                     <span className='dropdown-name'>
                       {headerCopy.nav.craft}
-                      <span className='dropdown-num'>{counts.craft}</span>
                     </span>
                   </a>
                 </li>
@@ -255,7 +242,7 @@ export function Header({
             </li>
             <li>
               <a href={href('/tutorials/')} className={linkClass('tutorials')}>
-                Tutorials
+                {headerCopy.nav.tutorials}
               </a>
             </li>
             <li>

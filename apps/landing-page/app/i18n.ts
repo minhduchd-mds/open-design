@@ -157,10 +157,14 @@ export interface HeaderCopy {
   brandMetaTitle: string;
   brandMetaBody: string;
   nav: {
+    /** Top-level dropdown grouping the four catalog facets. */
+    library: string;
     skills: string;
     systems: string;
     templates: string;
     craft: string;
+    /** Standalone link to the YouTube tutorials channel. */
+    tutorials: string;
     blog: string;
     contact: string;
   };
@@ -946,10 +950,12 @@ const COMMON_COPY: Record<LandingLocaleCode, CommonCopy> = {
       brandMetaTitle: 'Studio Nº 01',
       brandMetaBody: 'Berlin / Open / Earth',
       nav: {
+        library: 'Library',
         skills: 'Skills',
         systems: 'Systems',
         templates: 'Templates',
         craft: 'Craft',
+        tutorials: 'Tutorials',
         blog: 'Blog',
         contact: 'Contact',
       },
@@ -975,10 +981,12 @@ const COMMON_COPY: Record<LandingLocaleCode, CommonCopy> = {
       brandMetaTitle: '工作室 Nº 01',
       brandMetaBody: '柏林 / 开放 / 地球',
       nav: {
-        skills: 'Skill',
+        library: '资源库',
+        skills: '技能',
         systems: '设计系统',
         templates: '模板',
         craft: '工艺',
+        tutorials: '教程',
         blog: '博客',
         contact: '联系',
       },
@@ -1004,10 +1012,12 @@ const COMMON_COPY: Record<LandingLocaleCode, CommonCopy> = {
       brandMetaTitle: '工作室 Nº 01',
       brandMetaBody: '柏林 / 開放 / 地球',
       nav: {
-        skills: 'Skill',
+        library: '資源庫',
+        skills: '技能',
         systems: '設計系統',
         templates: '模板',
         craft: '工藝',
+        tutorials: '教程',
         blog: '部落格',
         contact: '聯絡',
       },
@@ -1033,10 +1043,12 @@ const COMMON_COPY: Record<LandingLocaleCode, CommonCopy> = {
       brandMetaTitle: 'Studio Nº 01',
       brandMetaBody: 'Berlin / Open / Earth',
       nav: {
+        library: 'ライブラリ',
         skills: 'スキル',
         systems: 'システム',
         templates: 'テンプレート',
         craft: 'クラフト',
+        tutorials: 'チュートリアル',
         blog: 'ブログ',
         contact: '連絡',
       },
@@ -1062,10 +1074,12 @@ const COMMON_COPY: Record<LandingLocaleCode, CommonCopy> = {
       brandMetaTitle: 'Studio Nº 01',
       brandMetaBody: 'Berlin / Open / Earth',
       nav: {
+        library: '라이브러리',
         skills: '스킬',
         systems: '시스템',
         templates: '템플릿',
         craft: '크래프트',
+        tutorials: '튜토리얼',
         blog: '블로그',
         contact: '문의',
       },
@@ -1091,10 +1105,12 @@ const COMMON_COPY: Record<LandingLocaleCode, CommonCopy> = {
       brandMetaTitle: 'Studio Nº 01',
       brandMetaBody: 'Berlin / Offen / Erde',
       nav: {
+        library: 'Bibliothek',
         skills: 'Skills',
         systems: 'Systeme',
         templates: 'Vorlagen',
         craft: 'Gestaltung',
+        tutorials: 'Tutorials',
         blog: 'Blog',
         contact: 'Kontakt',
       },
@@ -1120,10 +1136,12 @@ const COMMON_COPY: Record<LandingLocaleCode, CommonCopy> = {
       brandMetaTitle: 'Studio Nº 01',
       brandMetaBody: 'Berlin / Ouvert / Terre',
       nav: {
+        library: 'Bibliothèque',
         skills: 'Skills',
         systems: 'Systèmes',
         templates: 'Modèles',
         craft: 'Conception',
+        tutorials: 'Tutoriels',
         blog: 'Blog',
         contact: 'Contact',
       },
@@ -1149,10 +1167,12 @@ const COMMON_COPY: Record<LandingLocaleCode, CommonCopy> = {
       brandMetaTitle: 'Studio Nº 01',
       brandMetaBody: 'Берлин / Open / Earth',
       nav: {
+        library: 'Библиотека',
         skills: 'Skills',
         systems: 'Системы',
         templates: 'Шаблоны',
         craft: 'Правила',
+        tutorials: 'Уроки',
         blog: 'Блог',
         contact: 'Контакт',
       },
@@ -1178,10 +1198,12 @@ const COMMON_COPY: Record<LandingLocaleCode, CommonCopy> = {
       brandMetaTitle: 'Studio Nº 01',
       brandMetaBody: 'Berlín / Abierto / Tierra',
       nav: {
+        library: 'Biblioteca',
         skills: 'Skills',
         systems: 'Sistemas',
         templates: 'Plantillas',
         craft: 'Oficio',
+        tutorials: 'Tutoriales',
         blog: 'Blog',
         contact: 'Contacto',
       },
@@ -1207,10 +1229,12 @@ const COMMON_COPY: Record<LandingLocaleCode, CommonCopy> = {
       brandMetaTitle: 'Studio Nº 01',
       brandMetaBody: 'Berlim / Aberto / Terra',
       nav: {
+        library: 'Biblioteca',
         skills: 'Skills',
         systems: 'Sistemas',
         templates: 'Modelos',
         craft: 'Ofício',
+        tutorials: 'Tutoriais',
         blog: 'Blog',
         contact: 'Contato',
       },
@@ -1236,10 +1260,12 @@ const COMMON_COPY: Record<LandingLocaleCode, CommonCopy> = {
       brandMetaTitle: 'Studio Nº 01',
       brandMetaBody: 'Berlino / Aperto / Terra',
       nav: {
+        library: 'Libreria',
         skills: 'Skill',
         systems: 'Sistemi',
         templates: 'Template',
         craft: 'Regole',
+        tutorials: 'Tutorial',
         blog: 'Blog',
         contact: 'Contatto',
       },
@@ -1265,10 +1291,12 @@ const COMMON_COPY: Record<LandingLocaleCode, CommonCopy> = {
       brandMetaTitle: 'Studio Nº 01',
       brandMetaBody: 'Berlin / Mở / Trái Đất',
       nav: {
+        library: 'Thư viện',
         skills: 'Skill',
         systems: 'Hệ thống',
         templates: 'Mẫu',
         craft: 'Quy tắc',
+        tutorials: 'Hướng dẫn',
         blog: 'Blog',
         contact: 'Liên hệ',
       },
@@ -1294,10 +1322,12 @@ const COMMON_COPY: Record<LandingLocaleCode, CommonCopy> = {
       brandMetaTitle: 'Studio Nº 01',
       brandMetaBody: 'Berlin / Otwarte / Ziemia',
       nav: {
+        library: 'Biblioteka',
         skills: 'Skills',
         systems: 'Systemy',
         templates: 'Szablony',
         craft: 'Reguły',
+        tutorials: 'Samouczki',
         blog: 'Blog',
         contact: 'Kontakt',
       },
@@ -1323,10 +1353,12 @@ const COMMON_COPY: Record<LandingLocaleCode, CommonCopy> = {
       brandMetaTitle: 'Studio Nº 01',
       brandMetaBody: 'Berlin / Terbuka / Bumi',
       nav: {
+        library: 'Pustaka',
         skills: 'Skill',
         systems: 'Sistem',
         templates: 'Templat',
         craft: 'Aturan',
+        tutorials: 'Tutorial',
         blog: 'Blog',
         contact: 'Kontak',
       },
@@ -1352,10 +1384,12 @@ const COMMON_COPY: Record<LandingLocaleCode, CommonCopy> = {
       brandMetaTitle: 'Studio Nº 01',
       brandMetaBody: 'Berlijn / Open / Aarde',
       nav: {
+        library: 'Bibliotheek',
         skills: 'Skills',
         systems: 'Systemen',
         templates: 'Sjablonen',
         craft: 'Regels',
+        tutorials: 'Tutorials',
         blog: 'Blog',
         contact: 'Contact',
       },
@@ -1381,10 +1415,12 @@ const COMMON_COPY: Record<LandingLocaleCode, CommonCopy> = {
       brandMetaTitle: 'Studio Nº 01',
       brandMetaBody: 'برلين / مفتوح / الأرض',
       nav: {
+        library: 'المكتبة',
         skills: 'Skills',
         systems: 'أنظمة',
         templates: 'قوالب',
         craft: 'حرفة',
+        tutorials: 'الدروس',
         blog: 'المدونة',
         contact: 'تواصل',
       },
@@ -1410,10 +1446,12 @@ const COMMON_COPY: Record<LandingLocaleCode, CommonCopy> = {
       brandMetaTitle: 'Studio Nº 01',
       brandMetaBody: 'Berlin / Açık / Dünya',
       nav: {
+        library: 'Kütüphane',
         skills: 'Skill',
         systems: 'Sistemler',
         templates: 'Şablonlar',
         craft: 'Kurallar',
+        tutorials: 'Eğitimler',
         blog: 'Blog',
         contact: 'İletişim',
       },
@@ -1439,10 +1477,12 @@ const COMMON_COPY: Record<LandingLocaleCode, CommonCopy> = {
       brandMetaTitle: 'Studio Nº 01',
       brandMetaBody: 'Берлін / Open / Earth',
       nav: {
+        library: 'Бібліотека',
         skills: 'Skills',
         systems: 'Системи',
         templates: 'Шаблони',
         craft: 'Правила',
+        tutorials: 'Туторіали',
         blog: 'Блог',
         contact: 'Контакт',
       },
