@@ -152,17 +152,15 @@ export function AssistantMessage({
     !streaming &&
     !!isLast &&
     !!onRegenerate;
-  const prominentRegenerate = message.runStatus === "failed";
   const regenerateControl = canRegenerate ? (
     <button
       type="button"
-      className={`assistant-footer-action${prominentRegenerate ? " assistant-footer-action-prominent" : ""}`}
+      className="assistant-footer-action"
       onClick={onRegenerate}
       aria-label={t("chat.regenerate")}
       title={t("chat.regenerate")}
     >
       <Icon name="reload" size={13} />
-      {prominentRegenerate ? <span>{t("chat.regenerate")}</span> : null}
     </button>
   ) : null;
   const showFeedback =
