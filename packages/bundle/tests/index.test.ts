@@ -7,9 +7,12 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   BundleStoreError,
   addBundle,
+  BUNDLE_PUBLICATION_FILE,
+  BUNDLE_PUBLICATION_LATEST_TAG,
   deleteBundle,
   deleteBundleKey,
   createBundleEpochVersion,
+  readBundlePublication,
   listBundles,
   parseBundleEpochVersion,
   replaceBundle,
@@ -17,8 +20,11 @@ import {
   resolveBundleEntryPath,
   resolveBundle,
   resolveBundleBasePath,
+  selectBundlePublicationVariant,
   validateBundleDescriptor,
+  validateBundlePublication,
   validateBundleRef,
+  writeBundlePublication,
 } from "../src/index.js";
 
 let roots: string[] = [];
@@ -178,6 +184,151 @@ describe("bundle artifact descriptors", () => {
     });
 
     await expect(resolveBundleArtifact(bundlePath)).rejects.toMatchObject({ code: "bundle-entry-path-escaped" });
+  });
+});
+
+describe("bundle publications", () => {
+  it("validates explicit bundle key/pathKey metadata and selects platform variants", async () => {
+    const publication = validateBundlePublication({
+      bundle: {
+        key: "od:sidecar:web",
+        pathKey: "od-sidecar-web",
+        variants: [
+          {
+            compatible: { hostEpoch: "0.8.0-beta.4" },
+            platform: "any",
+            version: "0.8.0-beta.4.web.1",
+          },
+          {
+            compatible: { hostEpoch: "0.8.0-beta.4" },
+            platform: "darwin-arm64",
+            version: "0.8.0-beta.4.web.2",
+          },
+        ],
+      },
+      metadata: {
+        channel: "beta",
+        display: {
+          summary: { default: "Fast web bundle" },
+          title: { default: "Web beta" },
+          version: "Beta 4",
+        },
+        publish: {},
+        version: "0.8.0-beta.4",
+      },
+      schemaVersion: 1,
+    });
+
+    expect(selectBundlePublicationVariant({
+      hostEpoch: "0.8.0-beta.4",
+      key: "od:sidecar:web",
+      platform: "darwin-arm64",
+      publication,
+    })).toMatchObject({ platform: "darwin-arm64", version: "0.8.0-beta.4.web.2" });
+    expect(selectBundlePublicationVariant({
+      hostEpoch: "0.8.0-beta.4",
+      key: "od:sidecar:web",
+      platform: "linux-x64",
+      publication,
+    })).toMatchObject({ platform: "any", version: "0.8.0-beta.4.web.1" });
+    expect(() => selectBundlePublicationVariant({
+      hostEpoch: "0.8.0-beta.4",
+      key: "od:sidecar:daemon",
+      platform: "darwin-arm64",
+      publication,
+    })).toThrow(BundleStoreError);
+    expect(() => selectBundlePublicationVariant({
+      hostEpoch: "0.8.0-beta.5",
+      key: "od:sidecar:web",
+      platform: "darwin-arm64",
+      publication,
+    })).toThrow(BundleStoreError);
+  });
+
+  it("writes publication.json plus an independent sha256 file under pathKey/channel/tag", async () => {
+    const basePath = await tempRoot("publication-store");
+    const publication = {
+      bundle: {
+        key: "od:sidecar:web",
+        pathKey: "od-sidecar-web",
+        variants: [
+          {
+            compatible: { hostEpoch: "0.8.0-beta.4" },
+            platform: "any",
+            version: "0.8.0-beta.4.web.1",
+          },
+        ],
+      },
+      metadata: {
+        channel: "beta",
+        display: {
+          summary: { default: "" },
+          title: { default: "" },
+          version: "0.8.0 beta",
+        },
+        publish: {},
+        version: "0.8.0-beta.4",
+      },
+      schemaVersion: 1,
+    };
+
+    const versioned = await writeBundlePublication({ basePath, publication });
+    const tagged = await writeBundlePublication({
+      basePath,
+      publication,
+      versionOrTag: BUNDLE_PUBLICATION_LATEST_TAG,
+    });
+
+    expect(versioned.paths.publicationPath).toBe(join(basePath, "od-sidecar-web", "beta", "0.8.0-beta.4", BUNDLE_PUBLICATION_FILE));
+    expect(tagged.paths.publicationPath).toBe(join(basePath, "od-sidecar-web", "beta", "latest", BUNDLE_PUBLICATION_FILE));
+    expect(await readFile(versioned.paths.digestPath, "utf8")).toContain(versioned.digest.value);
+    await expect(readBundlePublication({
+      basePath,
+      channel: "beta",
+      pathKey: "od-sidecar-web",
+      versionOrTag: "0.8.0-beta.4",
+    })).resolves.toMatchObject({
+      digest: versioned.digest,
+      publication: { bundle: { key: "od:sidecar:web", pathKey: "od-sidecar-web" } },
+    });
+  });
+
+  it("rejects duplicate variants and host epoch mismatches", () => {
+    expect(() => validateBundlePublication({
+      bundle: {
+        key: "od:sidecar:web",
+        pathKey: "od-sidecar-web",
+        variants: [
+          {
+            compatible: { hostEpoch: "0.8.0-beta.4" },
+            platform: "any",
+            version: "0.8.0-beta.5.web.1",
+          },
+        ],
+      },
+      metadata: { channel: "beta", publish: {}, version: "0.8.0-beta.4" },
+      schemaVersion: 1,
+    })).toThrow(/hostEpoch/);
+    expect(() => validateBundlePublication({
+      bundle: {
+        key: "od:sidecar:web",
+        pathKey: "od-sidecar-web",
+        variants: [
+          {
+            compatible: { hostEpoch: "0.8.0-beta.4" },
+            platform: "any",
+            version: "0.8.0-beta.4.web.1",
+          },
+          {
+            compatible: { hostEpoch: "0.8.0-beta.4" },
+            platform: "any",
+            version: "0.8.0-beta.4.web.2",
+          },
+        ],
+      },
+      metadata: { channel: "beta", publish: {}, version: "0.8.0-beta.4" },
+      schemaVersion: 1,
+    })).toThrow(/duplicate variant/);
   });
 });
 

@@ -385,13 +385,25 @@ export type PackagedBundleTargetInput = {
   key: string;
 };
 
+export type PackagedBundlePresentationSnapshot = {
+  channel: string;
+  display: {
+    summary: Record<string, string>;
+    title: Record<string, string>;
+    version: string;
+  };
+  version: string;
+};
+
 export type PackagedBundleActivationInput =
   | {
       key: string;
+      presentation?: PackagedBundlePresentationSnapshot;
       source: "builtin";
     }
   | {
       key: string;
+      presentation?: PackagedBundlePresentationSnapshot;
       source?: "bundle";
       version: string;
     };
@@ -403,6 +415,7 @@ export type PackagedBundleRuntimeSnapshot = {
   activationPath?: string;
   bundleBasePath?: string;
   fallbackReason?: string;
+  hostEpoch?: string | null;
   implementation?: SidecarImplementationSnapshot;
   key: string;
   operation?: PackagedBundleOperation | null;
@@ -418,11 +431,13 @@ export type PackagedBundleActivationSnapshot =
   | {
       key: string;
       path: string;
+      presentation?: PackagedBundlePresentationSnapshot;
       source: "builtin";
     }
   | {
       key: string;
       path: string;
+      presentation?: PackagedBundlePresentationSnapshot;
       source: "bundle";
       version: string;
     }
@@ -780,13 +795,49 @@ function normalizePackagedBundleTargetInput(input: unknown, label: string): Pack
   return { key: normalizeNonEmptyString(value.key, `${label} key`) };
 }
 
+function normalizeBundleLocalizedText(input: unknown, label: string): Record<string, string> {
+  const value = assertObject(input, label);
+  const result: Record<string, string> = {};
+  for (const [key, text] of Object.entries(value)) {
+    if (key.length === 0) throw new Error(`${label} keys must not be empty`);
+    if (typeof text !== "string") throw new Error(`${label}.${key} must be a string`);
+    result[key] = text;
+  }
+  return result;
+}
+
+function normalizeOptionalPackagedBundlePresentation(
+  input: unknown,
+  label: string,
+): PackagedBundlePresentationSnapshot | undefined {
+  if (input == null) return undefined;
+  const value = assertObject(input, label);
+  assertKnownKeys(value, ["channel", "display", "version"], label);
+  const display = assertObject(value.display, `${label} display`);
+  assertKnownKeys(display, ["summary", "title", "version"], `${label} display`);
+  return {
+    channel: normalizeNonEmptyString(value.channel, `${label} channel`),
+    display: {
+      summary: normalizeBundleLocalizedText(display.summary, `${label} display.summary`),
+      title: normalizeBundleLocalizedText(display.title, `${label} display.title`),
+      version: normalizeNonEmptyString(display.version, `${label} display.version`),
+    },
+    version: normalizeNonEmptyString(value.version, `${label} version`),
+  };
+}
+
 function normalizePackagedBundleActivationInput(input: unknown, label: string): PackagedBundleActivationInput {
   const value = assertObject(input, label);
-  assertKnownKeys(value, ["key", "source", "version"], label);
+  assertKnownKeys(value, ["key", "presentation", "source", "version"], label);
   const key = normalizeNonEmptyString(value.key, `${label} key`);
+  const presentation = normalizeOptionalPackagedBundlePresentation(value.presentation, `${label} presentation`);
   if (value.source === "builtin") {
     if (value.version != null) throw new Error(`${label} must not include version when source is builtin`);
-    return { key, source: "builtin" };
+    return {
+      key,
+      ...(presentation == null ? {} : { presentation }),
+      source: "builtin",
+    };
   }
 
   if (value.source != null && value.source !== "bundle") {
@@ -794,6 +845,7 @@ function normalizePackagedBundleActivationInput(input: unknown, label: string): 
   }
   return {
     key,
+    ...(presentation == null ? {} : { presentation }),
     ...(value.source === "bundle" ? { source: "bundle" as const } : {}),
     version: normalizeNonEmptyString(value.version, `${label} version`),
   };

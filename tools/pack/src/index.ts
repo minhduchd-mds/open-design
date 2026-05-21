@@ -10,6 +10,7 @@ import {
   readPackagedWebBundleStatus,
   restartPackagedWebBundle,
   switchPackagedWebBundle,
+  switchPackagedWebBundlePublication,
 } from "./bundles.js";
 import {
   cleanupPackedMacNamespace,
@@ -52,8 +53,11 @@ import {
 type CliOptions = ToolPackCliOptions;
 type BundleCliOptions = CliOptions & {
   builtin?: boolean;
+  bundleVersion?: string;
   online?: boolean;
   platform?: string;
+  publication?: string;
+  registryBasePath?: string;
   version?: string;
 };
 
@@ -274,20 +278,23 @@ cli.command("bundle <action>", "Packaged web bundle commands: activate|builtin|s
   .option("--platform <platform>", "packaged runtime platform: mac|win|linux (default: current host)")
   .option("--builtin", "target the built-in packaged web runtime")
   .option("--online", "send activation/builtin through the running packaged IPC instead of writing the offline pointer")
-  .option("--version <version>", "web bundle version <epoch>.web.M")
+  .option("--publication <pathKey/channel/version>", "switch to a publication record, e.g. od-sidecar-web/beta/latest")
+  .option("--registry-base-path <path>", "bundle publication registry base path")
+  .option("--bundle-version <version>", "web bundle version <epoch>.web.M")
   .action(async (action: string, options: BundleCliOptions) => {
     try {
       const config = resolveToolPackConfig(resolveBundlePlatform(options.platform), options);
+      const bundleVersion = options.bundleVersion ?? options.version;
       switch (action) {
         case "activate":
-          if (options.version == null || options.version.length === 0) {
-            throw new Error("tools-pack bundle activate requires --version <epoch>.web.M");
+          if (bundleVersion == null || bundleVersion.length === 0) {
+            throw new Error("tools-pack bundle activate requires --bundle-version <epoch>.web.M");
           }
           if (options.online === true) {
-            printJson(await activatePackagedWebBundleOnline(config, { version: options.version }));
+            printJson(await activatePackagedWebBundleOnline(config, { version: bundleVersion }));
             return;
           }
-          printJson(await activatePackagedWebBundle(config, options.version));
+          printJson(await activatePackagedWebBundle(config, bundleVersion));
           return;
         case "builtin":
           if (options.online === true) {
@@ -310,10 +317,17 @@ cli.command("bundle <action>", "Packaged web bundle commands: activate|builtin|s
             printJson(await switchPackagedWebBundle(config, "builtin"));
             return;
           }
-          if (options.version == null || options.version.length === 0) {
-            throw new Error("tools-pack bundle switch requires --version <epoch>.web.M or --builtin");
+          if (options.publication != null && options.publication.length > 0) {
+            printJson(await switchPackagedWebBundlePublication(config, {
+              publication: options.publication,
+              registryBasePath: options.registryBasePath,
+            }));
+            return;
           }
-          printJson(await switchPackagedWebBundle(config, { version: options.version }));
+          if (bundleVersion == null || bundleVersion.length === 0) {
+            throw new Error("tools-pack bundle switch requires --bundle-version <epoch>.web.M, --publication <pathKey/channel/version>, or --builtin");
+          }
+          printJson(await switchPackagedWebBundle(config, { version: bundleVersion }));
           return;
         default:
           throw new Error(`unsupported bundle action: ${action}`);

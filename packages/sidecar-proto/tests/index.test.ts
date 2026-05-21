@@ -131,11 +131,35 @@ describe("open-design sidecar contract", () => {
     });
     expect(normalizeDesktopSidecarMessage({
       key: SIDECAR_EVENTS.PACKAGED_BUNDLE_SWITCH,
-      payload: { key: "od:sidecar:web", version: "0.8.0-beta.4.web.2" },
+      payload: {
+        key: "od:sidecar:web",
+        presentation: {
+          channel: "beta",
+          display: {
+            summary: { default: "Updated web runtime" },
+            title: { default: "Web beta" },
+            version: "Beta 4",
+          },
+          version: "0.8.0-beta.4",
+        },
+        version: "0.8.0-beta.4.web.2",
+      },
       type: SIDECAR_MESSAGES.EVENT,
     })).toEqual({
       key: "packaged.bundle.switch",
-      payload: { key: "od:sidecar:web", version: "0.8.0-beta.4.web.2" },
+      payload: {
+        key: "od:sidecar:web",
+        presentation: {
+          channel: "beta",
+          display: {
+            summary: { default: "Updated web runtime" },
+            title: { default: "Web beta" },
+            version: "Beta 4",
+          },
+          version: "0.8.0-beta.4",
+        },
+        version: "0.8.0-beta.4.web.2",
+      },
       type: "event",
     });
     expect(normalizeDesktopSidecarMessage({

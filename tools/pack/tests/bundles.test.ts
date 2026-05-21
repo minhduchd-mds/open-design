@@ -58,12 +58,49 @@ describe("packaged web bundle activation", () => {
       const raw = JSON.parse(await readFile(activated.activationPath, "utf8")) as unknown;
 
       expect(raw).toEqual({
-        key: "od:sidecar:web",
-        version: "0.8.0-beta.4.web.2",
+        bundle: {
+          key: "od:sidecar:web",
+          version: "0.8.0-beta.4.web.2",
+        },
+        schemaVersion: 1,
       });
       await expect(readPackagedWebBundleActivation(config)).resolves.toMatchObject({
         source: "bundle",
         version: "0.8.0-beta.4.web.2",
+      });
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("persists publication presentation with a bundle activation pointer", async () => {
+    const root = await mkdtemp(join(tmpdir(), "od-tools-pack-bundles-"));
+    try {
+      const config = makeConfig(root);
+      const presentation = {
+        channel: "beta",
+        display: {
+          summary: { default: "Fresh web runtime" },
+          title: { default: "Web Bundle" },
+          version: "Beta 4 web 7",
+        },
+        version: "0.8.0-beta.4",
+      };
+
+      const activated = await activatePackagedWebBundle(config, "0.8.0-beta.4.web.7", presentation);
+
+      expect(JSON.parse(await readFile(activated.activationPath, "utf8"))).toEqual({
+        bundle: {
+          key: "od:sidecar:web",
+          version: "0.8.0-beta.4.web.7",
+        },
+        presentation,
+        schemaVersion: 1,
+      });
+      await expect(readPackagedWebBundleActivation(config)).resolves.toMatchObject({
+        presentation,
+        source: "bundle",
+        version: "0.8.0-beta.4.web.7",
       });
     } finally {
       await rm(root, { force: true, recursive: true });
@@ -79,8 +116,11 @@ describe("packaged web bundle activation", () => {
       const builtin = await activatePackagedBuiltinWebBundle(config);
 
       expect(JSON.parse(await readFile(builtin.activationPath, "utf8"))).toEqual({
-        key: "od:sidecar:web",
-        source: "builtin",
+        bundle: {
+          key: "od:sidecar:web",
+          source: "builtin",
+        },
+        schemaVersion: 1,
       });
       await expect(readPackagedWebBundleActivation(config)).resolves.toMatchObject({
         source: "builtin",

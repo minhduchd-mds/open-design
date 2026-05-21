@@ -611,7 +611,7 @@ class PackagedSidecarSupervisor implements PackagedSidecarHandle {
   private activationFromInput(input: PackagedBundleActivationInput): PackagedBundleActivationFile {
     return input.source === "builtin"
       ? createPackagedBundleActivationFile({ web: "builtin" })
-      : createPackagedBundleActivationFile({ web: { version: input.version } });
+      : createPackagedBundleActivationFile({ web: { presentation: input.presentation, version: input.version } });
   }
 
   private async activationSnapshot(key: string): Promise<PackagedBundleActivationSnapshot> {
@@ -620,17 +620,23 @@ class PackagedSidecarSupervisor implements PackagedSidecarHandle {
       if (activation == null) {
         return { key, path: this.paths.bundleActivationPath, source: "missing" };
       }
-      if ("source" in activation && activation.source === "builtin") {
-        return { key: activation.key, path: this.paths.bundleActivationPath, source: "builtin" };
+      if ("source" in activation.bundle && activation.bundle.source === "builtin") {
+        return {
+          key: activation.bundle.key,
+          path: this.paths.bundleActivationPath,
+          ...(activation.presentation == null ? {} : { presentation: activation.presentation }),
+          source: "builtin",
+        };
       }
-      if (!("version" in activation)) {
+      if (!("version" in activation.bundle)) {
         throw new Error("activation file did not contain source=builtin or version");
       }
       return {
-        key: activation.key,
+        key: activation.bundle.key,
         path: this.paths.bundleActivationPath,
+        ...(activation.presentation == null ? {} : { presentation: activation.presentation }),
         source: "bundle",
-        version: activation.version,
+        version: activation.bundle.version,
       };
     } catch (error) {
       return {
@@ -654,6 +660,7 @@ class PackagedSidecarSupervisor implements PackagedSidecarHandle {
       ...(implementation.source === "builtin" && implementation.fallbackReason != null
         ? { fallbackReason: implementation.fallbackReason }
         : {}),
+      hostEpoch: this.options.bundleEpoch,
       implementation,
       key,
       operation,
@@ -690,13 +697,13 @@ class PackagedSidecarSupervisor implements PackagedSidecarHandle {
       bundleEpoch: this.options.bundleEpoch,
       paths: this.paths,
     });
-    if ("version" in activation) {
+    if ("version" in activation.bundle) {
       const resolved = implementation.implementation;
-      if (resolved.source !== "bundle" || resolved.ref?.version !== activation.version) {
+      if (resolved.source !== "bundle" || resolved.ref?.version !== activation.bundle.version) {
         const reason = resolved.source === "builtin"
           ? resolved.fallbackReason ?? "bundle-unresolved"
           : "bundle-ref-mismatch";
-        throw new Error(`web bundle ${activation.version} is not available for this packaged runtime: ${reason}`);
+        throw new Error(`web bundle ${activation.bundle.version} is not available for this packaged runtime: ${reason}`);
       }
     }
     return implementation;

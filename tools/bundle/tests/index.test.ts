@@ -9,6 +9,7 @@ import {
   deleteBundleFromStore,
   listBundleStore,
   packBundle,
+  packBundleToStore,
   publishBundle,
   resolveBundleFromStore,
   validateBundlePath,
@@ -282,13 +283,13 @@ describe("tools-bundle", () => {
     });
   });
 
-  it("publishes the next epoch-scoped web bundle version", async () => {
-    await withTempRoot("publish", async (root) => {
+  it("packs the next epoch-scoped web bundle version into the raw store", async () => {
+    await withTempRoot("store-pack", async (root) => {
       const sourcePath = await makeWebSource(root);
       const basePath = path.join(root, "store");
 
-      const first = await publishBundle({ app: "web", basePath, epoch: "0.8.0-beta.4", sourcePath });
-      const second = await publishBundle({ app: "web", basePath, epoch: "0.8.0-beta.4", sourcePath });
+      const first = await packBundleToStore({ app: "web", basePath, epoch: "0.8.0-beta.4", sourcePath });
+      const second = await packBundleToStore({ app: "web", basePath, epoch: "0.8.0-beta.4", sourcePath });
 
       assert.equal(first.version, "0.8.0-beta.4.web.1");
       assert.equal(second.version, "0.8.0-beta.4.web.2");
@@ -298,6 +299,55 @@ describe("tools-bundle", () => {
       ]);
       assert.equal(second.artifact.descriptor.schemaVersion, 2);
       assert.equal(second.artifact.bundlePath, second.resolved.path);
+    });
+  });
+
+  it("publishes a registry record for an existing raw bundle version", async () => {
+    await withTempRoot("publish-record", async (root) => {
+      const sourcePath = await makeWebSource(root);
+      const bundleBasePath = path.join(root, "store");
+      const registryBasePath = path.join(root, "registry");
+      const raw = await packBundleToStore({
+        app: "web",
+        basePath: bundleBasePath,
+        epoch: "0.8.0-beta.4",
+        sourcePath,
+      });
+
+      const result = await publishBundle({
+        app: "web",
+        bundleBasePath,
+        bundleVersion: raw.version,
+        channel: "beta",
+        displayVersion: "Beta 4 web 1",
+        pathKey: "od-sidecar-web",
+        registryBasePath,
+        summary: "Fresh web runtime",
+        tag: "latest",
+        title: "Web Bundle",
+        version: "0.8.0-beta.4",
+      });
+
+      assert.deepEqual(result.raw.ref, { key: "od:sidecar:web", version: "0.8.0-beta.4.web.1" });
+      assert.equal(result.publication.bundle.key, "od:sidecar:web");
+      assert.equal(result.publication.bundle.pathKey, "od-sidecar-web");
+      assert.deepEqual(result.publication.bundle.variants, [
+        {
+          compatible: { hostEpoch: "0.8.0-beta.4" },
+          platform: "any",
+          version: "0.8.0-beta.4.web.1",
+        },
+      ]);
+      assert.equal(
+        result.versioned.paths.publicationPath,
+        path.join(registryBasePath, "od-sidecar-web", "beta", "0.8.0-beta.4", "publication.json"),
+      );
+      assert.equal(
+        result.tagged?.paths.publicationPath,
+        path.join(registryBasePath, "od-sidecar-web", "beta", "latest", "publication.json"),
+      );
+      assert.equal(JSON.parse(await readFile(result.versioned.paths.publicationPath, "utf8")).metadata.display.title.default, "Web Bundle");
+      assert.match(await readFile(result.versioned.paths.digestPath, "utf8"), /^[a-f0-9]{64}  publication\.json\n$/);
     });
   });
 

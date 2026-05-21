@@ -13,6 +13,7 @@ import {
   BUNDLE_DESCRIPTOR_FILE,
   BUNDLE_DESCRIPTOR_SCHEMA_VERSION,
   BUNDLE_DESCRIPTOR_SCHEMA_VERSION_V2,
+  BUNDLE_PUBLICATION_SCHEMA_VERSION,
   addBundle,
   createBundleEpochVersion,
   deleteBundle,
@@ -22,9 +23,12 @@ import {
   resolveBundle,
   resolveBundleArtifact,
   validateBundleRef,
+  writeBundlePublication,
   type BundleArtifact,
   type BundleArtifactDescriptor,
   type BundleEntry,
+  type BundlePublication,
+  type BundlePublicationResolved,
   type BundleRef,
   type BundleResolved,
 } from "@open-design/bundle";
@@ -67,9 +71,14 @@ type KeyOption = {
 };
 
 type PackOptions = JsonOption & {
+  bundleBasePath?: string;
+  bundleVersion?: string;
+  epoch?: string;
   key?: string;
   out?: string;
   replace?: boolean;
+  replaceOutput?: boolean;
+  replaceStore?: boolean;
   version?: string;
 };
 
@@ -80,11 +89,19 @@ type AddOptions = BasePathOption & KeyOption & {
 
 type RefOptions = BasePathOption & KeyOption;
 
-type PublishOptions = BasePathOption & JsonOption & {
-  epoch?: string;
-  out?: string;
-  replace?: boolean;
-  replaceOutput?: boolean;
+type PublishOptions = JsonOption & KeyOption & {
+  bundleBasePath?: string;
+  bundleVersion?: string;
+  channel?: string;
+  displayVersion?: string;
+  pathKey?: string;
+  platform?: string;
+  publicationVersion?: string;
+  registryBasePath?: string;
+  summary?: string;
+  tag?: string;
+  title?: string;
+  version?: string;
 };
 
 export type PackBundleInput = {
@@ -104,7 +121,7 @@ export type StoreBundleInput = {
   version?: string;
 };
 
-export type PublishBundleInput = {
+export type PackBundleToStoreInput = {
   app: string;
   basePath: string;
   epoch: string;
@@ -114,11 +131,34 @@ export type PublishBundleInput = {
   sourcePath: string;
 };
 
-export type PublishBundleResult = {
+export type PackBundleToStoreResult = {
   artifact: BundleArtifact;
   ref: BundleRef;
   resolved: BundleResolved;
   version: string;
+};
+
+export type PublishBundleInput = {
+  app: string;
+  bundleBasePath: string;
+  bundleVersion: string;
+  channel: string;
+  displayVersion?: string;
+  key?: string;
+  pathKey: string;
+  platform?: string;
+  registryBasePath: string;
+  summary?: string;
+  tag?: string;
+  title?: string;
+  version: string;
+};
+
+export type PublishBundleResult = {
+  publication: BundlePublication;
+  raw: BundleResolved;
+  tagged?: BundlePublicationResolved;
+  versioned: BundlePublicationResolved;
 };
 
 function formatError(error: unknown): string {
@@ -144,11 +184,22 @@ function output(payload: unknown, options: JsonOption, heading: string): void {
     process.stdout.write(`metadata: ${payload.metadataPath}\n`);
     return;
   }
-  if (isPublishBundleResult(payload)) {
+  if (isPackBundleToStoreResult(payload)) {
     process.stdout.write(`bundle: ${payload.ref.key}@${payload.ref.version}\n`);
     process.stdout.write(`path: ${payload.resolved.path}\n`);
     process.stdout.write(`entry: ${payload.artifact.descriptor.entry.kind} ${payload.artifact.entryPath}\n`);
     process.stdout.write(`metadata: ${payload.resolved.metadataPath}\n`);
+    return;
+  }
+  if (isPublishBundleResult(payload)) {
+    process.stdout.write(`publication: ${payload.publication.bundle.key}\n`);
+    process.stdout.write(`channel: ${payload.publication.metadata.channel}\n`);
+    process.stdout.write(`version: ${payload.publication.metadata.version}\n`);
+    process.stdout.write(`raw: ${payload.raw.ref.key}@${payload.raw.ref.version}\n`);
+    process.stdout.write(`path: ${payload.versioned.paths.publicationPath}\n`);
+    if (payload.tagged != null) {
+      process.stdout.write(`tag: ${payload.tagged.paths.publicationPath}\n`);
+    }
     return;
   }
   if (Array.isArray(payload)) {
@@ -179,8 +230,12 @@ function isBundleResolved(value: unknown): value is BundleResolved {
   return isRecord(value) && isRecord(value.ref) && typeof value.path === "string" && typeof value.metadataPath === "string";
 }
 
-function isPublishBundleResult(value: unknown): value is PublishBundleResult {
+function isPackBundleToStoreResult(value: unknown): value is PackBundleToStoreResult {
   return isRecord(value) && isBundleArtifact(value.artifact) && isBundleResolved(value.resolved) && isRecord(value.ref);
+}
+
+function isPublishBundleResult(value: unknown): value is PublishBundleResult {
+  return isRecord(value) && isRecord(value.publication) && isBundleResolved(value.raw) && isRecord(value.versioned);
 }
 
 function containsPath(root: string, candidate: string): boolean {
@@ -959,7 +1014,7 @@ async function nextBundleSequence(input: {
   return maxSequence + 1;
 }
 
-export async function publishBundle(input: PublishBundleInput): Promise<PublishBundleResult> {
+export async function packBundleToStore(input: PackBundleToStoreInput): Promise<PackBundleToStoreResult> {
   const app = requireSupportedApp(input.app);
   const basePath = path.resolve(input.basePath);
   const key = defaultKeyForApp(app);
@@ -997,6 +1052,62 @@ export async function publishBundle(input: PublishBundleInput): Promise<PublishB
   } finally {
     if (tempRoot != null) await rm(tempRoot, { force: true, recursive: true });
   }
+}
+
+export async function publishBundle(input: PublishBundleInput): Promise<PublishBundleResult> {
+  const app = requireSupportedApp(input.app);
+  const bundleVersion = requireBundleVersionForApp(app, input.bundleVersion);
+  const key = validateBundleRef({ key: input.key ?? defaultKeyForApp(app), version: bundleVersion }).key;
+  const raw = await resolveBundle({
+    basePath: path.resolve(input.bundleBasePath),
+    ref: { key, version: bundleVersion },
+  });
+  await validateBundlePath(raw.path);
+  const parsedVersion = parseBundleEpochVersion(bundleVersion);
+  const displayVersion = input.displayVersion ?? input.version;
+  const publication: BundlePublication = {
+    bundle: {
+      key,
+      pathKey: input.pathKey,
+      variants: [
+        {
+          compatible: { hostEpoch: parsedVersion.epoch },
+          platform: input.platform ?? "any",
+          version: bundleVersion,
+        },
+      ],
+    },
+    metadata: {
+      channel: input.channel,
+      display: {
+        summary: { default: input.summary ?? "" },
+        title: { default: input.title ?? "" },
+        version: displayVersion,
+      },
+      publish: {},
+      version: input.version,
+    },
+    schemaVersion: BUNDLE_PUBLICATION_SCHEMA_VERSION,
+  };
+
+  const versioned = await writeBundlePublication({
+    basePath: path.resolve(input.registryBasePath),
+    publication,
+  });
+  const tagged = input.tag == null
+    ? undefined
+    : await writeBundlePublication({
+      basePath: path.resolve(input.registryBasePath),
+      publication,
+      versionOrTag: input.tag,
+    });
+
+  return {
+    publication: versioned.publication,
+    raw,
+    ...(tagged == null ? {} : { tagged }),
+    versioned,
+  };
 }
 
 export async function listBundleStore(basePath: string): Promise<BundleEntry[]> {
@@ -1038,39 +1149,69 @@ export function createCli(): ReturnType<typeof cac> {
       output(await validateBundlePath(bundlePath), options, "tools-bundle validate");
     });
 
-  cli.command("pack <app> <sourcePath>", "Create a local direct bundle from an app source tree")
+  cli.command("pack <app> <sourcePath>", "Create a raw app bundle, optionally adding it to a packages/bundle store")
+    .option("--bundle-base-path <path>", "bundle store base path; with --epoch, stores the next raw bundle version")
+    .option("--epoch <epoch>", "host epoch X.Y.Z or X.Y.Z-<channel>.N for stored raw bundle versions")
     .option("--out <path>", "bundle output path")
-    .option("--version <version>", "emit schemaVersion=2 descriptor ref using <epoch>.<bundle_slug>.M")
+    .option("--bundle-version <version>", "emit schemaVersion=2 descriptor ref using <epoch>.<bundle_slug>.M")
     .option("--key <key>", "bundle key for schemaVersion=2 descriptor ref")
     .option("--replace", "replace an existing output path")
+    .option("--replace-output", "replace an existing --out path when storing a raw bundle")
+    .option("--replace-store", "replace store entry if the computed key/version already exists")
     .option("--json", "print JSON")
     .action(async (app: string, sourcePath: string, options: PackOptions) => {
+      if (options.bundleBasePath != null || options.epoch != null) {
+        output(await packBundleToStore({
+          app,
+          basePath: resolveBasePath(options),
+          epoch: requireOption(options.epoch, "--epoch"),
+          outPath: options.out,
+          replace: options.replaceStore,
+          replaceOutput: options.replaceOutput ?? options.replace,
+          sourcePath,
+        }), options, "tools-bundle pack");
+        return;
+      }
+
       output(await packBundle({
         app,
         key: options.key,
         outPath: requireOption(options.out, "--out"),
         replace: options.replace,
         sourcePath,
-        version: options.version,
+        version: options.bundleVersion ?? options.version,
       }), options, "tools-bundle pack");
     });
 
-  cli.command("publish <app> <sourcePath>", "Pack an app bundle and add the next epoch version to a packages/bundle store")
-    .option("--bundle-base-path <path>", "bundle store base path")
-    .option("--epoch <epoch>", "host epoch X.Y.Z or X.Y.Z-<channel>.N")
-    .option("--out <path>", "optional direct bundle output path to keep for inspection")
-    .option("--replace-output", "replace an existing --out path")
-    .option("--replace", "replace store entry if the computed key/version already exists")
+  cli.command("publish <app>", "Publish a registry publication record for an existing raw bundle version")
+    .option("--bundle-base-path <path>", "bundle store base path containing the raw bundle version")
+    .option("--registry-base-path <path>", "bundle publication registry base path")
+    .option("--bundle-version <version>", "raw bundle version <epoch>.<bundle_slug>.M")
+    .option("--channel <channel>", "publication channel, e.g. beta")
+    .option("--publication-version <version>", "publication metadata version")
+    .option("--path-key <pathKey>", "explicit registry path key, e.g. od-sidecar-web")
+    .option("--platform <platform>", "publication platform variant, e.g. any or darwin-arm64 (default: any)")
+    .option("--key <key>", "bundle key for the publication record")
+    .option("--display-version <version>", "user-facing display version")
+    .option("--title <text>", "default display title")
+    .option("--summary <text>", "default display summary")
+    .option("--tag <tag>", "also write the publication under a tag such as latest")
     .option("--json", "print JSON")
-    .action(async (app: string, sourcePath: string, options: PublishOptions) => {
+    .action(async (app: string, options: PublishOptions) => {
       output(await publishBundle({
         app,
-        basePath: resolveBasePath(options),
-        epoch: requireOption(options.epoch, "--epoch"),
-        outPath: options.out,
-        replace: options.replace,
-        replaceOutput: options.replaceOutput,
-        sourcePath,
+        bundleBasePath: resolveBasePath(options),
+        bundleVersion: requireOption(options.bundleVersion, "--bundle-version"),
+        channel: requireOption(options.channel, "--channel"),
+        displayVersion: options.displayVersion,
+        key: options.key,
+        pathKey: requireOption(options.pathKey, "--path-key"),
+        platform: options.platform,
+        registryBasePath: path.resolve(requireOption(options.registryBasePath, "--registry-base-path")),
+        summary: options.summary,
+        tag: options.tag,
+        title: options.title,
+        version: requireOption(options.publicationVersion ?? options.version, "--publication-version"),
       }), options, "tools-bundle publish");
     });
 

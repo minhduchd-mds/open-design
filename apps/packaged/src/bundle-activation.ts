@@ -9,7 +9,7 @@ import {
   validateBundleRef,
   type BundleRef,
 } from "@open-design/bundle";
-import { SIDECAR_ENV, type SidecarImplementationSnapshot } from "@open-design/sidecar-proto";
+import { SIDECAR_ENV, type PackagedBundlePresentationSnapshot, type SidecarImplementationSnapshot } from "@open-design/sidecar-proto";
 
 import type { PackagedNamespacePaths } from "./paths.js";
 
@@ -20,8 +20,22 @@ export const SIDECAR_IMPLEMENTATION_ENV = SIDECAR_ENV.IMPLEMENTATION;
 const PACKAGED_WEB_STANDALONE_BUNDLE_ROOT = "web/standalone";
 
 export type PackagedBundleActivationFile =
-  | { key: typeof PACKAGED_WEB_SIDECAR_BUNDLE_KEY; source: "builtin" }
-  | { key: typeof PACKAGED_WEB_SIDECAR_BUNDLE_KEY; version: string };
+  | {
+      bundle: {
+        key: typeof PACKAGED_WEB_SIDECAR_BUNDLE_KEY;
+        source: "builtin";
+      };
+      presentation?: PackagedBundlePresentationSnapshot;
+      schemaVersion: 1;
+    }
+  | {
+      bundle: {
+        key: typeof PACKAGED_WEB_SIDECAR_BUNDLE_KEY;
+        version: string;
+      };
+      presentation?: PackagedBundlePresentationSnapshot;
+      schemaVersion: 1;
+    };
 
 export type PackagedWebSidecarImplementation =
   | {
@@ -36,8 +50,8 @@ export type PackagedWebSidecarImplementation =
     };
 
 type ParsedActivation =
-  | { type: "builtin" }
-  | { ref: BundleRef; type: "bundle" };
+  | { presentation?: PackagedBundlePresentationSnapshot; type: "builtin" }
+  | { presentation?: PackagedBundlePresentationSnapshot; ref: BundleRef; type: "bundle" };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -53,52 +67,82 @@ function containsPath(root: string, candidate: string): boolean {
   return rel === "" || (rel.length > 0 && !rel.startsWith("..") && !isAbsolute(rel));
 }
 
+function assertKnownKeys(value: Record<string, unknown>, allowed: readonly string[], label: string): void {
+  const allowedSet = new Set<string>(allowed);
+  const unexpected = Object.keys(value).filter((key) => !allowedSet.has(key));
+  if (unexpected.length > 0) throw new Error(`${label} contains unsupported fields: ${unexpected.join(", ")}`);
+}
+
+function parseLocalizedPresentationText(value: unknown, label: string): Record<string, string> {
+  if (!isRecord(value)) throw new Error(`${label} must be an object`);
+  const result: Record<string, string> = {};
+  for (const [key, text] of Object.entries(value)) {
+    if (key.length === 0) throw new Error(`${label} keys must not be empty`);
+    if (typeof text !== "string") throw new Error(`${label}.${key} must be a string`);
+    result[key] = text;
+  }
+  return result;
+}
+
+function parsePresentation(value: unknown): PackagedBundlePresentationSnapshot | undefined {
+  if (value == null) return undefined;
+  if (!isRecord(value)) throw new Error("packaged bundle presentation must be an object");
+  assertKnownKeys(value, ["channel", "display", "version"], "packaged bundle presentation");
+  if (!isRecord(value.display)) throw new Error("packaged bundle presentation display must be an object");
+  assertKnownKeys(value.display, ["summary", "title", "version"], "packaged bundle presentation display");
+  const channel = stringField(value, "channel");
+  const version = stringField(value, "version");
+  const displayVersion = stringField(value.display, "version");
+  if (channel == null || version == null || displayVersion == null) {
+    throw new Error("packaged bundle presentation must contain channel, version, and display.version");
+  }
+  return {
+    channel,
+    display: {
+      summary: parseLocalizedPresentationText(value.display.summary, "packaged bundle presentation display.summary"),
+      title: parseLocalizedPresentationText(value.display.title, "packaged bundle presentation display.title"),
+      version: displayVersion,
+    },
+    version,
+  };
+}
+
 function parseSimpleActivationFile(value: Record<string, unknown>): ParsedActivation {
-  if (value.key !== PACKAGED_WEB_SIDECAR_BUNDLE_KEY) {
+  assertKnownKeys(value, ["bundle", "presentation", "schemaVersion"], "packaged bundle activation");
+  if (value.schemaVersion !== 1) {
+    throw new Error("packaged bundle activation must contain schemaVersion=1");
+  }
+  if (!isRecord(value.bundle)) {
+    throw new Error("packaged bundle activation bundle must be an object");
+  }
+  assertKnownKeys(value.bundle, ["key", "source", "version"], "packaged bundle activation bundle");
+  if (value.bundle.key !== PACKAGED_WEB_SIDECAR_BUNDLE_KEY) {
     throw new Error(`packaged bundle activation key must be ${PACKAGED_WEB_SIDECAR_BUNDLE_KEY}`);
   }
 
-  if (value.source === "builtin") return { type: "builtin" };
+  const presentation = parsePresentation(value.presentation);
+  if (value.bundle.source === "builtin") {
+    if (value.bundle.version != null) throw new Error("packaged bundle activation source=builtin must not contain version");
+    return {
+      ...(presentation == null ? {} : { presentation }),
+      type: "builtin",
+    };
+  }
 
-  const version = stringField(value, "version");
+  const version = stringField(value.bundle, "version");
   if (version == null) {
     throw new Error("packaged bundle activation must contain key/version or key/source=builtin");
   }
   return {
+    ...(presentation == null ? {} : { presentation }),
     ref: validateBundleRef({ key: PACKAGED_WEB_SIDECAR_BUNDLE_KEY, version }),
     type: "bundle",
   };
 }
 
-function parseLegacyActivationFile(value: Record<string, unknown>): ParsedActivation {
-  if (value.version !== 1 || !isRecord(value.bindings)) {
-    throw new Error("packaged bundle activation must contain key/version");
-  }
-
-  const binding = value.bindings[PACKAGED_WEB_SIDECAR_BUNDLE_KEY];
-  if (!isRecord(binding) || !isRecord(binding.source)) {
-    throw new Error(`packaged bundle activation binding ${PACKAGED_WEB_SIDECAR_BUNDLE_KEY} must contain an object source`);
-  }
-  const type = stringField(binding.source, "type");
-  if (type === "builtin") return { type };
-  if (type !== "bundle") {
-    throw new Error(`unsupported packaged bundle activation source for ${PACKAGED_WEB_SIDECAR_BUNDLE_KEY}: ${String(type)}`);
-  }
-
-  const ref = binding.source.ref;
-  if (!isRecord(ref)) {
-    throw new Error(`packaged bundle activation binding ${PACKAGED_WEB_SIDECAR_BUNDLE_KEY} must contain ref`);
-  }
-  const parsedRef = validateBundleRef(ref as BundleRef);
-  if (parsedRef.key !== PACKAGED_WEB_SIDECAR_BUNDLE_KEY) {
-    throw new Error(`packaged bundle activation ref key must be ${PACKAGED_WEB_SIDECAR_BUNDLE_KEY}`);
-  }
-  return { ref: parsedRef, type };
-}
-
 function parseActivationFile(value: unknown): ParsedActivation {
   if (!isRecord(value)) throw new Error("packaged bundle activation must be a JSON object");
-  return "bindings" in value ? parseLegacyActivationFile(value) : parseSimpleActivationFile(value);
+  return parseSimpleActivationFile(value);
 }
 
 async function readActivation(path: string): Promise<ParsedActivation | null> {
@@ -241,11 +285,18 @@ export function sidecarImplementationEnv(
 }
 
 export function createPackagedBundleActivationFile(input: {
-  web: "builtin" | { version: string };
+  web: "builtin" | { presentation?: PackagedBundlePresentationSnapshot; version: string };
 }): PackagedBundleActivationFile {
   return input.web === "builtin"
-    ? { key: PACKAGED_WEB_SIDECAR_BUNDLE_KEY, source: "builtin" }
-    : { key: PACKAGED_WEB_SIDECAR_BUNDLE_KEY, version: input.web.version };
+    ? {
+      bundle: { key: PACKAGED_WEB_SIDECAR_BUNDLE_KEY, source: "builtin" },
+      schemaVersion: 1,
+    }
+    : {
+      bundle: { key: PACKAGED_WEB_SIDECAR_BUNDLE_KEY, version: input.web.version },
+      ...(input.web.presentation == null ? {} : { presentation: input.web.presentation }),
+      schemaVersion: 1,
+    };
 }
 
 export async function readPackagedBundleActivationFile(
@@ -254,8 +305,16 @@ export async function readPackagedBundleActivationFile(
   const activation = await readActivation(paths.bundleActivationPath);
   if (activation == null) return null;
   return activation.type === "builtin"
-    ? { key: PACKAGED_WEB_SIDECAR_BUNDLE_KEY, source: "builtin" }
-    : { key: PACKAGED_WEB_SIDECAR_BUNDLE_KEY, version: activation.ref.version };
+    ? {
+      bundle: { key: PACKAGED_WEB_SIDECAR_BUNDLE_KEY, source: "builtin" },
+      ...(activation.presentation == null ? {} : { presentation: activation.presentation }),
+      schemaVersion: 1,
+    }
+    : {
+      bundle: { key: PACKAGED_WEB_SIDECAR_BUNDLE_KEY, version: activation.ref.version },
+      ...(activation.presentation == null ? {} : { presentation: activation.presentation }),
+      schemaVersion: 1,
+    };
 }
 
 export async function writePackagedBundleActivationFile(options: {
