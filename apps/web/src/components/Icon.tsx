@@ -34,7 +34,6 @@ export type IconName =
   | 'info'
   | 'kanban'
   | 'languages'
-  | 'lasso-select'
   | 'link'
   | 'mic'
   | 'minus'
@@ -52,7 +51,6 @@ export type IconName =
   | 'send'
   | 'settings'
   | 'share'
-  | 'screenshot-sketch'
   | 'sliders'
   | 'spinner'
   | 'sparkles'
@@ -346,15 +344,6 @@ export function Icon({ name, size = 14, strokeWidth = 1.6, ...rest }: Props) {
           <path d="M14 18h6" />
         </svg>
       );
-    case 'lasso-select':
-      return (
-        <svg {...common}>
-          <path d="M5.5 7.7C7.1 4.6 11.4 3.3 15 4.4c3.9 1.2 6 4.5 4.7 7.4-1.2 2.7-4.9 4.1-8.5 3.4-4.4-.8-7.6-3.8-7.1-6.7.1-.3.2-.6.3-.9" strokeDasharray="2.1 2.1" />
-          <path d="M7 16.2c-1.1.5-1.7 1.2-1.7 2 0 1.6 2.8 2.8 6.2 2.8 2.2 0 4.1-.5 5.2-1.3" />
-          <path d="m13.5 13.5 6.5 6.5" />
-          <path d="m20 15-5 5" />
-        </svg>
-      );
     case 'link':
       return (
         <svg {...common}>
@@ -461,15 +450,6 @@ export function Icon({ name, size = 14, strokeWidth = 1.6, ...rest }: Props) {
         <svg {...common}>
           <circle cx="11" cy="11" r="7" />
           <path d="m21 21-4.3-4.3" />
-        </svg>
-      );
-    case 'screenshot-sketch':
-      return (
-        <svg {...common}>
-          <rect x="3" y="4" width="18" height="16" rx="2" />
-          <circle cx="8" cy="9" r="1.2" />
-          <path d="m4.5 17 4.8-4.8 3.2 3.2 2.5-2.5 4.5 4.5" />
-          <path d="M7 14c2.1-2.2 4.4 2.8 6.5.4 1.4-1.7 2.7-2.4 4.5-.8" stroke="var(--red, #dc2626)" strokeWidth={2} />
         </svg>
       );
     case 'send':

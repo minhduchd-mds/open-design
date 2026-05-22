@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { CircleDashed, LassoSelect, PenLine } from 'lucide-react';
 import { APP_CHROME_FILE_ACTIONS_ID } from './AppChromeHeader';
 import {
   anonymizeArtifactId,
@@ -5749,7 +5750,7 @@ function HtmlViewer({
                       aria-pressed={boardMode && boardTool === 'pod'}
                       onClick={() => activateBoardPicker('pod')}
                     >
-                      <Icon name="lasso-select" size={14} />
+                      <LassoSelect size={14} strokeWidth={1.7} aria-hidden focusable="false" />
                       <span>Region</span>
                     </button>
                     <button
@@ -5761,7 +5762,10 @@ function HtmlViewer({
                       aria-pressed={drawOverlayOpen}
                       onClick={activateDrawTool}
                     >
-                      <Icon name="screenshot-sketch" size={14} />
+                      <span className="artifact-tool-combo-icon" aria-hidden>
+                        <CircleDashed className="artifact-tool-combo-ring" size={14} strokeWidth={1.7} />
+                        <PenLine className="artifact-tool-combo-pen" size={10} strokeWidth={2} />
+                      </span>
                       <span>Sketch on screenshot</span>
                     </button>
                   </div>
