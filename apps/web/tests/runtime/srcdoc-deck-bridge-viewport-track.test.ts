@@ -18,7 +18,13 @@ function setupViewportTrackDeck() {
       <section class="slide active" style="width: 100vw; height: 100vh; flex: 0 0 100vw;">One</section>
       <section class="slide" style="width: 100vw; height: 100vh; flex: 0 0 100vw;">Two</section>
       <section class="slide" style="width: 100vw; height: 100vh; flex: 0 0 100vw;">Three</section>
-    </div>`;
+    </div>
+    <nav>
+      <button class="dot active" type="button">1</button>
+      <button class="dot" type="button">2</button>
+      <button class="dot" type="button">3</button>
+    </nav>
+    <div class="deck-progress"><span class="bar" style="width: 33.3333%;"></span></div>`;
   const srcdoc = buildSrcdoc(`<!doctype html><html><body>${bodyHtml}</body></html>`, {
     deck: true,
   });
@@ -44,6 +50,28 @@ function setupViewportTrackDeck() {
   const evaluate = new win.Function(script);
   evaluate.call(win);
 
+  let activeIndex = 0;
+  function applySlide(index: number) {
+    activeIndex = Math.max(0, Math.min(2, index));
+    const deck = win.document.getElementById('deck') as HTMLElement;
+    const slides = Array.from(win.document.querySelectorAll<HTMLElement>('.slide'));
+    const dots = Array.from(win.document.querySelectorAll<HTMLElement>('.dot'));
+    const progress = win.document.querySelector<HTMLElement>('.deck-progress .bar');
+
+    deck.style.transform = `translateX(${-activeIndex * 100}vw)`;
+    slides.forEach((slide, slideIndex) => {
+      slide.classList.toggle('active', slideIndex === activeIndex);
+    });
+    dots.forEach((dot, dotIndex) => {
+      dot.classList.toggle('active', dotIndex === activeIndex);
+    });
+    if (progress) progress.style.width = `${((activeIndex + 1) / slides.length) * 100}%`;
+  }
+  win.document.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowRight') applySlide(activeIndex + 1);
+    if (event.key === 'ArrowLeft') applySlide(activeIndex - 1);
+  });
+
   return { win, scrollTo };
 }
 
@@ -52,6 +80,8 @@ describe('deck bridge — fixed viewport transform tracks (#1531)', () => {
     const { win, scrollTo } = setupViewportTrackDeck();
     const deck = win.document.getElementById('deck') as HTMLElement;
     const slides = Array.from(win.document.querySelectorAll<HTMLElement>('.slide'));
+    const dots = Array.from(win.document.querySelectorAll<HTMLElement>('.dot'));
+    const progress = win.document.querySelector<HTMLElement>('.deck-progress .bar');
 
     win.dispatchEvent(new win.MessageEvent('message', {
       data: { type: 'od:slide', action: 'next' },
@@ -60,5 +90,7 @@ describe('deck bridge — fixed viewport transform tracks (#1531)', () => {
     expect(scrollTo).not.toHaveBeenCalled();
     expect(deck.style.transform).toBe('translateX(-100vw)');
     expect(slides.map((slide) => slide.classList.contains('active'))).toEqual([false, true, false]);
+    expect(dots.map((dot) => dot.classList.contains('active'))).toEqual([false, true, false]);
+    expect(progress?.style.width).toBe('66.66666666666666%');
   });
 });

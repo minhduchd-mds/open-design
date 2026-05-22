@@ -1478,11 +1478,26 @@ function injectDeckBridge(doc: string, initialSlideIndex = 0): string {
   }
   function canSetActive(list){
     if (findActiveByClass(list) >= 0) return true;
-    if (viewportTransformTrack(list)) return true;
     for (var i=0; i<list.length; i++) {
       if (list[i].style.display === 'none') return true;
       if (list[i].style.visibility === 'hidden') return true;
       if (list[i].hasAttribute('hidden')) return true;
+    }
+    return false;
+  }
+  function tryAuthoredNavigation(target, list){
+    var track = viewportTransformTrack(list);
+    if (!track) return false;
+    var before = activeIndex(list);
+    var clamped = Math.max(0, Math.min(list.length - 1, target));
+    var diff = clamped - before;
+    if (!diff) { report(); return true; }
+    var key = diff > 0 ? 'ArrowRight' : 'ArrowLeft';
+    var n = Math.abs(diff);
+    for (var k = 0; k < n; k++) dispatchKey(key);
+    if (activeIndex(list) === clamped) {
+      setTimeout(report, 280);
+      return true;
     }
     return false;
   }
@@ -1552,6 +1567,8 @@ function injectDeckBridge(doc: string, initialSlideIndex = 0): string {
       scrollGo(target);
       return;
     }
+    if (tryAuthoredNavigation(target, list)) return;
+    if (viewportTransformTrack(list) && setActive(target)) return;
     if (canSetActive(list) && setActive(target)) return;
     if (action === 'next') dispatchKey('ArrowRight');
     else if (action === 'prev') dispatchKey('ArrowLeft');
@@ -1564,6 +1581,8 @@ function injectDeckBridge(doc: string, initialSlideIndex = 0): string {
     if (!list.length) return;
     var target = Math.max(0, Math.min(list.length - 1, i));
     if (isScrollDeck()) { scrollGo(target); return; }
+    if (tryAuthoredNavigation(target, list)) return;
+    if (viewportTransformTrack(list) && setActive(target)) return;
     if (canSetActive(list) && setActive(target)) return;
     var current = activeIndex(list);
     var diff = target - current;
