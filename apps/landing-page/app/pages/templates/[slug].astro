@@ -99,13 +99,16 @@ const jsonLd = {
         </dl>
       )}
       <div class="detail-actions">
-        {/* Two CTAs matching skills/[slug]: "Use this template" routes
-            to quickstart with a slug seed; "Find on GitHub" deep-links
-            to the source folder. See skills/[slug].astro for the
-            broader rationale. */}
+        {/* Two CTAs matching skills/[slug]: "Use this template" sends
+            users to the OD desktop release page (install first, then
+            use the template); "Find on GitHub" deep-links to the
+            source folder. See skills/[slug].astro for the broader
+            rationale on the release-page pivot. */}
         <a
           class="btn btn-primary"
-          href={`${href('/quickstart/')}?template=${template.slug}`}
+          href="https://github.com/nexu-io/open-design/releases"
+          target="_blank"
+          rel="noopener"
         >
           Use this template →
         </a>
@@ -117,21 +120,20 @@ const jsonLd = {
 
     {template.previewUrl && (
       <figure class="detail-preview">
-        <LazyImg
-          src={template.previewUrl}
-          alt={`${template.name} preview`}
-          loading="priority"
-        />
-        <figcaption>{ui.catalog.templates.previewCaption}</figcaption>
-        {/* Live interactive preview — the thumb above is a static
-            render; this expandable iframe loads the canonical
-            artifact on demand. Skill-template origin → example.html
-            under /skills/<slug>/; live-artifact origin → template.html
-            under /templates/<slug>/. */}
+        {/* Click-to-expand: thumb is the summary; clicking opens the
+            live iframe rendering the canonical artifact. Skill-template
+            origin → /skills/<slug>/example.html; live-artifact origin
+            → /templates/<slug>/template.html. */}
         <details class="detail-preview-live">
-          <summary>
-            <span class="detail-preview-toggle-label">View interactive preview</span>
-            <span class="detail-preview-toggle-meta">click to expand · or open in new tab</span>
+          <summary class="detail-preview-thumb-trigger" aria-label={`Open interactive preview for ${template.name}`}>
+            <LazyImg
+              src={template.previewUrl}
+              alt={`${template.name} preview`}
+              loading="priority"
+            />
+            <span class="detail-preview-thumb-overlay" aria-hidden="true">
+              <span class="detail-preview-thumb-cta">Click for live preview ↗</span>
+            </span>
           </summary>
           <div class="detail-preview-frame-wrap">
             <iframe
@@ -160,6 +162,7 @@ const jsonLd = {
             </a>
           </div>
         </details>
+        <figcaption>{ui.catalog.templates.previewCaption}</figcaption>
       </figure>
     )}
 

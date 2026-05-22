@@ -87,17 +87,20 @@ const jsonLd = [
       <p class="lead">{description}</p>
       <div class="detail-actions">
         {/*
-          Two primary CTAs. "Use this skill" v1 routes to /quickstart/
-          with the slug as a query string — the OD client has no public
-          protocol handler yet, so a `od://skill/<slug>` deep link
-          would 404. Quickstart shows install + run instructions seeded
-          with this slug. Once the desktop client exposes a registered
-          scheme, this anchor can flip to a JS-driven `od://...` try +
-          fallback without changing the page surface.
+          Two primary CTAs. "Use this skill" v1 sends users to the OD
+          desktop release page — install the app first, then run the
+          skill. Routing here rather than to /quickstart/ keeps the
+          flow concrete (download a binary now) instead of asking
+          users to read an install doc. Once the desktop client
+          exposes a registered URL scheme, this anchor flips to a
+          JS-driven `od://skill/<slug>` try + fallback without
+          changing the page surface.
         */}
         <a
           class="btn btn-primary"
-          href={`${href('/quickstart/')}?skill=${skill.slug}`}
+          href="https://github.com/nexu-io/open-design/releases"
+          target="_blank"
+          rel="noopener"
         >
           Use this skill →
         </a>
@@ -119,26 +122,25 @@ const jsonLd = [
 
     {skill.previewUrl && (
       <figure class="detail-preview">
-        <LazyImg
-          src={skill.previewUrl}
-          alt={`${skill.name} example output`}
-          loading="priority"
-        />
-        <figcaption>
-          {ui.catalog.skills.previewCaption(skill.slug)}
-        </figcaption>
         {/*
-          Live interactive preview. The thumb above is a static render;
-          this expandable iframe loads `<slug>/example.html` on demand
-          so the page stays fast (the iframe HTTP fetches only fire on
-          click). `sandbox` lets the embedded page run scripts that the
-          example HTML needs (WebGL, intersection-observer, etc.) but
-          confines them inside the frame.
+          Click-to-expand interactive preview. The thumb itself is the
+          summary of a `<details>` element — clicking the image opens
+          the live iframe, replacing the thumb with the canonical
+          `<slug>/example.html` rendered inside a sandboxed frame. A
+          hover overlay on the thumb hints "Click for live preview ↗"
+          so the affordance is discoverable. The iframe loads lazily,
+          only fetching once the user actually expands.
         */}
         <details class="detail-preview-live">
-          <summary>
-            <span class="detail-preview-toggle-label">View interactive preview</span>
-            <span class="detail-preview-toggle-meta">click to expand · or open in new tab</span>
+          <summary class="detail-preview-thumb-trigger" aria-label={`Open interactive preview for ${skill.name}`}>
+            <LazyImg
+              src={skill.previewUrl}
+              alt={`${skill.name} example output`}
+              loading="priority"
+            />
+            <span class="detail-preview-thumb-overlay" aria-hidden="true">
+              <span class="detail-preview-thumb-cta">Click for live preview ↗</span>
+            </span>
           </summary>
           <div class="detail-preview-frame-wrap">
             <iframe
@@ -159,6 +161,9 @@ const jsonLd = [
             </a>
           </div>
         </details>
+        <figcaption>
+          {ui.catalog.skills.previewCaption(skill.slug)}
+        </figcaption>
       </figure>
     )}
 

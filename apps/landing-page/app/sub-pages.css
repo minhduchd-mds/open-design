@@ -1304,47 +1304,79 @@ body.sub-page {
  * is loaded lazily — click the summary, that's when the network
  * request goes out.
  */
+/*
+ * Click-to-expand interactive preview. The `<summary>` IS the
+ * thumbnail — when collapsed, users see a normal preview image; on
+ * hover the overlay reveals "Click for live preview ↗"; on click the
+ * details element opens, swapping the summary out for an iframe of
+ * the canonical example.html. The iframe's `loading="lazy"` plus the
+ * fact that `<details>` only renders content on open means the
+ * network request fires only when the user actually wants the live
+ * view.
+ */
 .detail-preview-live {
-  margin-top: 14px;
-  border-top: 1px solid var(--line-soft);
-  padding-top: 14px;
+  display: block;
 }
 .detail-preview-live > summary {
   cursor: pointer;
   list-style: none;
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  padding: 4px 0;
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink);
-  transition: color 0.16s ease;
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 .detail-preview-live > summary::-webkit-details-marker { display: none; }
-.detail-preview-live > summary::before {
-  content: '▸';
-  display: inline-block;
-  color: var(--coral);
-  transition: transform 0.18s ease;
-  font-family: serif;
-  font-size: 14px;
-  line-height: 1;
+.detail-preview-thumb-trigger {
+  position: relative;
+  overflow: hidden;
 }
-.detail-preview-live[open] > summary::before { transform: rotate(90deg); }
-.detail-preview-live:hover > summary { color: var(--coral); }
-.detail-preview-toggle-label { font-weight: 600; }
-.detail-preview-toggle-meta {
-  color: var(--ink-faint);
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: none;
+.detail-preview-thumb-trigger img {
+  display: block;
+  width: 100%;
+  height: auto;
+  transition: transform 0.4s ease;
 }
+.detail-preview-thumb-trigger:hover img,
+.detail-preview-thumb-trigger:focus-visible img {
+  transform: scale(1.015);
+}
+.detail-preview-thumb-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(21, 20, 15, 0);
+  transition: background 0.18s ease;
+  pointer-events: none;
+}
+.detail-preview-thumb-trigger:hover .detail-preview-thumb-overlay,
+.detail-preview-thumb-trigger:focus-visible .detail-preview-thumb-overlay {
+  background: rgba(21, 20, 15, 0.42);
+}
+.detail-preview-thumb-cta {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--paper);
+  background: var(--coral);
+  padding: 10px 18px;
+  border-radius: 999px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.detail-preview-thumb-trigger:hover .detail-preview-thumb-cta,
+.detail-preview-thumb-trigger:focus-visible .detail-preview-thumb-cta {
+  opacity: 1;
+  transform: translateY(0);
+}
+/* Once expanded, hide the summary so the iframe takes its place. */
+.detail-preview-live[open] > summary { display: none; }
 .detail-preview-frame-wrap {
   position: relative;
-  margin-top: 14px;
   border: 1px solid var(--line);
   background: var(--paper-warm);
   aspect-ratio: 16 / 10;
