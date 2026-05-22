@@ -46,8 +46,16 @@ import {
   type ResearchOptions,
 } from '@open-design/contracts';
 import { projectKindToTracking } from '@open-design/contracts/analytics';
+import type {
+  TrackingDesignSystemApplyTargetKind,
+  TrackingDesignSystemOrigin,
+  TrackingDesignSystemStatusValue,
+} from '@open-design/contracts/analytics';
 import { useAnalytics } from '../analytics/provider';
-import { trackPageView } from '../analytics/events';
+import {
+  trackDesignSystemApplyResult,
+  trackPageView,
+} from '../analytics/events';
 import {
   clearOnboardingSessionId,
   peekOnboardingSessionId,
@@ -3294,6 +3302,63 @@ export function ProjectView({
   const handleChangeDesignSystemId = useCallback(
     (nextId: string | null) => {
       if ((project.designSystemId ?? null) === nextId) return;
+      // `design_system_apply_result` studio variant. The existing
+      // NewProjectPanel picker fires the same event under
+      // `page_name=home`; this in-project header picker fires under
+      // `page_name=studio` so the funnel sees applies from both
+      // surfaces. `target_project_kind` derives from
+      // `project.metadata.kind`.
+      const target =
+        (projectKindToTracking(project.metadata?.kind ?? null) ?? 'unknown') as TrackingDesignSystemApplyTargetKind;
+      const picked = nextId
+        ? designSystems.find((d) => d.id === nextId)
+        : null;
+      const origin: TrackingDesignSystemOrigin | undefined = picked
+        ? picked.source === 'user'
+          ? 'manual_create'
+          : picked.source === 'built-in'
+            ? 'official_preset'
+            : picked.source === 'installed'
+              ? 'template'
+              : 'unknown'
+        : undefined;
+      const status: TrackingDesignSystemStatusValue | undefined = picked
+        ? picked.status === 'draft' || picked.status === 'published'
+          ? picked.status
+          : 'unknown'
+        : undefined;
+      if (nextId === null) {
+        trackDesignSystemApplyResult(analytics.track, {
+          page_name: 'studio',
+          area: 'design_system_picker',
+          action: 'clear_selection',
+          result: 'success',
+          target_project_kind: target,
+          design_system_applied: false,
+          design_system_selection_mode: 'none',
+          is_default: false,
+          is_auto_selected: false,
+          available_design_system_count: designSystems.length,
+          duration_ms: 0,
+        });
+      } else {
+        trackDesignSystemApplyResult(analytics.track, {
+          page_name: 'studio',
+          area: 'design_system_picker',
+          action: 'select_design_system',
+          result: 'success',
+          target_project_kind: target,
+          design_system_id: nextId,
+          design_system_source: origin,
+          design_system_status: status,
+          design_system_applied: true,
+          design_system_selection_mode: 'manual',
+          is_default: false,
+          is_auto_selected: false,
+          available_design_system_count: designSystems.length,
+          duration_ms: 0,
+        });
+      }
       const updated: Project = {
         ...project,
         designSystemId: nextId,
@@ -3302,7 +3367,7 @@ export function ProjectView({
       onProjectChange(updated);
       void patchProject(project.id, { designSystemId: nextId });
     },
-    [project, onProjectChange],
+    [project, onProjectChange, designSystems, analytics.track],
   );
 
   const handleSaveInstructions = useCallback(async () => {

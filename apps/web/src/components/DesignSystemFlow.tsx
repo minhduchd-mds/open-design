@@ -500,7 +500,8 @@ export function DesignSystemCreationFlow({
     function emitCreateResult(
       result: 'success' | 'failed' | 'cancelled',
       designSystemId: string | undefined,
-      errorCode?: string,
+      errorCode: string | undefined,
+      projectId: string | undefined,
     ) {
       trackDesignSystemCreateResult(analytics.track, {
         page_name: 'design_systems',
@@ -508,6 +509,7 @@ export function DesignSystemCreationFlow({
         entry_from: createEntryFrom,
         result,
         design_system_id: designSystemId,
+        project_id: projectId,
         design_system_source: designSystemOrigin,
         source_count: snapshot.sourceCount,
         created_as_project: result === 'success',
@@ -533,7 +535,7 @@ export function DesignSystemCreationFlow({
       if (!created) {
         setError('Could not generate this design system.');
         setStep('setup');
-        emitCreateResult('failed', undefined, 'DS_DRAFT_CREATE_FAILED');
+        emitCreateResult('failed', undefined, 'DS_DRAFT_CREATE_FAILED', undefined);
         onGenerateSettled?.(snapshot, {
           result: 'failed',
           errorCode: 'DS_DRAFT_CREATE_FAILED',
@@ -544,7 +546,7 @@ export function DesignSystemCreationFlow({
       if (!workspace) {
         setError('Could not open the design system workspace.');
         setStep('setup');
-        emitCreateResult('failed', created.id, 'DS_WORKSPACE_OPEN_FAILED');
+        emitCreateResult('failed', created.id, 'DS_WORKSPACE_OPEN_FAILED', undefined);
         onGenerateSettled?.(snapshot, {
           result: 'failed',
           errorCode: 'DS_WORKSPACE_OPEN_FAILED',
@@ -555,7 +557,7 @@ export function DesignSystemCreationFlow({
       const setupState = state;
       const connector = githubConnector;
       onCreated(project.id, project);
-      emitCreateResult('success', created.id);
+      emitCreateResult('success', created.id, undefined, project.id);
       onGenerateSettled?.(snapshot, { result: 'success' });
       scheduleAfterProjectHandoff(() => {
         void prepareCreatedDesignSystemProject({
@@ -576,7 +578,7 @@ export function DesignSystemCreationFlow({
       const errorCode = err instanceof Error
         ? `DS_GENERATE_THREW:${err.message.slice(0, 80)}`
         : 'DS_GENERATE_THREW';
-      emitCreateResult('failed', undefined, errorCode);
+      emitCreateResult('failed', undefined, errorCode, undefined);
       onGenerateSettled?.(snapshot, { result: 'failed', errorCode });
     } finally {
       setGenerationStarting(false);
@@ -1072,6 +1074,7 @@ export function DesignSystemDetailView({
         view_type: 'page',
         entry_from: entryFrom,
         design_system_id: system.id,
+        project_id: workspaceProjectId ?? undefined,
         // Origin is the DS's provenance-style source. We don't yet
         // have a precise mapping from `system.source` / provenance
         // metadata to the v2 enum, so we report `unknown` rather
@@ -1099,11 +1102,12 @@ export function DesignSystemDetailView({
         view_type: 'page',
         entry_from: entryFrom,
         design_system_id: system.id,
+        project_id: workspaceProjectId ?? undefined,
         design_system_source: 'unknown',
         design_system_status: designSystemStatus,
       });
     }
-  }, [analytics.track, system?.id, generationActive, designSystemStatus, system]);
+  }, [analytics.track, system?.id, generationActive, designSystemStatus, system, workspaceProjectId]);
   const introChatMessages = useMemo(
     () => buildDesignSystemChatMessages({
       system,
@@ -1303,6 +1307,32 @@ export function DesignSystemDetailView({
       setChatError(null);
       setStatusLine(null);
       setChatSeed(null);
+      // `design_system_review_result` with `submit_revision` fires
+      // once per send that originates from a Needs-work section seed.
+      // The earlier Looks good / Needs work click emitted
+      // `result: submitted` with `review_action: looks_good|needs_work`
+      // — this is the second leg (`action=submit_revision`), recording
+      // the moment the user actually dispatched a fix request with
+      // text. Without it the funnel can't separate "user picked Needs
+      // work but never sent" from "user picked Needs work and sent a
+      // revision request".
+      if (feedbackSection && system) {
+        const slug = designSystemModuleSlug(feedbackSection);
+        trackDesignSystemReviewResult(analytics.track, {
+          page_name: 'design_system_project',
+          area: 'design_system_preview',
+          review_action: 'submit_revision',
+          result: 'submitted',
+          design_system_id: system.id,
+          project_id: projectId,
+          module_id: slug,
+          module_type: designSystemModuleType(slug),
+          module_index: 0,
+          feedback_length_bucket: designSystemLengthBucket(rawText),
+          has_custom_feedback: rawText.length > 0,
+          duration_ms: 0,
+        });
+      }
       setFeedbackSection(null);
       const startedAt = Date.now();
       const userMsg: ChatMessage = {
