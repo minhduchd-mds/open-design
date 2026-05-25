@@ -49,12 +49,73 @@ const PACKAGED_CHILD_ENV_ALLOWLIST = [
   "no_proxy",
 ] as const;
 
-function shouldForwardPackagedChildEnv(key: string, includeProviderSecrets = false): boolean {
-  return (
+// Windows-only env keys the packaged daemon must inherit so spawned CLI
+// children (codex.exe, claude.cmd, opencode.cmd, ...) match the user's
+// interactive shell. Stripping these is what made the Codex CLI test in
+// issue #2197 hang for 45 s on a packaged Windows install while running
+// codex manually from PowerShell with the same CODEX_HOME / CODEX_BIN
+// returned "ok" in seconds. Codex's Rust HTTPS stack (reqwest +
+// schannel) opens temp files under TEMP/TMP, expands `~` from
+// USERPROFILE, and relies on the Win32 loader walking SYSTEMROOT for
+// its TLS DLLs; cmd.exe-mediated `.cmd` shim spawns additionally need
+// PATHEXT and COMSPEC to resolve the right command. Forwarding these is
+// safe — they describe the user, not secrets — and they cannot collide
+// with the secret-key allowlist because they are not credential names.
+const WINDOWS_SYSTEM_ENV_KEYS = [
+  "APPDATA",
+  "COMPUTERNAME",
+  "COMSPEC",
+  "ComSpec",
+  "HOMEDRIVE",
+  "HOMEPATH",
+  "LOCALAPPDATA",
+  "OS",
+  "PATHEXT",
+  "PROCESSOR_ARCHITECTURE",
+  "PROCESSOR_ARCHITEW6432",
+  "PROCESSOR_IDENTIFIER",
+  "PROGRAMDATA",
+  "PROGRAMFILES",
+  "PROGRAMFILES(X86)",
+  "PROGRAMW6432",
+  "PUBLIC",
+  "SESSIONNAME",
+  "SYSTEMDRIVE",
+  "SYSTEMROOT",
+  "TEMP",
+  "TMP",
+  "USERDOMAIN",
+  "USERDOMAIN_ROAMINGPROFILE",
+  "USERNAME",
+  "USERPROFILE",
+  "windir",
+] as const;
+
+const WINDOWS_SYSTEM_ENV_KEY_SET = new Set<string>(
+  WINDOWS_SYSTEM_ENV_KEYS.map((key) => key.toUpperCase()),
+);
+
+function isWindowsSystemEnvKey(key: string): boolean {
+  return WINDOWS_SYSTEM_ENV_KEY_SET.has(key.toUpperCase());
+}
+
+function shouldForwardPackagedChildEnv(
+  key: string,
+  includeProviderSecrets = false,
+  platform: NodeJS.Platform = process.platform,
+): boolean {
+  if (
     PACKAGED_CHILD_ENV_ALLOWLIST.includes(
       key as (typeof PACKAGED_CHILD_ENV_ALLOWLIST)[number],
-    ) ||
-    (includeProviderSecrets && (key.endsWith("_API_KEY") || key.endsWith("_TOKEN")))
+    )
+  ) {
+    return true;
+  }
+  if (platform === "win32" && isWindowsSystemEnvKey(key)) {
+    return true;
+  }
+  return (
+    includeProviderSecrets && (key.endsWith("_API_KEY") || key.endsWith("_TOKEN"))
   );
 }
 
@@ -211,10 +272,15 @@ export function resolvePackagedPathEnv(basePath = process.env.PATH ?? ""): strin
 export function resolvePackagedChildBaseEnv(
   env: NodeJS.ProcessEnv = process.env,
   includeProviderSecrets = false,
+  platform: NodeJS.Platform = process.platform,
 ): NodeJS.ProcessEnv {
   const baseEnv: NodeJS.ProcessEnv = {};
   for (const [key, value] of Object.entries(env)) {
-    if (value != null && value.length > 0 && shouldForwardPackagedChildEnv(key, includeProviderSecrets)) {
+    if (
+      value != null &&
+      value.length > 0 &&
+      shouldForwardPackagedChildEnv(key, includeProviderSecrets, platform)
+    ) {
       baseEnv[key] = value;
     }
   }

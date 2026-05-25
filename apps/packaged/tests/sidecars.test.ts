@@ -122,6 +122,86 @@ describe('packaged child Vite+ environment forwarding', () => {
       rmSync(vpHome, { recursive: true, force: true });
     }
   });
+
+  // Issue #2197: a packaged Windows install had Codex CLI test always
+  // time out at 45 s even though running codex manually with the same
+  // CODEX_HOME / CODEX_BIN succeeded in seconds. Root cause was that
+  // the packaged daemon's child-env allowlist stripped USERPROFILE,
+  // APPDATA, LOCALAPPDATA, TEMP, SYSTEMROOT, PATHEXT, COMSPEC and the
+  // rest of the Windows session env, so the spawned codex.exe couldn't
+  // resolve its TLS temp paths / system DLL search and stalled on
+  // network init. These keys must flow through on win32 (without
+  // re-introducing them on POSIX where they would be cruft) so the
+  // packaged daemon mirrors what an interactive PowerShell child sees.
+  it('forwards core Windows session env vars to packaged sidecars on win32', () => {
+    const env = resolvePackagedChildBaseEnv(
+      {
+        APPDATA: 'C:\\Users\\tester\\AppData\\Roaming',
+        COMSPEC: 'C:\\Windows\\system32\\cmd.exe',
+        ComSpec: 'C:\\Windows\\system32\\cmd.exe',
+        HOMEDRIVE: 'C:',
+        HOMEPATH: '\\Users\\tester',
+        LOCALAPPDATA: 'C:\\Users\\tester\\AppData\\Local',
+        PATHEXT: '.COM;.EXE;.BAT;.CMD',
+        PROCESSOR_ARCHITECTURE: 'AMD64',
+        PROGRAMDATA: 'C:\\ProgramData',
+        PROGRAMFILES: 'C:\\Program Files',
+        'PROGRAMFILES(X86)': 'C:\\Program Files (x86)',
+        PROGRAMW6432: 'C:\\Program Files',
+        SYSTEMDRIVE: 'C:',
+        SYSTEMROOT: 'C:\\Windows',
+        TEMP: 'C:\\Users\\tester\\AppData\\Local\\Temp',
+        TMP: 'C:\\Users\\tester\\AppData\\Local\\Temp',
+        USERDOMAIN: 'TESTER-PC',
+        USERNAME: 'tester',
+        USERPROFILE: 'C:\\Users\\tester',
+        windir: 'C:\\Windows',
+        OD_INTERNAL_FLAG: 'drop-me',
+      },
+      false,
+      'win32',
+    );
+
+    expect(env).toMatchObject({
+      APPDATA: 'C:\\Users\\tester\\AppData\\Roaming',
+      COMSPEC: 'C:\\Windows\\system32\\cmd.exe',
+      ComSpec: 'C:\\Windows\\system32\\cmd.exe',
+      HOMEDRIVE: 'C:',
+      HOMEPATH: '\\Users\\tester',
+      LOCALAPPDATA: 'C:\\Users\\tester\\AppData\\Local',
+      PATHEXT: '.COM;.EXE;.BAT;.CMD',
+      PROCESSOR_ARCHITECTURE: 'AMD64',
+      PROGRAMDATA: 'C:\\ProgramData',
+      PROGRAMFILES: 'C:\\Program Files',
+      'PROGRAMFILES(X86)': 'C:\\Program Files (x86)',
+      PROGRAMW6432: 'C:\\Program Files',
+      SYSTEMDRIVE: 'C:',
+      SYSTEMROOT: 'C:\\Windows',
+      TEMP: 'C:\\Users\\tester\\AppData\\Local\\Temp',
+      TMP: 'C:\\Users\\tester\\AppData\\Local\\Temp',
+      USERDOMAIN: 'TESTER-PC',
+      USERNAME: 'tester',
+      USERPROFILE: 'C:\\Users\\tester',
+      windir: 'C:\\Windows',
+    });
+    expect(env.OD_INTERNAL_FLAG).toBeUndefined();
+  });
+
+  it('does not forward Windows-only env vars on POSIX hosts', () => {
+    const env = resolvePackagedChildBaseEnv(
+      {
+        HOME: '/Users/tester',
+        // POSIX has no business inheriting these in the packaged child.
+        APPDATA: '/Users/tester/AppData/Roaming',
+        SYSTEMROOT: '/Users/tester/Windows',
+        USERPROFILE: '/Users/tester',
+      },
+      false,
+      'darwin',
+    );
+
+    expect(env).toEqual({ HOME: '/Users/tester' });
+  });
 });
 
 /**

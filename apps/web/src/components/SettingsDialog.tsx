@@ -1458,8 +1458,15 @@ export function SettingsDialog({
         return t('settings.testRateLimited');
       case 'upstream_unavailable':
         return t('settings.testUpstream', { status: result.status ?? 0 });
-      case 'timeout':
-        return t('settings.testTimeout', { ms });
+      case 'timeout': {
+        // Issue #2197: when a packaged Windows Codex CLI test stalls,
+        // the daemon now carries the child's stderr/stdout tail in
+        // `detail`. Append it so the Settings status line surfaces
+        // the real failure (e.g. ECONNREFUSED through the corporate
+        // proxy) instead of a bare "Test timed out after 45036 ms."
+        const baseMessage = t('settings.testTimeout', { ms });
+        return result.detail ? `${baseMessage} ${result.detail}` : baseMessage;
+      }
       case 'agent_not_installed':
         return t('settings.testAgentMissing', { agentName });
       case 'agent_auth_required':

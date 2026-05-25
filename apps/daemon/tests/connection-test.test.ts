@@ -2399,6 +2399,40 @@ console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_messag
     );
   });
 
+  // Issue #2197: when a packaged Codex CLI on Windows hangs talking to
+  // the OpenAI API (typical cause: a corporate proxy or DLL/loader issue
+  // in the sanitized packaged-child env), the daemon only ever logged
+  // "[test:agent] Codex CLI → timeout in 45.0s" with no clue what went
+  // wrong. The cancellation result now also carries whatever the child
+  // printed to stderr / stdout before the timeout fired, so Settings can
+  // surface a real diagnostic instead of a bare timeout latency.
+  it('surfaces child stderr in the timeout detail so failures are not silent', async () => {
+    await withFakeCodex(
+      `
+process.stderr.write('Error: connect ECONNREFUSED 127.0.0.1:7890');
+setInterval(() => {}, 1000);
+`,
+      async () => {
+        const controller = new AbortController();
+        const pending = testAgentConnection({
+          agentId: 'codex',
+          signal: controller.signal,
+        });
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        controller.abort();
+        const result = await pending;
+        expect(result).toMatchObject({
+          ok: false,
+          kind: 'timeout',
+          agentName: 'Codex CLI',
+        });
+        expect(typeof result.detail).toBe('string');
+        expect(result.detail).toContain('stderr');
+        expect(result.detail).toContain('ECONNREFUSED');
+      },
+    );
+  }, 10_000);
+
   it('hard-cancels aborted agent probes before cleaning up', async () => {
     const markerDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'od-conn-test-marker-'));
     const pidFile = path.join(markerDir, 'pid');

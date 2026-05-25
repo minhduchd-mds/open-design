@@ -2096,8 +2096,13 @@ function renderOnboardingProviderTestMessage(
       return t('settings.testRateLimited');
     case 'upstream_unavailable':
       return t('settings.testUpstream', { status: result.status ?? 0 });
-    case 'timeout':
-      return t('settings.testTimeout', { ms });
+    case 'timeout': {
+      // Issue #2197: surface the redacted child stderr/stdout tail the
+      // daemon now attaches to timeout responses, instead of dropping
+      // it on the floor.
+      const baseMessage = t('settings.testTimeout', { ms });
+      return result.detail ? `${baseMessage} ${result.detail}` : baseMessage;
+    }
     default:
       return t('settings.testUnknown', { detail: result.detail ?? '' });
   }

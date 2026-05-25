@@ -1291,13 +1291,39 @@ async function testAgentConnectionInternal(
     kind: 'timeout' | 'aborted',
   ): ConnectionTestResponse => {
     const latencyMs = Date.now() - start;
-    console.warn(`[test:agent] ${def.name} → ${kind} in ${(latencyMs / 1000).toFixed(1)}s`);
+    // Build a redacted tail of whatever the child managed to print before
+    // the cancellation fired. Without this, a Windows packaged Codex run
+    // that stalls on TLS/proxy initialization shows up in the UI as a
+    // bare "timeout in 45.0s" with nothing to diagnose against (#2197).
+    // The sink keeps the last 400 chars of each stream and the running
+    // assistant-text buffer, which is what we have to work with — we
+    // truncate further when joining so the SettingsDialog status line
+    // doesn't grow unbounded for long stderr dumps.
+    const stderrTail = sink.getStderrTail().trim();
+    const rawStdoutTail = sink.getRawStdoutTail().trim();
+    const bufferedText = sink.getText().trim();
+    const detailParts = [
+      kind === 'timeout'
+        ? `Timed out after ${(latencyMs / 1000).toFixed(1)}s waiting for ${def.name}.`
+        : `Cancelled after ${(latencyMs / 1000).toFixed(1)}s waiting for ${def.name}.`,
+      stderrTail ? `stderr: ${stderrTail.slice(-200)}` : null,
+      rawStdoutTail || bufferedText
+        ? `stdout: ${(rawStdoutTail || bufferedText).slice(-200)}`
+        : null,
+    ].filter(Boolean);
+    const detail = redactSecrets(detailParts.join(' · '));
+    console.warn(
+      `[test:agent] ${def.name} → ${kind} in ${(latencyMs / 1000).toFixed(1)}s${
+        detail ? ` (${detail})` : ''
+      }`,
+    );
     return {
       ok: false,
       kind: 'timeout',
       latencyMs,
       model,
       agentName: def.name,
+      ...(detail ? { detail } : {}),
     };
   };
 
