@@ -5673,6 +5673,8 @@ export async function startServer({
   app.post('/api/integrations/vela/logout', async (_req, res) => {
     try {
       forgetVelaLogin();
+      delete process.env.VELA_RUNTIME_KEY;
+      delete process.env.VELA_LINK_URL;
       const appConfig = await readAppConfig(RUNTIME_DATA_DIR);
       const agentCliEnv = { ...(appConfig.agentCliEnv ?? {}) };
       const amrEnv = { ...(agentCliEnv.amr ?? {}) };
