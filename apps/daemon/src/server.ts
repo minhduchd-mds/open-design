@@ -46,6 +46,10 @@ import {
   readVelaLoginStatus,
   spawnVelaLogin,
 } from './integrations/vela.js';
+import {
+  amrAccountFailureDetails,
+  classifyAmrAccountFailure,
+} from './integrations/vela-errors.js';
 import { migrateLegacyDataDirSync } from './legacy-data-migrator.js';
 import {
   consumedImportNonces,
@@ -10642,6 +10646,16 @@ export async function startServer({
       persistRunEventToAssistantMessage(db, run, event, data);
       design.runs.emit(run, event, data);
     };
+    const sendAmrAccountFailure = (failure) => {
+      send('error', createSseErrorPayload(
+        failure.code,
+        failure.message,
+        {
+          retryable: true,
+          details: amrAccountFailureDetails(failure),
+        },
+      ));
+    };
     const inactivityTimeoutMs = resolveChatRunInactivityTimeoutMs();
     const artifactQuietPeriodMs = resolveChatRunArtifactQuietPeriodMs();
     const inactivityKillGraceMs = 3_000;
@@ -10793,6 +10807,27 @@ export async function startServer({
       ));
       return design.runs.finish(run, 'failed', 1, null);
     }
+    const agentSpawnEnv = spawnEnvForAgent(
+      def.id,
+      {
+        ...createAgentRuntimeEnv(process.env, daemonUrl, toolTokenGrant),
+        ...(def.env || {}),
+      },
+      configuredAgentEnv,
+    );
+    if (def.id === 'amr') {
+      const loginStatus = readVelaLoginStatus(agentSpawnEnv, configuredAgentEnv);
+      if (!loginStatus.loggedIn) {
+        revokeToolToken('child_exit');
+        unregisterChatAgentEventSink();
+        sendAmrAccountFailure({
+          code: 'AMR_AUTH_REQUIRED',
+          message: 'AMR sign-in is required. Sign in to AMR Cloud again, then retry this run.',
+          action: 'relogin',
+        });
+        return design.runs.finish(run, 'failed', 1, null);
+      }
+    }
     const odMediaEnv = {
       OD_BIN,
       OD_NODE_BIN,
@@ -10839,14 +10874,7 @@ export async function startServer({
           ? 'pipe'
           : 'ignore';
       const env = applyAgentLaunchEnv({
-        ...spawnEnvForAgent(
-          def.id,
-          {
-            ...createAgentRuntimeEnv(process.env, daemonUrl, toolTokenGrant),
-            ...(def.env || {}),
-          },
-          configuredAgentEnv,
-        ),
+        ...agentSpawnEnv,
         ...odMediaEnv,
         // OpenCode external-MCP injection (issue #2142). Layered AFTER
         // spawnEnvForAgent / odMediaEnv / configuredAgentEnv so the
@@ -11304,6 +11332,21 @@ export async function startServer({
         mcpServers,
         send: (event, data) => {
           noteAgentActivity();
+          if (def.id === 'amr' && event === 'error') {
+            const failure = classifyAmrAccountFailure(
+              [
+                typeof data?.message === 'string' ? data.message : '',
+                typeof data?.error?.message === 'string' ? data.error.message : '',
+                typeof data?.error?.code === 'string' ? data.error.code : '',
+                agentStdoutTail,
+                agentStderrTail,
+              ].join('\n'),
+            );
+            if (failure) {
+              sendAmrAccountFailure(failure);
+              return;
+            }
+          }
           send(event, data);
         },
         ...(acpStageTimeoutMs !== undefined ? { stageTimeoutMs: acpStageTimeoutMs } : {}),
@@ -11357,6 +11400,15 @@ export async function startServer({
         code !== 0 &&
         !run.cancelRequested
       ) {
+        if (def.id === 'amr') {
+          const amrFailure = classifyAmrAccountFailure(
+            `${agentStderrTail}\n${agentStdoutTail}`,
+          );
+          if (amrFailure) {
+            sendAmrAccountFailure(amrFailure);
+            return design.runs.finish(run, 'failed', code ?? 1, signal ?? null);
+          }
+        }
         const authFailure = classifyAgentAuthFailure(
           agentId,
           `${agentStderrTail}\n${agentStdoutTail}`,

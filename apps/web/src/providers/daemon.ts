@@ -225,6 +225,16 @@ function daemonSseErrorMessage(data: SseErrorPayload): string {
   return `${message}\n${detail}`;
 }
 
+function daemonSseError(data: SseErrorPayload): Error {
+  const error = new Error(daemonSseErrorMessage(data)) as Error & {
+    code?: string;
+    details?: unknown;
+  };
+  if (data.error?.code) error.code = data.error.code;
+  if (data.error?.details !== undefined) error.details = data.error.details;
+  return error;
+}
+
 export async function streamViaDaemon({
   agentId,
   history,
@@ -632,7 +642,7 @@ async function consumeDaemonRun({
           if (event.event === 'error') {
             onRunStatus?.('failed');
             const data = event.data as SseErrorPayload;
-            handlers.onError(new Error(daemonSseErrorMessage(data)));
+            handlers.onError(daemonSseError(data));
             return;
           }
 

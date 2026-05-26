@@ -10,13 +10,13 @@ import { listMessages } from '@/vitest/messages';
 import { readRunEvents, startRun, waitForRunTerminal } from '@/vitest/runs';
 import { createSmokeSuite } from '@/vitest/smoke-suite';
 
-describe('AMR auth error convergence', () => {
-  test('marks the run and assistant message as failed when fake vela returns an auth error during prompt', { timeout: 180_000 }, async () => {
-    const suite = await createSmokeSuite('amr-auth-error-convergence');
+describe('AMR insufficient balance run failures', () => {
+  test('fails the run with a recharge-facing AMR error when fake vela reports insufficient balance', { timeout: 180_000 }, async () => {
+    const suite = await createSmokeSuite('amr-insufficient-balance');
 
     await suite.with.toolsDev(async ({ webUrl }) => {
-      const velaBin = await writeFakeVelaBin(join(suite.scratchDir, 'fake-vela-auth-error'), {
-        failAuthAtPrompt: true,
+      const velaBin = await writeFakeVelaBin(join(suite.scratchDir, 'fake-vela-balance'), {
+        failBalanceAtPrompt: true,
         requireLoginConfig: false,
       });
 
@@ -31,16 +31,15 @@ describe('AMR auth error convergence', () => {
         },
       });
 
-      const project = await createAmrProject(webUrl, 'AMR auth error convergence');
+      const project = await createAmrProject(webUrl, 'AMR insufficient balance');
       const assistantMessageId = `assistant-${Date.now()}`;
-
       const run = await startRun(webUrl, {
         agentId: 'amr',
         assistantMessageId,
         clientRequestId: `req-${Date.now()}`,
         conversationId: project.conversationId,
         designSystemId: null,
-        message: 'Simulate an AMR auth expiry during session/prompt.',
+        message: 'This should surface a recharge link.',
         model: 'default',
         projectId: project.project.id,
         reasoning: 'default',
@@ -50,10 +49,13 @@ describe('AMR auth error convergence', () => {
       const terminal = await waitForRunTerminal(webUrl, run.runId, { timeoutMs: 20_000 });
       expect(terminal.status).toBe('failed');
 
+      const events = await readRunEvents(webUrl, run.runId);
+      expect(events).toContain('AMR_INSUFFICIENT_BALANCE');
+      expect(events).toContain('https://open-design.ai/amr/wallet');
+
       const messages = await listMessages(webUrl, project.project.id, project.conversationId);
       const assistant = messages.find((message) => message.id === assistantMessageId);
       expect(assistant?.runStatus).toBe('failed');
-      await expect(readRunEvents(webUrl, run.runId)).resolves.toMatch(/AMR_AUTH_REQUIRED/);
     });
   });
 });

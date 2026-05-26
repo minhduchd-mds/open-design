@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 export type FakeVelaOptions = {
   assistantText?: string;
   failAuthAtPrompt?: boolean;
+  failBalanceAtPrompt?: boolean;
   requireLoginConfig?: boolean;
 };
 
@@ -70,6 +71,7 @@ import { argv, stdin, stdout, stderr, env, exit } from 'node:process';
 const ASSISTANT_TEXT = ${JSON.stringify(options.assistantText ?? DEFAULT_ASSISTANT_TEXT)};
 const SESSION_ID = env.FAKE_VELA_SESSION_ID || 'fake-amr-session-1';
 const AUTH_FAIL = ${options.failAuthAtPrompt === true ? 'true' : 'false'};
+const BALANCE_FAIL = ${options.failBalanceAtPrompt === true ? 'true' : 'false'};
 const REQUIRE_LOGIN = ${options.requireLoginConfig === false ? 'false' : 'true'};
 
 function writeMessage(obj) {
@@ -179,6 +181,17 @@ function handle(msg) {
     }
     if (AUTH_FAIL) {
       writeError(id, 'Your authentication token has expired. Please sign in again.');
+      return;
+    }
+    if (BALANCE_FAIL) {
+      writeMessage({
+        jsonrpc: '2.0',
+        id,
+        error: {
+          code: -32000,
+          message: 'HTTP 429: {"code":"insufficient_balance","message":"insufficient balance"}',
+        },
+      });
       return;
     }
     writeNotification('session/update', {

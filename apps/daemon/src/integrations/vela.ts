@@ -69,8 +69,8 @@ export function readVelaLoginStatus(
   const profile = resolveAmrProfile(env);
   const configPath = velaConfigPath();
   const loginInFlight = isVelaLoginInFlight();
-  const configuredRuntimeKey = configuredEnv.VELA_RUNTIME_KEY?.trim() ?? '';
-  const configuredLinkUrl = configuredEnv.VELA_LINK_URL?.trim() ?? '';
+  const configuredRuntimeKey = (configuredEnv.VELA_RUNTIME_KEY ?? env.VELA_RUNTIME_KEY)?.trim() ?? '';
+  const configuredLinkUrl = (configuredEnv.VELA_LINK_URL ?? env.VELA_LINK_URL)?.trim() ?? '';
   if (configuredRuntimeKey && configuredLinkUrl) {
     return { loggedIn: true, loginInFlight, profile, user: null, configPath };
   }

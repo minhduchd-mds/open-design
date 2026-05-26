@@ -208,14 +208,15 @@ describe('AMR chat-run end-to-end', () => {
       );
 
       // Persist agentCliEnv so the daemon's runtime resolver picks up the
-      // fake binary AND knows which vela profile to read. HOME is set on
-      // the per-agent env block so the spawned child sees the pre-seeded
-      // ~/.vela/config.json without touching the developer's real one.
+      // fake binary and the pre-run AMR status guard sees configured runtime
+      // credentials without touching the developer's real ~/.vela config.
       await requestJson<{ config: Record<string, unknown> }>(webUrl, '/api/app-config', {
         body: {
           agentCliEnv: {
             amr: {
               VELA_BIN: velaBin,
+              VELA_LINK_URL: 'http://localhost:18081',
+              VELA_RUNTIME_KEY: 'fake-runtime-key',
             },
           },
           agentId: 'amr',

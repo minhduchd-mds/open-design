@@ -165,6 +165,8 @@ import { buildClipboardPrompt } from '../lib/build-clipboard-prompt';
 import { copyToClipboard } from '../lib/copy-to-clipboard';
 import { effectiveMaxTokens } from '../state/maxTokens';
 
+const DEFAULT_AMR_RECHARGE_URL = 'https://open-design.ai/amr/wallet';
+
 type ProjectChatSendMeta = ChatSendMeta & {
   retryOfAssistantId?: string;
 };
@@ -2588,17 +2590,21 @@ export function ProjectView({
         },
         onError: (err: Error) => {
           const endedAt = Date.now();
+          const amrFailureText = amrAccountFailureText(err);
           textBuffer.flush();
           textBuffer.cancel();
           cancelSendTextBuffer();
-          setError(err.message);
-          appendAssistantErrorEvent(assistantId, err.message);
+          setError(amrFailureText ?? err.message);
+          appendAssistantErrorEvent(assistantId, amrFailureText ?? err.message);
           updateAssistant((prev) => ({
             ...prev,
             endedAt,
             runStatus: config.mode === 'api' || prev.runId || isActiveRunStatus(prev.runStatus)
               ? 'failed'
               : prev.runStatus,
+            events: amrFailureText
+              ? appendAmrFailureTextEvent(prev.events ?? [], amrFailureText)
+              : prev.events,
           }));
           if (runCommentAttachments.length > 0) {
             void patchAttachedStatuses(runCommentAttachments, 'failed');
@@ -4464,6 +4470,30 @@ function assistantAgentDisplayName(
 
 function isTerminalRunStatus(status: ChatMessage['runStatus']): boolean {
   return status === 'succeeded' || status === 'failed' || status === 'canceled';
+}
+
+function amrAccountFailureText(error: Error): string | null {
+  const coded = error as Error & { code?: string; details?: unknown };
+  if (coded.code === 'AMR_INSUFFICIENT_BALANCE') {
+    const details = coded.details && typeof coded.details === 'object'
+      ? coded.details as { actionUrl?: unknown }
+      : null;
+    const walletUrl =
+      typeof details?.actionUrl === 'string' && details.actionUrl.trim()
+        ? details.actionUrl.trim()
+        : DEFAULT_AMR_RECHARGE_URL;
+    return `${error.message}\n\n[Recharge AMR wallet](${walletUrl})`;
+  }
+  if (coded.code === 'AMR_AUTH_REQUIRED') {
+    return `${error.message}\n\nUse the AMR sign-in control in the model switcher or Settings, then retry this run.`;
+  }
+  return null;
+}
+
+function appendAmrFailureTextEvent(events: AgentEvent[], text: string): AgentEvent[] {
+  const last = events[events.length - 1];
+  if (last?.kind === 'text' && last.text === text) return events;
+  return [...events, { kind: 'text', text }];
 }
 
 function isActiveRunStatus(status: ChatMessage['runStatus']): boolean {
