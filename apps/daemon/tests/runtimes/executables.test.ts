@@ -30,11 +30,41 @@ test('claude entry declares openclaude as a fallback bin (issue #235)', () => {
 // declarative `fallbackBins`-on-claude assertion above still runs on
 // every platform and is what catches regressions in the AGENT_DEF.
 fsTest(
-  'resolveAgentExecutable uses packaged built-in Vela for AMR when no override or PATH binary exists',
+  'resolveAgentExecutable uses packaged built-in Vela for AMR when OpenCode is configured',
   () => {
     const root = mkdtempSync(join(tmpdir(), 'od-amr-built-in-'));
     try {
-      return withEnvSnapshot(['PATH', 'OD_AGENT_HOME', 'OD_RESOURCE_ROOT'], () => {
+      return withEnvSnapshot(['PATH', 'OD_AGENT_HOME', 'OD_RESOURCE_ROOT', 'VELA_OPENCODE_BIN'], () => {
+        const resourceRoot = join(root, 'resources', 'open-design');
+        const builtInVela = join(resourceRoot, 'bin', 'vela');
+        const opencodeBin = join(root, 'bin', 'opencode');
+        mkdirSync(join(resourceRoot, 'bin'), { recursive: true });
+        mkdirSync(join(root, 'bin'), { recursive: true });
+        writeFileSync(builtInVela, '#!/bin/sh\nexit 0\n');
+        writeFileSync(opencodeBin, '#!/bin/sh\nexit 0\n');
+        chmodSync(builtInVela, 0o755);
+        chmodSync(opencodeBin, 0o755);
+        process.env.PATH = '';
+        process.env.OD_AGENT_HOME = join(root, 'empty-home');
+        process.env.OD_RESOURCE_ROOT = resourceRoot;
+        process.env.VELA_OPENCODE_BIN = opencodeBin;
+
+        const resolved = resolveAgentExecutable(minimalAgentDef({ id: 'amr', bin: 'vela' }));
+
+        assert.equal(resolved, builtInVela);
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  },
+);
+
+fsTest(
+  'resolveAgentExecutable does not select packaged built-in Vela when OpenCode is missing',
+  () => {
+    const root = mkdtempSync(join(tmpdir(), 'od-amr-built-in-no-opencode-'));
+    try {
+      return withEnvSnapshot(['PATH', 'OD_AGENT_HOME', 'OD_RESOURCE_ROOT', 'VELA_OPENCODE_BIN'], () => {
         const resourceRoot = join(root, 'resources', 'open-design');
         const builtInVela = join(resourceRoot, 'bin', 'vela');
         mkdirSync(join(resourceRoot, 'bin'), { recursive: true });
@@ -43,10 +73,11 @@ fsTest(
         process.env.PATH = '';
         process.env.OD_AGENT_HOME = join(root, 'empty-home');
         process.env.OD_RESOURCE_ROOT = resourceRoot;
+        delete process.env.VELA_OPENCODE_BIN;
 
         const resolved = resolveAgentExecutable(minimalAgentDef({ id: 'amr', bin: 'vela' }));
 
-        assert.equal(resolved, builtInVela);
+        assert.equal(resolved, null);
       });
     } finally {
       rmSync(root, { recursive: true, force: true });

@@ -6,10 +6,7 @@ import path from 'node:path';
 import { resolveAgentLaunch } from '../runtimes/launch.js';
 import { spawnEnvForAgent } from '../runtimes/env.js';
 import { getAgentDef } from '../runtimes/registry.js';
-import {
-  amrVelaProfileEnv,
-  resolveAmrProfile,
-} from './vela-profile.js';
+import { resolveAmrProfile } from './vela-profile.js';
 
 export { resolveAmrProfile } from './vela-profile.js';
 
@@ -41,6 +38,16 @@ interface VelaConfigFileShape {
   profiles?: Record<string, VelaProfileShape>;
 }
 
+export function mergeVelaEnv(
+  env: NodeJS.ProcessEnv = process.env,
+  configuredEnv: Record<string, string> = {},
+): NodeJS.ProcessEnv {
+  return {
+    ...env,
+    ...configuredEnv,
+  };
+}
+
 function configDir(): string {
   return path.join(homedir(), '.vela');
 }
@@ -66,15 +73,12 @@ export function readVelaLoginStatus(
   env: NodeJS.ProcessEnv = process.env,
   configuredEnv: Record<string, string> = {},
 ): VelaLoginStatus {
-  const profile = resolveAmrProfile(env);
+  const mergedEnv = mergeVelaEnv(env, configuredEnv);
+  const profile = resolveAmrProfile(mergedEnv);
   const configPath = velaConfigPath();
   const loginInFlight = isVelaLoginInFlight();
-  const envRuntimeKey = env.VELA_RUNTIME_KEY?.trim() ?? '';
-  const envLinkUrl = env.VELA_LINK_URL?.trim() ?? '';
-  const runtimeKey =
-    configuredEnv.VELA_RUNTIME_KEY?.trim() || envRuntimeKey;
-  const linkUrl =
-    configuredEnv.VELA_LINK_URL?.trim() || envLinkUrl;
+  const runtimeKey = mergedEnv.VELA_RUNTIME_KEY?.trim() ?? '';
+  const linkUrl = mergedEnv.VELA_LINK_URL?.trim() ?? '';
   if (runtimeKey && linkUrl) {
     return { loggedIn: true, loginInFlight, profile, user: null, configPath };
   }
@@ -239,10 +243,7 @@ export async function spawnVelaLogin(
   if (!bin) {
     throw new Error('vela binary not found; install vela or configure VELA_BIN');
   }
-  const env = {
-    ...spawnEnvForAgent('amr', baseEnv, configuredEnv),
-    ...amrVelaProfileEnv(baseEnv),
-  };
+  const env = spawnEnvForAgent('amr', baseEnv, configuredEnv);
   const child = spawn(bin, ['login'], {
     stdio: ['ignore', 'pipe', 'pipe'],
     env,
@@ -264,6 +265,6 @@ export async function spawnVelaLogin(
   return {
     pid: child.pid,
     startedAt: new Date().toISOString(),
-    profile: resolveAmrProfile(baseEnv),
+    profile: resolveAmrProfile(env),
   };
 }

@@ -290,10 +290,10 @@ fsTest('detectAgents marks Codex available when nvm exposes a node shim but laun
   }
 });
 
-fsTest('detectAgents marks AMR available from packaged built-in Vela under a minimal PATH', async () => {
+fsTest('detectAgents keeps packaged built-in AMR unavailable when OpenCode cannot be resolved', async () => {
   const root = mkdtempSync(join(tmpdir(), 'od-detect-amr-built-in-'));
   try {
-    return await withEnvSnapshot(['PATH', 'OD_AGENT_HOME', 'OD_RESOURCE_ROOT'], async () => {
+    return await withEnvSnapshot(['PATH', 'OD_AGENT_HOME', 'OD_RESOURCE_ROOT', 'VELA_OPENCODE_BIN'], async () => {
       const resourceRoot = join(root, 'resources', 'open-design');
       const builtInVela = join(resourceRoot, 'bin', 'vela');
       mkdirSync(join(resourceRoot, 'bin'), { recursive: true });
@@ -305,6 +305,41 @@ fsTest('detectAgents marks AMR available from packaged built-in Vela under a min
       process.env.PATH = '';
       process.env.OD_AGENT_HOME = join(root, 'empty-home');
       process.env.OD_RESOURCE_ROOT = resourceRoot;
+      delete process.env.VELA_OPENCODE_BIN;
+
+      const agents = await detectAgents();
+      const amrAgent = agents.find((agent) => agent.id === 'amr');
+
+      assert.ok(amrAgent);
+      assert.equal(amrAgent.available, false);
+      assert.equal(amrAgent.path, undefined);
+      assert.equal(amrAgent.version, undefined);
+    });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+fsTest('detectAgents marks AMR available from packaged built-in Vela when OpenCode is configured', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'od-detect-amr-built-in-'));
+  try {
+    return await withEnvSnapshot(['PATH', 'OD_AGENT_HOME', 'OD_RESOURCE_ROOT', 'VELA_OPENCODE_BIN'], async () => {
+      const resourceRoot = join(root, 'resources', 'open-design');
+      const builtInVela = join(resourceRoot, 'bin', 'vela');
+      const opencodeBin = join(root, 'bin', 'opencode');
+      mkdirSync(join(resourceRoot, 'bin'), { recursive: true });
+      mkdirSync(join(root, 'bin'), { recursive: true });
+      writeFileSync(
+        builtInVela,
+        '#!/bin/sh\nif [ "$1" = "--version" ]; then echo "vela manual-amr"; exit 0; fi\nexit 0\n',
+      );
+      writeFileSync(opencodeBin, '#!/bin/sh\nexit 0\n');
+      chmodSync(builtInVela, 0o755);
+      chmodSync(opencodeBin, 0o755);
+      process.env.PATH = '';
+      process.env.OD_AGENT_HOME = join(root, 'empty-home');
+      process.env.OD_RESOURCE_ROOT = resourceRoot;
+      process.env.VELA_OPENCODE_BIN = opencodeBin;
 
       const agents = await detectAgents();
       const amrAgent = agents.find((agent) => agent.id === 'amr');

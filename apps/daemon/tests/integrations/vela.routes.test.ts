@@ -184,6 +184,42 @@ describe('GET /api/integrations/vela/status', () => {
     expect(JSON.stringify(body)).not.toContain('rt-process-secret');
   });
 
+  it('reports status for the Settings-configured AMR profile', async () => {
+    const dataDir = process.env.OD_DATA_DIR as string;
+    const previous = await readAppConfig(dataDir);
+    seedLogin('local', {
+      user: { id: 'local-user', email: 'settings-local@example.com' },
+    });
+    const cfg = JSON.parse(readFileSync(configPath(), 'utf8'));
+    cfg.profiles.prod = {};
+    writeFileSync(configPath(), JSON.stringify(cfg, null, 2), 'utf8');
+    process.env.OPEN_DESIGN_AMR_PROFILE = 'prod';
+    await writeAppConfig(dataDir, {
+      ...previous,
+      agentCliEnv: {
+        ...(previous.agentCliEnv ?? {}),
+        amr: {
+          ...((previous.agentCliEnv?.amr as Record<string, string>) ?? {}),
+          VELA_BIN: FAKE_VELA,
+          OPEN_DESIGN_AMR_PROFILE: 'local',
+        },
+      },
+    });
+    try {
+      const { status, body } = await getJson<{
+        loggedIn: boolean;
+        profile: string;
+        user: { email?: string } | null;
+      }>(`${baseUrl}/api/integrations/vela/status`);
+      expect(status).toBe(200);
+      expect(body.loggedIn).toBe(true);
+      expect(body.profile).toBe('local');
+      expect(body.user?.email).toBe('settings-local@example.com');
+    } finally {
+      await writeAppConfig(dataDir, previous as unknown as Record<string, unknown>);
+    }
+  });
+
   it('reports loggedIn=true with the surfaced user fields when the active profile has a runtimeKey', async () => {
     seedLogin('local', {
       user: {
@@ -263,6 +299,44 @@ describe('POST /api/integrations/vela/login', () => {
     const cfg = JSON.parse(readFileSync(configPath(), 'utf8'));
     expect(cfg?.profiles?.test?.user?.email).toBe('login-test@example.com');
     expect(cfg?.profiles?.local).toBeUndefined();
+  });
+
+  it('passes the Settings-configured AMR profile to vela login', async () => {
+    const dataDir = process.env.OD_DATA_DIR as string;
+    const previous = await readAppConfig(dataDir);
+    process.env.OPEN_DESIGN_AMR_PROFILE = 'prod';
+    process.env.VELA_PROFILE = 'prod';
+    process.env.FAKE_VELA_LOGIN_USER_EMAIL = 'settings-login@example.com';
+    await writeAppConfig(dataDir, {
+      ...previous,
+      agentCliEnv: {
+        ...(previous.agentCliEnv ?? {}),
+        amr: {
+          ...((previous.agentCliEnv?.amr as Record<string, string>) ?? {}),
+          VELA_BIN: FAKE_VELA,
+          OPEN_DESIGN_AMR_PROFILE: 'local',
+        },
+      },
+    });
+    try {
+      const { status, body } = await postJson<{
+        pid: number;
+        profile: string;
+      }>(`${baseUrl}/api/integrations/vela/login`);
+      expect(status).toBe(202);
+      expect(body.profile).toBe('local');
+
+      for (let i = 0; i < 50; i += 1) {
+        if (existsSync(configPath())) break;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+
+      const cfg = JSON.parse(readFileSync(configPath(), 'utf8'));
+      expect(cfg?.profiles?.local?.user?.email).toBe('settings-login@example.com');
+      expect(cfg?.profiles?.prod).toBeUndefined();
+    } finally {
+      await writeAppConfig(dataDir, previous as unknown as Record<string, unknown>);
+    }
   });
 
   it('returns 409 when a login subprocess is already in flight', async () => {
@@ -414,6 +488,43 @@ describe('POST /api/integrations/vela/logout', () => {
       expect(next.agentCliEnv?.amr?.VELA_OPENCODE_BIN).toBe('/tmp/opencode');
       expect(next.agentCliEnv?.amr?.VELA_RUNTIME_KEY).toBeUndefined();
       expect(next.agentCliEnv?.amr?.VELA_LINK_URL).toBeUndefined();
+    } finally {
+      await writeAppConfig(dataDir, previous as unknown as Record<string, unknown>);
+    }
+  });
+
+  it('logs out the Settings-configured AMR profile from the vela config file', async () => {
+    const dataDir = process.env.OD_DATA_DIR as string;
+    const previous = await readAppConfig(dataDir);
+    seedLogin('local');
+    const cfg = JSON.parse(readFileSync(configPath(), 'utf8'));
+    cfg.profiles.prod = {
+      runtimeKey: 'rt-prod',
+      user: { id: 'prod-user', email: 'prod@example.com' },
+    };
+    writeFileSync(configPath(), JSON.stringify(cfg, null, 2), 'utf8');
+    process.env.OPEN_DESIGN_AMR_PROFILE = 'prod';
+    await writeAppConfig(dataDir, {
+      ...previous,
+      agentCliEnv: {
+        ...(previous.agentCliEnv ?? {}),
+        amr: {
+          ...((previous.agentCliEnv?.amr as Record<string, string>) ?? {}),
+          VELA_BIN: FAKE_VELA,
+          OPEN_DESIGN_AMR_PROFILE: 'local',
+        },
+      },
+    });
+    try {
+      const { status, body } = await postJson<{ ok?: boolean }>(
+        `${baseUrl}/api/integrations/vela/logout`,
+      );
+      expect(status).toBe(200);
+      expect(body.ok).toBe(true);
+
+      const next = JSON.parse(readFileSync(configPath(), 'utf8'));
+      expect(next.profiles.local.runtimeKey).toBeUndefined();
+      expect(next.profiles.prod.runtimeKey).toBe('rt-prod');
     } finally {
       await writeAppConfig(dataDir, previous as unknown as Record<string, unknown>);
     }

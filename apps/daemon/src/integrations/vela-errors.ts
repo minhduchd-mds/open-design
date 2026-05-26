@@ -64,9 +64,7 @@ export function classifyAmrAccountFailure(text: string): AmrAccountFailure | nul
     value.includes('token has expired') ||
     value.includes('expired token') ||
     value.includes('invalid session') ||
-    value.includes('session expired') ||
-    value.includes('invalid api key') ||
-    value.includes('forbidden_api_key')
+    value.includes('session expired')
   ) {
     return {
       code: 'AMR_AUTH_REQUIRED',

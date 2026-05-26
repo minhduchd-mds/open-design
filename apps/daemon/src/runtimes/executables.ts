@@ -102,18 +102,7 @@ function looksExecutableOnWindows(filePath: string): boolean {
   return executableExts.includes(ext);
 }
 
-// Resolve the first available binary for an agent definition. Tries
-// `def.bin` first, then walks `def.fallbackBins` in order. Used for
-// agents whose forks ship under a different binary name but speak the
-// exact same CLI (Claude Code → OpenClaude, issue #235). Returns null
-// when no candidate is on PATH.
-function configuredExecutableOverride(
-  def: RuntimeAgentDef,
-  configuredEnv: Record<string, string> = {},
-): string | null {
-  const envKey = AGENT_BIN_ENV_KEYS.get(def?.id);
-  if (!envKey) return null;
-  const raw = configuredEnv?.[envKey];
+function executableFilePath(raw: string | undefined): string | null {
   if (typeof raw !== 'string' || raw.trim().length === 0) return null;
   const expanded = expandHomePath(raw.trim());
   if (!path.isAbsolute(expanded)) return null;
@@ -130,8 +119,36 @@ function configuredExecutableOverride(
   }
 }
 
-function packagedBuiltInExecutable(def: RuntimeAgentDef): string | null {
+// Resolve the first available binary for an agent definition. Tries
+// `def.bin` first, then walks `def.fallbackBins` in order. Used for
+// agents whose forks ship under a different binary name but speak the
+// exact same CLI (Claude Code → OpenClaude, issue #235). Returns null
+// when no candidate is on PATH.
+function configuredExecutableOverride(
+  def: RuntimeAgentDef,
+  configuredEnv: Record<string, string> = {},
+): string | null {
+  const envKey = AGENT_BIN_ENV_KEYS.get(def?.id);
+  if (!envKey) return null;
+  return executableFilePath(configuredEnv?.[envKey]);
+}
+
+export function resolveAmrOpenCodeExecutable(
+  env: Record<string, string | undefined> = process.env,
+): string | null {
+  const configured = executableFilePath(env.VELA_OPENCODE_BIN);
+  if (configured) return configured;
+  return resolveOnPath('opencode-cli') ?? resolveOnPath('opencode');
+}
+
+function packagedBuiltInExecutable(
+  def: RuntimeAgentDef,
+  configuredEnv: Record<string, string> = {},
+): string | null {
   if (def.id !== 'amr') return null;
+  if (!resolveAmrOpenCodeExecutable({ ...process.env, ...configuredEnv })) {
+    return null;
+  }
   const resourceRoot = process.env.OD_RESOURCE_ROOT?.trim();
   if (!resourceRoot) return null;
   const candidate = path.join(
@@ -187,7 +204,7 @@ export function inspectAgentExecutableResolution(
       break;
     }
   }
-  const builtInPath = packagedBuiltInExecutable(def);
+  const builtInPath = packagedBuiltInExecutable(def, configuredEnv);
   return {
     configuredOverridePath,
     pathResolvedPath,

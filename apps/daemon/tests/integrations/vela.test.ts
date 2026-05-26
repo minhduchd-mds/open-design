@@ -105,6 +105,22 @@ describe('readVelaLoginStatus', () => {
     expect(JSON.stringify(status)).not.toContain('rt-env-secret');
   });
 
+  it('uses the Settings-configured AMR profile when reading status', () => {
+    writeConfig({
+      profiles: {
+        prod: {},
+        local: { runtimeKey: 'rt-local', user: { id: 'u', email: 'local@example.com' } },
+      },
+    });
+    const status = readVelaLoginStatus(
+      { OPEN_DESIGN_AMR_PROFILE: 'prod' },
+      { OPEN_DESIGN_AMR_PROFILE: 'local' },
+    );
+    expect(status.loggedIn).toBe(true);
+    expect(status.profile).toBe('local');
+    expect(status.user?.email).toBe('local@example.com');
+  });
+
   it('treats daemon process AMR env credentials as logged in without a vela config file', () => {
     const status = readVelaLoginStatus({
       OPEN_DESIGN_AMR_PROFILE: 'local',
@@ -313,6 +329,35 @@ describe('spawnVelaLogin', () => {
 
     const next = JSON.parse(readFileSync(file, 'utf8'));
     expect(next.profiles.test.user.email).toBe('spawn-login@example.com');
+    expect(next.profiles.prod).toBeUndefined();
+  });
+
+  it('spawns login with the Settings-configured AMR profile over daemon env', async () => {
+    const result = await spawnVelaLogin({
+      baseEnv: {
+        ...process.env,
+        HOME: tmpHome,
+        OPEN_DESIGN_AMR_PROFILE: 'prod',
+        VELA_PROFILE: 'prod',
+        FAKE_VELA_LOGIN_USER_EMAIL: 'settings-profile@example.com',
+      },
+      configuredEnv: {
+        VELA_BIN: FAKE_VELA,
+        OPEN_DESIGN_AMR_PROFILE: 'local',
+      },
+    });
+
+    expect(result.pid).toBeGreaterThan(0);
+    expect(result.profile).toBe('local');
+
+    const file = path.join(tmpHome, '.vela', 'config.json');
+    for (let i = 0; i < 20; i += 1) {
+      if (existsSync(file)) break;
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+
+    const next = JSON.parse(readFileSync(file, 'utf8'));
+    expect(next.profiles.local.user.email).toBe('settings-profile@example.com');
     expect(next.profiles.prod).toBeUndefined();
   });
 });

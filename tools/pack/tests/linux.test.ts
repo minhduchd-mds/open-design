@@ -143,6 +143,18 @@ describe("buildDockerArgs", () => {
     expect(args).toContain("OPEN_DESIGN_AMR_PROFILE=test");
   });
 
+  it("passes the Vela binary override into containerized builds when configured on the host", () => {
+    const previous = process.env.OPEN_DESIGN_VELA_CLI_BIN;
+    process.env.OPEN_DESIGN_VELA_CLI_BIN = "/host/bin/vela";
+    try {
+      const args = buildDockerArgs(makeConfig(), { uid: 1000, gid: 1000 });
+      expect(args).toContain("OPEN_DESIGN_VELA_CLI_BIN=/host/bin/vela");
+    } finally {
+      if (previous === undefined) delete process.env.OPEN_DESIGN_VELA_CLI_BIN;
+      else process.env.OPEN_DESIGN_VELA_CLI_BIN = previous;
+    }
+  });
+
   it("runs the built tools-pack CLI through node inside the container without generated package-bin shims", () => {
     const args = buildDockerArgs(makeConfig(), { uid: 1000, gid: 1000 });
     const last = args[args.length - 1];

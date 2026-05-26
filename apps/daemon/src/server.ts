@@ -43,6 +43,7 @@ import { resolveModelForAgent } from './runtimes/models.js';
 import {
   cancelVelaLogin,
   forgetVelaLogin,
+  mergeVelaEnv,
   readVelaLoginStatus,
   spawnVelaLogin,
 } from './integrations/vela.js';
@@ -5645,7 +5646,7 @@ export async function startServer({
     try {
       const appConfig = await readAppConfig(RUNTIME_DATA_DIR);
       const configuredEnv = agentCliEnvForAgent(appConfig.agentCliEnv, 'amr');
-      res.json(readVelaLoginStatus(process.env, configuredEnv));
+      res.json(readVelaLoginStatus(mergeVelaEnv(process.env, configuredEnv)));
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }
@@ -5676,10 +5677,11 @@ export async function startServer({
 
   app.post('/api/integrations/vela/logout', async (_req, res) => {
     try {
-      forgetVelaLogin();
+      const appConfig = await readAppConfig(RUNTIME_DATA_DIR);
+      const configuredEnv = agentCliEnvForAgent(appConfig.agentCliEnv, 'amr');
+      forgetVelaLogin(mergeVelaEnv(process.env, configuredEnv));
       delete process.env.VELA_RUNTIME_KEY;
       delete process.env.VELA_LINK_URL;
-      const appConfig = await readAppConfig(RUNTIME_DATA_DIR);
       const agentCliEnv = { ...(appConfig.agentCliEnv ?? {}) };
       const amrEnv = { ...(agentCliEnv.amr ?? {}) };
       delete amrEnv.VELA_RUNTIME_KEY;

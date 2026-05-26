@@ -58,4 +58,9 @@ describe('AMR account failure classification', () => {
   it('does not classify unrelated ACP failures as AMR account failures', () => {
     expect(classifyAmrAccountFailure('session/prompt failed: model returned malformed output')).toBeNull();
   });
+
+  it('does not tell env-auth users to relogin for bad API key failures', () => {
+    expect(classifyAmrAccountFailure('OpenRouter returned invalid api key')).toBeNull();
+    expect(classifyAmrAccountFailure('provider error: forbidden_api_key')).toBeNull();
+  });
 });

@@ -215,6 +215,9 @@ export function buildDockerArgs(
   if (config.telemetryRelayUrl != null) {
     dockerArgs.push("-e", `OPEN_DESIGN_TELEMETRY_RELAY_URL=${config.telemetryRelayUrl}`);
   }
+  if (process.env.OPEN_DESIGN_VELA_CLI_BIN?.trim()) {
+    dockerArgs.push("-e", `OPEN_DESIGN_VELA_CLI_BIN=${process.env.OPEN_DESIGN_VELA_CLI_BIN.trim()}`);
+  }
   if (config.amrProfile != null) {
     dockerArgs.push("-e", `OPEN_DESIGN_AMR_PROFILE=${config.amrProfile}`);
   }
