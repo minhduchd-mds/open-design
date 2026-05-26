@@ -359,6 +359,49 @@ describe('POST /api/integrations/vela/logout', () => {
     expect(status).toBe(200);
     expect(body.ok).toBe(true);
   });
+
+  it('clears Settings-backed AMR auth env while preserving executable config', async () => {
+    const dataDir = process.env.OD_DATA_DIR as string;
+    const previous = await readAppConfig(dataDir);
+    await writeAppConfig(dataDir, {
+      agentCliEnv: {
+        ...(previous.agentCliEnv ?? {}),
+        amr: {
+          ...((previous.agentCliEnv?.amr as Record<string, string>) ?? {}),
+          VELA_BIN: FAKE_VELA,
+          VELA_OPENCODE_BIN: '/tmp/opencode',
+          VELA_RUNTIME_KEY: 'rt-env-secret',
+          VELA_LINK_URL: 'https://openrouter.example/v1',
+        },
+      },
+    });
+
+    try {
+      const before = await getJson<{ loggedIn: boolean }>(
+        `${baseUrl}/api/integrations/vela/status`,
+      );
+      expect(before.body.loggedIn).toBe(true);
+
+      const { status, body } = await postJson<{ ok?: boolean }>(
+        `${baseUrl}/api/integrations/vela/logout`,
+      );
+      expect(status).toBe(200);
+      expect(body.ok).toBe(true);
+
+      const after = await getJson<{ loggedIn: boolean }>(
+        `${baseUrl}/api/integrations/vela/status`,
+      );
+      expect(after.body.loggedIn).toBe(false);
+
+      const next = await readAppConfig(dataDir);
+      expect(next.agentCliEnv?.amr?.VELA_BIN).toBe(FAKE_VELA);
+      expect(next.agentCliEnv?.amr?.VELA_OPENCODE_BIN).toBe('/tmp/opencode');
+      expect(next.agentCliEnv?.amr?.VELA_RUNTIME_KEY).toBeUndefined();
+      expect(next.agentCliEnv?.amr?.VELA_LINK_URL).toBeUndefined();
+    } finally {
+      await writeAppConfig(dataDir, previous as unknown as Record<string, unknown>);
+    }
+  });
 });
 
 describe('login → status round-trip (E2E across the three routes)', () => {

@@ -5670,9 +5670,20 @@ export async function startServer({
     }
   });
 
-  app.post('/api/integrations/vela/logout', (_req, res) => {
+  app.post('/api/integrations/vela/logout', async (_req, res) => {
     try {
       forgetVelaLogin();
+      const appConfig = await readAppConfig(RUNTIME_DATA_DIR);
+      const agentCliEnv = { ...(appConfig.agentCliEnv ?? {}) };
+      const amrEnv = { ...(agentCliEnv.amr ?? {}) };
+      delete amrEnv.VELA_RUNTIME_KEY;
+      delete amrEnv.VELA_LINK_URL;
+      if (Object.keys(amrEnv).length > 0) {
+        agentCliEnv.amr = amrEnv;
+      } else {
+        delete agentCliEnv.amr;
+      }
+      await writeAppConfig(RUNTIME_DATA_DIR, { agentCliEnv });
       res.json({ ok: true });
     } catch (err) {
       res.status(500).json({ error: String(err) });
