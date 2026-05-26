@@ -11,7 +11,7 @@
  *     skill does, when it triggers, how to use it. Otherwise the page
  *     would be a one-line description and a row of CTAs.
  */
-import { getEntry } from 'astro:content';
+import { getEntry, render } from 'astro:content';
 import Layout from '../../../_components/sub-page-layout.astro';
 import LazyImg from '../../../_components/lazy-img.astro';
 import { getSkillRecords, type SkillRecord } from '../../../_lib/catalog';
@@ -178,13 +178,14 @@ const related = all
  * brief because their demo is the content; their full SKILL.md is one
  * "Find on GitHub" click away.
  *
- * Astro's `entry.render()` runs the same markdown pipeline the rest of
- * the site uses (heading anchors, smart-typography, GFM tables), so
- * the body styles cleanly with the existing `.detail-md` rules.
+ * Astro 6 exposes the markdown pipeline through a top-level
+ * `render(entry)` helper rather than the legacy `entry.render()`
+ * method. The output (heading anchors, smart-typography, GFM
+ * tables) styles cleanly with the existing `.detail-md` rules.
  */
 const skillEntry =
   skill.kind === 'instruction' ? await getEntry('skills', `${skill.slug}/SKILL`) : null;
-const SkillBody = skillEntry ? (await skillEntry.render()).Content : null;
+const SkillBody = skillEntry ? (await render(skillEntry)).Content : null;
 
 const jsonLd = [
   {
