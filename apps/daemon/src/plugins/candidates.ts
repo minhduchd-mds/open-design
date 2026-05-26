@@ -1,4 +1,10 @@
 import type Database from 'better-sqlite3';
+import type {
+  SkillPluginCandidate as ContractSkillPluginCandidate,
+  SkillPluginCandidateDraftInput as ContractSkillPluginCandidateDraftInput,
+  SkillPluginCandidateProvenance as ContractSkillPluginCandidateProvenance,
+  SkillPluginCandidateSourceKind as ContractSkillPluginCandidateSourceKind,
+} from '@open-design/contracts';
 import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -6,17 +12,9 @@ import path from 'node:path';
 type SqliteDb = Database.Database;
 type DbRow = Record<string, unknown>;
 
-export type SkillPluginCandidateSourceKind = 'project-file' | 'referenced-file' | 'repo-link';
-export type SkillPluginCandidateProvenance = 'uploaded-skill-md' | 'markdown-skill-doc' | 'plugin-like-link';
-
-export interface SkillPluginCandidateDraftInput {
-  artifactKind: 'skill-md' | 'markdown-skill-doc' | 'repo-plugin';
-  source: string;
-  title?: string;
-  description?: string;
-  contentExcerpt?: string;
-  suggestedFiles: string[];
-}
+export type SkillPluginCandidateSourceKind = ContractSkillPluginCandidateSourceKind;
+export type SkillPluginCandidateProvenance = ContractSkillPluginCandidateProvenance;
+export type SkillPluginCandidateDraftInput = ContractSkillPluginCandidateDraftInput;
 
 export interface SkillPluginCandidateInput {
   sourceKind: SkillPluginCandidateSourceKind;
@@ -29,15 +27,7 @@ export interface SkillPluginCandidateInput {
   draftInput: SkillPluginCandidateDraftInput;
 }
 
-export interface SkillPluginCandidateRow extends SkillPluginCandidateInput {
-  id: string;
-  projectId: string;
-  runId: string | null;
-  status: 'active' | 'dismissed';
-  dismissedAt: number | null;
-  createdAt: number;
-  updatedAt: number;
-}
+export type SkillPluginCandidateRow = ContractSkillPluginCandidate;
 
 export interface DetectSkillPluginCandidatesInput {
   projectRoot?: string | null;

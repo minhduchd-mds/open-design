@@ -430,14 +430,9 @@ process.stdin.on('end', () => {
         expect(createRunResponse.status).toBe(202);
         await waitForRunStatus(baseUrl, createRunBody.runId, (status) => status === 'succeeded');
 
-        let candidates: Array<{ title?: string; provenance?: string; draftInput?: { contentExcerpt?: string } }> = [];
-        for (let attempt = 0; attempt < 20; attempt += 1) {
-          const candidatesResponse = await fetch(`${baseUrl}/api/projects/${projectId}/plugin-candidates`);
-          const candidatesBody = await candidatesResponse.json() as { candidates: typeof candidates };
-          candidates = candidatesBody.candidates;
-          if (candidates.length > 0) break;
-          await new Promise((resolve) => setTimeout(resolve, 25));
-        }
+        const candidatesResponse = await fetch(`${baseUrl}/api/projects/${projectId}/plugin-candidates`);
+        const candidatesBody = await candidatesResponse.json() as import('@open-design/contracts').SkillPluginCandidateListResponse;
+        const candidates = candidatesBody.candidates;
 
         expect(candidates).toHaveLength(1);
         const candidate = candidates[0]!;

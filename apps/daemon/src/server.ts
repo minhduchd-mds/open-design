@@ -7095,9 +7095,11 @@ export async function startServer({
     const project = getProject(db, req.params.id);
     if (!project) return sendApiError(res, 404, 'NOT_FOUND', 'project not found');
     const includeDismissed = req.query.includeDismissed === 'true';
-    res.json({
+    /** @type {import('@open-design/contracts').SkillPluginCandidateListResponse} */
+    const body = {
       candidates: listSkillPluginCandidates(db, req.params.id, { includeDismissed }),
-    });
+    };
+    res.json(body);
   });
 
   app.post('/api/projects/:id/plugin-candidates/:candidateId/dismiss', (req, res) => {
@@ -7108,7 +7110,9 @@ export async function startServer({
       candidateId: req.params.candidateId,
     });
     if (!candidate) return sendApiError(res, 404, 'NOT_FOUND', 'plugin candidate not found');
-    res.json({ candidate });
+    /** @type {import('@open-design/contracts').SkillPluginCandidateDismissResponse} */
+    const body = { candidate };
+    res.json(body);
   });
 
   // Plan §3.CC1 — `od plugin canon <snapshotId>`. Returns the
@@ -10047,6 +10051,31 @@ export async function startServer({
     }
     if (run.cancelRequested || design.runs.isTerminal(run.status)) return;
     const runId = run.id;
+    const persistSkillPluginCandidatesForSucceededRun = async () => {
+      try {
+        if (typeof projectId !== 'string' || !projectId) return;
+        const project = getProject(db, projectId);
+        if (!project) return;
+        const projectRoot = project.metadata?.baseDir
+          ? path.normalize(project.metadata.baseDir)
+          : await ensureProject(PROJECTS_DIR, projectId);
+        const candidates = await detectSkillPluginCandidates({
+          projectRoot,
+          attachments,
+          message,
+          currentPrompt,
+          systemPrompt,
+        });
+        if (candidates.length === 0) return;
+        persistSkillPluginCandidates(db, {
+          projectId,
+          runId,
+          candidates,
+        });
+      } catch (err) {
+        console.warn('[plugins] skill plugin candidate detection failed', err);
+      }
+    };
 
     // Auto-memory hook. Pulls explicit "remember:" / "我是 X" / "I prefer Y"
     // markers out of the just-arrived user message and writes them as MD
@@ -11070,6 +11099,7 @@ export async function startServer({
           if (run.cancelRequested) {
             design.runs.finish(run, 'canceled', 1, null);
           } else if (succeeded) {
+            await persistSkillPluginCandidatesForSucceededRun();
             design.runs.finish(run, 'succeeded', 0, null);
           } else {
             design.runs.finish(run, 'failed', 1, null);
@@ -11304,7 +11334,7 @@ export async function startServer({
       send('error', createSseErrorPayload('AGENT_EXECUTION_FAILED', err.message));
       design.runs.finish(run, 'failed', 1, null);
     });
-    child.on('close', (code, signal) => {
+    child.on('close', async (code, signal) => {
       clearInactivityWatchdog();
       revokeToolToken('child_exit');
       unregisterChatAgentEventSink();
@@ -11392,6 +11422,9 @@ export async function startServer({
             { retryable: diagnostic.retryable, details: { detail: diagnostic.detail } },
           ));
         }
+      }
+      if (status === 'succeeded') {
+        await persistSkillPluginCandidatesForSucceededRun();
       }
       design.runs.finish(run, status, code, signal);
     });
@@ -11765,30 +11798,6 @@ export async function startServer({
     }
     reconcileAssistantMessageOnRunEnd(db, design.runs, run);
     design.runs.start(run, () => startChatRun(meta, run));
-    design.runs.wait(run).then(async (status) => {
-      if (status.status !== 'succeeded') return;
-      if (typeof meta.projectId !== 'string' || !meta.projectId) return;
-      const project = getProject(db, meta.projectId);
-      if (!project) return;
-      const projectRoot = project.metadata?.baseDir
-        ? path.normalize(project.metadata.baseDir)
-        : await ensureProject(PROJECTS_DIR, meta.projectId);
-      const candidates = await detectSkillPluginCandidates({
-        projectRoot,
-        attachments: meta.attachments,
-        message: meta.message,
-        currentPrompt: meta.currentPrompt,
-        systemPrompt: meta.systemPrompt,
-      });
-      if (candidates.length === 0) return;
-      persistSkillPluginCandidates(db, {
-        projectId: meta.projectId,
-        runId: run.id,
-        candidates,
-      });
-    }).catch((err) => {
-      console.warn('[plugins] skill plugin candidate detection failed', err);
-    });
 
     // Analytics v2: emit run_created (daemon-side authoritative) and
     // schedule run_finished on terminal state. The matching `chat-routes.ts`
