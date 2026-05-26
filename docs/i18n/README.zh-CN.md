@@ -278,7 +278,7 @@ pnpm tools-dev start
 
 <br/>
 
-## ⚡ Welcome to Contributing — 全自动化开源协作
+## ⚡ Contributing — 全自动化开源协作
 
 > **在大多数开源项目里，你的 PR 可能等几周才被看一眼。在 Open Design，从你提交 Issue 到代码合入 main，整个流程以分钟计。**
 
@@ -300,14 +300,22 @@ pnpm tools-dev start
   你成为 50K+ star 项目的 Contributor
 ```
 
-### 这意味着什么？
-
 | 传统开源项目 | Open Design |
 |---|---|
 | Issue 石沉大海，数周无人问津 | **分钟级 Agent 响应**，每条有价值的反馈都会被处理 |
 | PR 排队等 maintainer 有空 | **符合标准即自动合入**，你的代码一定会出现在 main |
 | 贡献门槛高，需要深度了解架构 | **Plugin / Design System / 文档翻译**都算贡献，[`good-first-issue`](https://github.com/nexu-io/open-design/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) 随时等你 |
 | 贡献后无人知晓 | **50K+ star 项目 Contributor 身份**，写在你的 GitHub Profile |
+
+### 如何开始？
+
+| 贡献方式 | 操作 |
+|---|---|
+| 🐛 **修 Bug / 提 Feature** | 直接开 [Issue](https://github.com/nexu-io/open-design/issues)，Agent 会在分钟内响应 |
+| 🧩 **加 Plugin** | 丢一个文件夹进 [`skills/`](../../skills/)，详见 [`skills-protocol.md`](../skills-protocol.md) |
+| 🎨 **加 Design System** | 写一份 `DESIGN.md` 放进 [`design-systems/`](../../design-systems/) |
+| 🎬 **加 HyperFrames 模板** | 提交视频模板到 Plugin 目录 |
+| 🌐 **文档翻译** | Fork → 翻译 → PR，流程见 [`CONTRIBUTING.md`](../../CONTRIBUTING.md) |
 
 ### 🌍 Fellow 计划 — 成为全球大使
 
@@ -321,17 +329,6 @@ pnpm tools-dev start
 | 🔗 **核心团队直连** | 产品方向优先反馈、技术问题优先支持、路线图参与权 |
 
 > **申请方式**：持续贡献代码 / Plugin / Design System，或在你的社区积极推广 Open Design。Fellow 计划详情即将在官网正式发布。
-
-<br/>
-
-## 🤝 Contributing
-
-欢迎所有形式的贡献——新 Plugin、新 Design System、Bug 修复、文档翻译、HyperFrames 视频模板。
-
-- Fork & PR 流程：[`CONTRIBUTING.md`](../../CONTRIBUTING.md)
-- 加 Plugin：丢一个文件夹进 [`skills/`](../../skills/)，重启 daemon 即生效，详见 [`docs/skills-protocol.md`](../skills-protocol.md)
-- 加 Design System：写一份 `DESIGN.md` 放进 [`design-systems/`](../../design-systems/)
-- 提 Bug / Feature：[GitHub Issues](https://github.com/nexu-io/open-design/issues)
 
 <br/>
 
