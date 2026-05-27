@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
+import type { CSSProperties } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { Simulate } from 'react-dom/test-utils';
 import { JSDOM } from 'jsdom';
@@ -74,6 +75,13 @@ describe('ManualEditPanel', () => {
 
     expect(host.querySelector('.manual-edit-titlebar')?.textContent).toContain('Hero split');
     expect(host.querySelector('.manual-edit-titlebar')?.textContent).not.toContain('div.container');
+  });
+
+  it('shows a drag handle for floating edit panels', () => {
+    renderPanel({ floatingStyle: { left: 20, top: 24, width: 320, height: 380 } });
+
+    expect(host.querySelector('.manual-edit-drag-handle')).not.toBeNull();
+    expect(host.querySelector('.manual-edit-drag-handle')?.getAttribute('aria-label')).toBe('Move edit panel');
   });
 
   it('allows returning from an element inspector to the page inspector', () => {
@@ -472,6 +480,8 @@ describe('ManualEditPanel', () => {
     selectedTarget = target,
     styles = emptyManualEditStyles(),
     pageStylesEnabled = true,
+    floatingStyle,
+    onFloatingPositionChange,
   }: {
     onDraftChange?: OnDraftChange;
     onApplyPatch?: OnApplyPatch;
@@ -483,6 +493,8 @@ describe('ManualEditPanel', () => {
     selectedTarget?: ManualEditTarget | null;
     styles?: ReturnType<typeof emptyManualEditStyles>;
     pageStylesEnabled?: boolean;
+    floatingStyle?: CSSProperties;
+    onFloatingPositionChange?: (position: { left: number; top: number }) => void;
   } = {}) {
     const draft = {
       ...emptyManualEditDraft('<html></html>'),
@@ -512,6 +524,8 @@ describe('ManualEditPanel', () => {
           onCancelDraft={vi.fn<() => void>()}
           onUndo={vi.fn<() => void>()}
           onRedo={vi.fn<() => void>()}
+          floatingStyle={floatingStyle}
+          onFloatingPositionChange={onFloatingPositionChange}
         />,
       );
     });

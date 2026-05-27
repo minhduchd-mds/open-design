@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { useT } from '../i18n';
 import { emptyManualEditStyles, type ManualEditHistoryEntry, type ManualEditPatch, type ManualEditStyles, type ManualEditTarget } from '../edit-mode/types';
 import { Icon } from './Icon';
@@ -37,6 +37,7 @@ export function ManualEditPanel({
   onPickImage,
   pageStylesEnabled = true,
   floatingStyle,
+  onFloatingPositionChange,
 }: {
   targets: ManualEditTarget[];
   selectedTarget: ManualEditTarget | null;
@@ -54,6 +55,7 @@ export function ManualEditPanel({
   onApplyPatch: (patch: ManualEditPatch, label: string) => void;
   onPickImage?: (file: File) => Promise<string | null>;
   floatingStyle?: CSSProperties;
+  onFloatingPositionChange?: (position: { left: number; top: number }) => void;
   onError: (message: string) => void;
   onClearSelection: () => void;
   onExit?: () => void;
@@ -88,6 +90,39 @@ export function ManualEditPanel({
     onStyleChange?.(targetForInspector.id, normalized.styles, `Style: ${targetForInspector.label}`);
   };
 
+  const startPanelDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (!onFloatingPositionChange) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const panel = event.currentTarget.closest('.manual-edit-right') as HTMLElement | null;
+    const parent = panel?.parentElement;
+    if (!panel || !parent) return;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const startLeft = panel.offsetLeft;
+    const startTop = panel.offsetTop;
+    const parentRect = parent.getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
+    const pad = 8;
+    const maxLeft = Math.max(pad, parentRect.width - panelRect.width - pad);
+    const maxTop = Math.max(pad, parentRect.height - panelRect.height - pad);
+    const ownerDocument = panel.ownerDocument;
+    const move = (moveEvent: PointerEvent) => {
+      onFloatingPositionChange({
+        left: clamp(startLeft + moveEvent.clientX - startX, pad, maxLeft),
+        top: clamp(startTop + moveEvent.clientY - startY, pad, maxTop),
+      });
+    };
+    const up = () => {
+      ownerDocument.removeEventListener('pointermove', move);
+      ownerDocument.removeEventListener('pointerup', up);
+      ownerDocument.removeEventListener('pointercancel', up);
+    };
+    ownerDocument.addEventListener('pointermove', move);
+    ownerDocument.addEventListener('pointerup', up);
+    ownerDocument.addEventListener('pointercancel', up);
+  };
+
   return (
     <aside
       className={`manual-edit-right${floatingStyle ? ' manual-edit-floating' : ''}`}
@@ -95,6 +130,17 @@ export function ManualEditPanel({
     >
       <section className="manual-edit-modal cc-panel">
         <div className="manual-edit-titlebar">
+          {floatingStyle ? (
+            <button
+              type="button"
+              className="manual-edit-drag-handle"
+              aria-label="Move edit panel"
+              title="Move edit panel"
+              onPointerDown={startPanelDrag}
+            >
+              <span aria-hidden />
+            </button>
+          ) : null}
           <span title={panelTitle}>{panelTitle}</span>
           {onExit ? (
             <button
@@ -258,6 +304,10 @@ function readableManualEditTargetName(target: ManualEditTarget): string {
   if (target.kind === 'image') return 'Image';
   if (target.kind === 'link') return 'Link';
   return 'Text';
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
 
 function firstReadableText(...values: Array<string | undefined>): string {

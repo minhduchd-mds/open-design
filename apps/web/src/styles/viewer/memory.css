@@ -969,13 +969,13 @@
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   min-height: 52px;
   padding: 14px 18px 10px;
 }
 
 .manual-edit-titlebar > span {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   color: var(--text);
@@ -984,6 +984,39 @@
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.manual-edit-drag-handle {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: grab;
+  touch-action: none;
+}
+
+.manual-edit-drag-handle:active {
+  cursor: grabbing;
+}
+
+.manual-edit-drag-handle:hover {
+  background: var(--bg-subtle);
+  color: var(--text);
+}
+
+.manual-edit-drag-handle span {
+  width: 14px;
+  height: 18px;
+  background-image: radial-gradient(currentColor 1.5px, transparent 1.6px);
+  background-position: 0 0;
+  background-size: 7px 6px;
 }
 
 .manual-edit-titlebar-close {

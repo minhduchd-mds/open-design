@@ -4102,8 +4102,9 @@ function HtmlViewer({
       });
     });
   }, []);
-  const [manualEditTargets, setManualEditTargets] = useState<ManualEditTarget[]>([]);
+const [manualEditTargets, setManualEditTargets] = useState<ManualEditTarget[]>([]);
   const [selectedManualEditTarget, setSelectedManualEditTarget] = useState<ManualEditTarget | null>(null);
+  const [manualEditPanelPosition, setManualEditPanelPosition] = useState<{ left: number; top: number } | null>(null);
   const selectedManualEditTargetIdRef = useRef<string | null>(null);
   const [manualEditDraft, setManualEditDraft] = useState<ManualEditDraft>(() => emptyManualEditDraft());
   const [manualEditHistory, setManualEditHistory] = useState<ManualEditHistoryEntry[]>([]);
@@ -4803,6 +4804,7 @@ function HtmlViewer({
     setManualEditViewportWidth(null);
     setManualEditTargets([]);
     setSelectedManualEditTarget(null);
+    setManualEditPanelPosition(null);
     selectedManualEditTargetIdRef.current = null;
     setManualEditDraft(emptyManualEditDraft());
     setManualEditHistory([]);
@@ -4995,6 +4997,7 @@ function HtmlViewer({
     if (!manualEditMode) {
       setManualEditTargets([]);
       setSelectedManualEditTarget(null);
+      setManualEditPanelPosition(null);
       setManualEditError(null);
       manualEditPendingStyleRef.current = null;
       if (manualEditStyleTimerRef.current) {
@@ -5136,6 +5139,7 @@ function HtmlViewer({
   async function exitManualEditModeAfterFlush(): Promise<boolean> {
     const ok = await flushManualEditStyleSave();
     if (!ok) return false;
+    setManualEditPanelPosition(null);
     setManualEditMode(false);
     return true;
   }
@@ -5161,6 +5165,7 @@ function HtmlViewer({
   async function clearManualEditTargetSelection() {
     if (!(await flushManualEditStyleSave())) return;
     setSelectedManualEditTarget(null);
+    setManualEditPanelPosition(null);
     setManualEditDraft(emptyManualEditDraft(sourceRef.current ?? ''));
     setManualEditError(null);
   }
@@ -6241,12 +6246,16 @@ function HtmlViewer({
         void redoManualEdit();
       }}
       floatingStyle={selectedManualEditTarget
-        ? manualEditFloatingPanelStyle(
-            selectedManualEditTarget,
-            overlayPreviewScale,
-            previewBodySize,
-          )
+        ? {
+            ...manualEditFloatingPanelStyle(
+              selectedManualEditTarget,
+              overlayPreviewScale,
+              previewBodySize,
+            ),
+            ...(manualEditPanelPosition ?? {}),
+          }
         : undefined}
+      onFloatingPositionChange={setManualEditPanelPosition}
       onPickImage={async (pickedFile) => {
         const result = await uploadProjectFiles(projectId, [pickedFile]);
         const uploaded = result.uploaded[0];
