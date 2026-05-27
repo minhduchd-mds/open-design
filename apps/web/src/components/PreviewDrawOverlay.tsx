@@ -459,6 +459,7 @@ export function PreviewDrawOverlay({
       ) : null}
       {active ? (
         <>
+          <style>{tooltipStyle}</style>
           {captureWarning ? (
             <div
               role="status"
@@ -561,6 +562,8 @@ export function PreviewDrawOverlay({
             disabled={sending || !canSubmit}
             aria-label={pendingAction === 'queue' ? t('chat.annotationQueueing') : t('chat.annotationQueue')}
             title={pendingAction === 'queue' ? t('chat.annotationQueueing') : t('chat.annotationQueue')}
+            data-tooltip={pendingAction === 'queue' ? t('chat.annotationQueueing') : t('chat.annotationQueue')}
+            className="preview-draw-icon-action"
             style={{
               ...drawActionButtonStyle(false),
               opacity: canSubmit ? 1 : 0.4,
@@ -579,6 +582,8 @@ export function PreviewDrawOverlay({
             disabled={sending || !canSend}
             aria-label={pendingAction === 'send' ? t('chat.annotationSending') : t('chat.send')}
             title={sendDisabled ? sendDisabledReason : pendingAction === 'send' ? t('chat.annotationSending') : t('chat.send')}
+            data-tooltip={sendDisabled ? sendDisabledReason : pendingAction === 'send' ? t('chat.annotationSending') : t('chat.send')}
+            className="preview-draw-icon-action"
             style={{
               ...drawActionButtonStyle(true),
               opacity: canSend ? 1 : 0.4,
@@ -597,7 +602,7 @@ export function PreviewDrawOverlay({
             disabled={sending}
             aria-label={t('common.close')}
             title={t('common.close')}
-            style={iconButtonStyle}
+            style={closeButtonStyle}
           >
             <Icon name="close" size={13} />
           </button>
@@ -607,6 +612,35 @@ export function PreviewDrawOverlay({
     </div>
   );
 }
+
+const tooltipStyle = `
+  .preview-draw-icon-action {
+    position: relative;
+  }
+  .preview-draw-icon-action::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    z-index: 12;
+    left: 50%;
+    bottom: calc(100% + 8px);
+    transform: translateX(-50%) translateY(2px);
+    padding: 4px 7px;
+    border-radius: 6px;
+    background: rgba(20,20,20,0.94);
+    color: #fff;
+    font-size: 11px;
+    line-height: 1.2;
+    opacity: 0;
+    pointer-events: none;
+    white-space: nowrap;
+    transition: opacity 140ms cubic-bezier(0.23, 1, 0.32, 1), transform 140ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .preview-draw-icon-action:hover::after,
+  .preview-draw-icon-action:focus-visible::after {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+`;
 
 function drawActionButtonStyle(primary: boolean): CSSProperties {
   return {
@@ -647,4 +681,10 @@ const iconButtonStyle: CSSProperties = {
   justifyContent: 'center',
   background: 'rgba(255,255,255,0.06)',
   color: 'inherit',
+};
+
+const closeButtonStyle: CSSProperties = {
+  ...iconButtonStyle,
+  border: 'none',
+  background: 'transparent',
 };
