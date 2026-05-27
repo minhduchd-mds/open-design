@@ -261,6 +261,20 @@ HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settin
     expect(env.HTTPS_PROXY).toBe("http://user:9443");
     expect(env.https_proxy).toBe("http://user:9443");
   });
+
+  it("makes lowercase proxy vars win within a single POSIX source", () => {
+    const env = mergeProxyAwareEnv("linux", {
+      http_proxy: "http://new:8080",
+      HTTP_PROXY: "http://old:8080",
+      HTTPS_PROXY: "http://older:8443",
+      https_proxy: "http://newer:8443",
+    });
+
+    expect(env.HTTP_PROXY).toBe("http://new:8080");
+    expect(env.http_proxy).toBe("http://new:8080");
+    expect(env.HTTPS_PROXY).toBe("http://newer:8443");
+    expect(env.https_proxy).toBe("http://newer:8443");
+  });
 });
 
 // `createCommandInvocation` makes a platform-conditional choice based on

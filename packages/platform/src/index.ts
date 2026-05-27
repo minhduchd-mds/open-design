@@ -136,14 +136,25 @@ export function mergeProxyAwareEnv(
 ): NodeJS.ProcessEnv {
   const merged: NodeJS.ProcessEnv = {};
   for (const source of sources) {
+    const proxyEntries = new Map<
+      "ALL_PROXY" | "HTTP_PROXY" | "HTTPS_PROXY" | "NODE_USE_ENV_PROXY" | "NO_PROXY",
+      { preferLowercase: boolean; value: string }
+    >();
     for (const [key, value] of Object.entries(source)) {
       if (value == null) continue;
       const canonicalKey = canonicalProxyEnvKey(key);
       if (canonicalKey) {
-        setCanonicalProxyEnvValue(merged, canonicalKey, value, platform);
+        const current = proxyEntries.get(canonicalKey);
+        const preferLowercase = key === key.toLowerCase();
+        if (!current || preferLowercase || !current.preferLowercase) {
+          proxyEntries.set(canonicalKey, { preferLowercase, value });
+        }
         continue;
       }
       merged[key] = value;
+    }
+    for (const [canonicalKey, entry] of proxyEntries) {
+      setCanonicalProxyEnvValue(merged, canonicalKey, entry.value, platform);
     }
   }
   return merged;
