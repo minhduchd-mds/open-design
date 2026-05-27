@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-27T11:33:02.918Z",
+  "generatedAt": "2026-05-27T11:45:16.565Z",
   "contributors": {
     "1115052994": {
       "lastAnnouncedTier": "spark",
@@ -1899,6 +1899,12 @@
       "lastAnnouncedTier": "spark",
       "lastKnownScore": 2,
       "lastCheckedAt": "2026-05-27T06:58:18.529Z",
+      "scoreVersion": "weighted-v1"
+    },
+    "erlend-sh": {
+      "lastAnnouncedTier": "spark",
+      "lastKnownScore": 2,
+      "lastCheckedAt": "2026-05-27T11:45:16.565Z",
       "scoreVersion": "weighted-v1"
     }
   }
