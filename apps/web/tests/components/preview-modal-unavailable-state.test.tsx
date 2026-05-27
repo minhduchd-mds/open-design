@@ -124,6 +124,9 @@ describe('PreviewModal unavailable state', () => {
     expect(screen.getByRole('menuitem', { name: /Reddit/i })).toBeTruthy();
     expect(screen.getByRole('menuitem', { name: /Facebook/i })).toBeTruthy();
     expect(screen.getByRole('menuitem', { name: /LinkedIn/i })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: /Instagram/i })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: /小红书/i })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: /Bilibili/i })).toBeTruthy();
     expect(screen.getByRole('menuitem', { name: /Copy template link/i })).toBeTruthy();
     expect(screen.getByRole('menuitem', { name: /Export as PDF/i })).toBeTruthy();
     expect(xShare.getAttribute('href')).toContain(
@@ -147,6 +150,15 @@ describe('PreviewModal unavailable state', () => {
         screen.getByRole('menuitem', { name: /Facebook/i }).getAttribute('href') ?? '',
       ).searchParams.get('quote'),
     ).toBe('Open Design template: Landing Template');
+    expect(screen.getByRole('menuitem', { name: /Instagram/i }).getAttribute('href')).toBe(
+      'https://www.instagram.com/',
+    );
+    expect(screen.getByRole('menuitem', { name: /小红书/i }).getAttribute('href')).toBe(
+      'https://www.xiaohongshu.com/',
+    );
+    expect(screen.getByRole('menuitem', { name: /Bilibili/i }).getAttribute('href')).toBe(
+      'https://www.bilibili.com/',
+    );
   });
 
   it('shows copied feedback when clipboard permissions require the fallback path', async () => {

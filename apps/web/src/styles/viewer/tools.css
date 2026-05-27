@@ -881,6 +881,18 @@
   background: #0a66c2;
   color: white;
 }
+.template-share-platform--instagram .template-share-platform__mark {
+  background: #e4405f;
+  color: white;
+}
+.template-share-platform--xiaohongshu .template-share-platform__mark {
+  background: #ff2442;
+  color: white;
+}
+.template-share-platform--bilibili .template-share-platform__mark {
+  background: #00a1d6;
+  color: white;
+}
 
 .button-like {
   display: inline-flex;

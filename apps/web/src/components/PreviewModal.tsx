@@ -81,7 +81,14 @@ export interface PreviewShareTarget {
   url?: string;
 }
 
-type SocialSharePlatform = 'x' | 'reddit' | 'facebook' | 'linkedin';
+type SocialSharePlatform =
+  | 'x'
+  | 'reddit'
+  | 'facebook'
+  | 'linkedin'
+  | 'instagram'
+  | 'xiaohongshu'
+  | 'bilibili';
 
 const SOCIAL_SHARE_PLATFORMS: Array<{
   platform: SocialSharePlatform;
@@ -89,19 +96,45 @@ const SOCIAL_SHARE_PLATFORMS: Array<{
     | 'preview.shareToX'
     | 'preview.shareToReddit'
     | 'preview.shareToFacebook'
-    | 'preview.shareToLinkedIn';
+    | 'preview.shareToLinkedIn'
+    | 'preview.shareToInstagram'
+    | 'preview.shareToXiaohongshu'
+    | 'preview.shareToBilibili';
   mark: string;
+  mode: 'intent' | 'copy-open';
+  entryUrl?: string;
 }> = [
-  { platform: 'x', labelKey: 'preview.shareToX', mark: 'X' },
-  { platform: 'reddit', labelKey: 'preview.shareToReddit', mark: 'R' },
-  { platform: 'facebook', labelKey: 'preview.shareToFacebook', mark: 'f' },
-  { platform: 'linkedin', labelKey: 'preview.shareToLinkedIn', mark: 'in' },
+  { platform: 'x', labelKey: 'preview.shareToX', mark: 'X', mode: 'intent' },
+  { platform: 'reddit', labelKey: 'preview.shareToReddit', mark: 'R', mode: 'intent' },
+  { platform: 'facebook', labelKey: 'preview.shareToFacebook', mark: 'f', mode: 'intent' },
+  { platform: 'linkedin', labelKey: 'preview.shareToLinkedIn', mark: 'in', mode: 'intent' },
+  {
+    platform: 'instagram',
+    labelKey: 'preview.shareToInstagram',
+    mark: 'IG',
+    mode: 'copy-open',
+    entryUrl: 'https://www.instagram.com/',
+  },
+  {
+    platform: 'xiaohongshu',
+    labelKey: 'preview.shareToXiaohongshu',
+    mark: '小',
+    mode: 'copy-open',
+    entryUrl: 'https://www.xiaohongshu.com/',
+  },
+  {
+    platform: 'bilibili',
+    labelKey: 'preview.shareToBilibili',
+    mark: 'B',
+    mode: 'copy-open',
+    entryUrl: 'https://www.bilibili.com/',
+  },
 ];
 
 function buildSocialShareUrl(
   platform: SocialSharePlatform,
   args: { url: string; title: string; text: string },
-): string {
+): string | null {
   const params = new URLSearchParams();
   switch (platform) {
     case 'x':
@@ -119,6 +152,10 @@ function buildSocialShareUrl(
     case 'linkedin':
       params.set('url', args.url);
       return `https://www.linkedin.com/sharing/share-offsite/?${params.toString()}`;
+    case 'instagram':
+    case 'xiaohongshu':
+    case 'bilibili':
+      return null;
   }
   const exhaustive: never = platform;
   return exhaustive;
@@ -353,13 +390,13 @@ export function PreviewModal({
   const socialShareTargets = useMemo(
     () => SOCIAL_SHARE_PLATFORMS.map((item) => ({
       ...item,
-      href: previewShareUrl
+      href: item.mode === 'intent' && previewShareUrl
         ? buildSocialShareUrl(item.platform, {
           url: previewShareUrl,
           title: previewShareText,
           text: previewShareText,
         })
-        : '',
+        : item.entryUrl ?? '',
     })),
     [previewShareText, previewShareUrl],
   );
@@ -405,8 +442,8 @@ export function PreviewModal({
     setFullscreen(false);
   }
 
-  async function copyPreviewShare(text: string, key: string) {
-    if (!text) return;
+  async function copyPreviewShare(text: string, key: string): Promise<boolean> {
+    if (!text) return false;
     const ok = await copyToClipboard(text);
     setCopyShareFeedback({ key, ok });
     window.setTimeout(() => {
@@ -414,6 +451,7 @@ export function PreviewModal({
         current?.key === key ? null : current
       ));
     }, 1600);
+    return ok;
   }
 
   const showTabs = views.length > 1;
@@ -548,13 +586,29 @@ export function PreviewModal({
                                   event.preventDefault();
                                   return;
                                 }
+                                if (item.mode === 'copy-open') {
+                                  event.preventDefault();
+                                  const feedbackKey = `social-${item.platform}`;
+                                  void copyPreviewShare(previewShareCopy, feedbackKey).then((ok) => {
+                                    if (!ok || !item.href) return;
+                                    setTemplateShareOpen(false);
+                                    window.location.href = item.href;
+                                  });
+                                  return;
+                                }
                                 setTemplateShareOpen(false);
                               }}
                             >
                               <span className="template-share-platform__mark">
                                 {item.mark}
                               </span>
-                              <span>{t(item.labelKey)}</span>
+                              <span>
+                                {copyShareFeedback?.key === `social-${item.platform}`
+                                  ? copyShareFeedback.ok
+                                    ? t('preview.shareCopied')
+                                    : t('preview.shareCopyFailed')
+                                  : t(item.labelKey)}
+                              </span>
                             </a>
                           ))}
                         </div>
