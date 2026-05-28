@@ -8,8 +8,14 @@
 Agent-native, local-first product-design platform. Native desktop app for macOS & Windows.</p>
 
 <p align="center">
+  <a href="https://open-design.ai/"><img alt="⬇ Download for macOS" src="https://img.shields.io/badge/⬇%20Download-macOS-000?style=for-the-badge&logo=apple&logoColor=white&labelColor=000" /></a>
+  <a href="https://open-design.ai/"><img alt="⬇ Download for Windows" src="https://img.shields.io/badge/⬇%20Download-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white&labelColor=0078D6" /></a>
+  <a href="https://github.com/nexu-io/open-design/releases"><img alt="⬇ Download for Linux" src="https://img.shields.io/badge/⬇%20Download-Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black&labelColor=FCC624" /></a>
+</p>
+
+<p align="center">
   <a href="https://open-design.ai/"><b>Website</b></a> ·
-  <a href="https://github.com/nexu-io/open-design/releases"><b>Download</b></a> ·
+  <a href="https://github.com/nexu-io/open-design/releases"><b>All releases</b></a> ·
   <a href="QUICKSTART.md"><b>Quickstart</b></a> ·
   <a href="docs/architecture.md"><b>Architecture</b></a> ·
   <a href="https://discord.gg/qhbcCH8Am4"><b>Discord</b></a> ·
