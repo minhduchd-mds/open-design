@@ -10,7 +10,9 @@ param(
   [ValidateSet("full", "fast")]
   [string]$SmokeMode = "full",
   [ValidateSet("all", "dir", "nsis", "zip")]
-  [string]$Target = "all"
+  [string]$Target = "all",
+  [ValidateSet("auto", "off", "on")]
+  [string]$SignMode = "auto"
 )
 
 $ErrorActionPreference = "Stop"
@@ -26,6 +28,8 @@ $workspaceRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 $fnm = "C:\Users\runner\.cargo\bin\fnm.exe"
 $cargo = "C:\Users\runner\.cargo\bin\cargo.exe"
 $makensis = "C:\Program Files (x86)\NSIS\makensis.exe"
+$signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool.exe"
+$winSigningThumbprint = "8617C437D6CCE5A61758C27E684BF5CADC5AC0A7"
 
 function Require-File([string]$Path, [string]$Name) {
   if (-not (Test-Path -LiteralPath $Path)) {
@@ -133,6 +137,23 @@ function Repair-ElectronDist {
   Require-File $electronExe "electron.exe"
 }
 
+function Resolve-WindowsSigningEnabled {
+  if ($SignMode -eq "off") {
+    return $false
+  }
+  $cert = Get-ChildItem Cert:\CurrentUser\My -ErrorAction SilentlyContinue |
+    Where-Object { $_.Thumbprint -eq $winSigningThumbprint -and $_.HasPrivateKey } |
+    Select-Object -First 1
+  if ($cert -eq $null) {
+    if ($SignMode -eq "on") {
+      throw "Windows signing certificate with private key not found: $winSigningThumbprint"
+    }
+    return $false
+  }
+  Require-File $signtool "signtool"
+  return $true
+}
+
 function Read-BuildJson {
   if (-not (Test-Path -LiteralPath $buildJsonPath)) {
     return $null
@@ -217,6 +238,7 @@ function Write-IndexAndSummary([string]$Status) {
     namespace = $Namespace
     platform = $Platform
     target = $Target
+    signed = $script:windowsSigningEnabled
     releaseVersion = $ReleaseVersion
     status = $Status
     failure = $script:failureMessage
@@ -246,6 +268,7 @@ function Write-IndexAndSummary([string]$Status) {
     "- status: ``$Status``",
     "- platform: ``$Platform``",
     "- target: ``$Target``",
+    "- signed: ``$script:windowsSigningEnabled``",
     "- lane: ``$Lane``",
     "- namespace: ``$Namespace``",
     "- releaseVersion: ``$ReleaseVersion``",
@@ -340,6 +363,7 @@ $metadataOutputPath = Join-Path $platformRoot "metadata.outputs"
 
 New-Item -ItemType Directory -Force -Path $platformRoot, $toolsPackDir, $cacheDir, $reportDir, $indexDir | Out-Null
 Remove-Item -LiteralPath $buildJsonPath -Force -ErrorAction SilentlyContinue
+$script:windowsSigningEnabled = $false
 
 try {
   Measure-Step "toolchain" {
@@ -352,6 +376,16 @@ try {
     & $fnm exec --using=24 -- pnpm.cmd --version
     & $cargo --version
     & $makensis /VERSION
+  }
+
+  Measure-Step "windows signing" {
+    $script:windowsSigningEnabled = Resolve-WindowsSigningEnabled
+    if ($script:windowsSigningEnabled) {
+      $env:OD_WIN_SIGN_CERT_SHA1 = $winSigningThumbprint
+      $env:OD_WIN_SIGNTOOL_PATH = $signtool
+      $env:OD_WIN_SIGN_TIMESTAMP_URL = "http://timestamp.digicert.com"
+      Write-Host "Windows signing enabled with certificate $winSigningThumbprint"
+    }
   }
 
   Measure-Step "pnpm install" {
@@ -407,6 +441,9 @@ try {
     "--to", $Target,
     "--json"
   )
+  if ($script:windowsSigningEnabled) {
+    $buildArgs += "--signed"
+  }
 
   Measure-Step "tools-pack win build" {
     $buildOutput = & $fnm exec --using=24 -- @buildArgs

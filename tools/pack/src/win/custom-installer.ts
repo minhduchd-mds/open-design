@@ -11,6 +11,7 @@ import { resolveWinInstallIdentity } from "./identity.js";
 import { readPackagedVersion } from "./manifest.js";
 import { ensureNsisPersianLanguageAlias } from "./nsis.js";
 import { sanitizeNamespace } from "./paths.js";
+import { signAndVerifyWinFile } from "./sign.js";
 import type { WinBuiltAppManifest, WinPackTiming, WinPaths } from "./types.js";
 
 const execFileAsync = promisify(execFile);
@@ -801,6 +802,12 @@ export async function buildCustomWinNsisInstaller(
       { cwd: dirname(paths.installerScriptPath), outputPath: paths.setupPath },
     );
   });
+  if (config.signed) {
+    const signingDetails: Record<string, unknown> = {};
+    await runSegment("windows-sign:setup-exe", async () => {
+      Object.assign(signingDetails, await signAndVerifyWinFile(paths.setupPath));
+    }, signingDetails);
+  }
   await runSegment("nsis:stat", async () => {
     await stat(paths.setupPath);
   });

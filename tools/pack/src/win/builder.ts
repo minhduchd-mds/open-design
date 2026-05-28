@@ -39,6 +39,10 @@ import {
   shouldBuildWinPortableZip,
 } from "./report.js";
 import type { ResourceTreeResult } from "./resources.js";
+import {
+  resolveWinSigningCacheKey,
+  signAndVerifyWinFile,
+} from "./sign.js";
 import { buildWinPortableZip } from "./zip.js";
 import type {
   ElectronBuilderDirCacheMetadata,
@@ -261,12 +265,16 @@ export async function runElectronBuilder(
   resourceTree: ResourceTreeResult,
 ): Promise<WinPackTiming[]> {
   const segments: WinPackTiming[] = [];
-  const runSegment = async <T>(phase: string, task: () => Promise<T>): Promise<T> => {
+  const runSegment = async <T>(
+    phase: string,
+    task: () => Promise<T>,
+    details?: Record<string, unknown>,
+  ): Promise<T> => {
     const startedAt = Date.now();
     try {
       return await task();
     } finally {
-      segments.push({ durationMs: Date.now() - startedAt, phase });
+      segments.push({ details, durationMs: Date.now() - startedAt, phase });
     }
   };
   const packagedVersion = await readPackagedVersion(config);
@@ -392,11 +400,22 @@ export async function runElectronBuilder(
       }
       return materializeCachedUnpackedForInstaller(paths, packagedVersion);
     });
+    const signingCacheKey = resolveWinSigningCacheKey(config);
+    let signedUnpacked = false;
+    const ensureSignedUnpacked = async (): Promise<void> => {
+      if (!config.signed || signedUnpacked) return;
+      const signingDetails: Record<string, unknown> = {};
+      await runSegment("windows-sign:unpacked-exe", async () => {
+        Object.assign(signingDetails, await signAndVerifyWinFile(materialized.executablePath));
+      }, signingDetails);
+      signedUnpacked = true;
+    };
     if (shouldBuildWinPortableZip(config.to)) {
       const archiveSegments: WinPackTiming[] = [];
       await runSegment("portable-zip:cache", async () => {
         const node: CacheNode<{ createdAt: string; portableZipPath: string }> = {
           build: async ({ entryRoot }) => {
+            await ensureSignedUnpacked();
             archiveSegments.push(...await buildWinPortableZip(config, paths, materialized));
             await cp(paths.setupZipPath, join(entryRoot, "portable.zip"));
             return { createdAt: new Date().toISOString(), portableZipPath: paths.setupZipPath };
@@ -408,6 +427,7 @@ export async function runElectronBuilder(
             namespace: config.namespace,
             packagedAppKey,
             packagedVersion,
+            signing: signingCacheKey,
             target: "portable-zip",
           }),
           outputs: ["portable.zip"],
@@ -424,6 +444,7 @@ export async function runElectronBuilder(
       await runSegment("nsis-installer:cache", async () => {
         const node: CacheNode<{ createdAt: string; installerPath: string; payloadPath: string }> = {
           build: async ({ entryRoot }) => {
+            await ensureSignedUnpacked();
             archiveSegments.push(...await buildCustomWinNsisInstaller(config, paths, materialized));
             await cp(paths.setupPath, join(entryRoot, "setup.exe"));
             await cp(paths.installerPayloadPath, join(entryRoot, "payload.7z"));
@@ -440,6 +461,7 @@ export async function runElectronBuilder(
             namespace: config.namespace,
             packagedAppKey,
             packagedVersion,
+            signing: signingCacheKey,
             target: "nsis-installer",
           }),
           outputs: ["setup.exe", "payload.7z"],
