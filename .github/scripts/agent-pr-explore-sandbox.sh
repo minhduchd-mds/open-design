@@ -1295,7 +1295,7 @@ Each /explore run is costly. A maintainer asked for actual validation, not a smo
 - Be thorough, not lazy. When the positive path looks blocked, FIRST exhaust mitigations (stub the missing dep, set the env var, use PR-provided fixtures, probe APIs directly, search the repo) BEFORE falling back to "inconclusive".
 - Read code in context: when behavior depends on surrounding logic, open the file, not just the diff hunk.
 - For any unfamiliar product term in the diff, search before guessing: try 'gh search issues' / 'gh search prs' / 'gh search code' on the term, the repo README and docs/, related linked issues. Do not proceed in confusion.
-- Skipping a probe target REQUIRES an explicit written reason in the report. "I didn't try" is not acceptable.
+- Skipping a probe target REQUIRES an explicit written reason in the report. "I did not try" is not acceptable.
 
 ## STEP 0 -- Read PR body first
 
@@ -1303,28 +1303,48 @@ If the PR body contains a '## Test Plan' (or '<!-- agent-test:' HTML-comment) se
 
 ## STEP 1 -- Diff-driven mandatory probe list
 
-From the diff, extract:
+The diff in the context below MAY BE TRUNCATED -- this harness applies a per-file 'file_patch_max_chars' cap and a total 'context_max_bytes' cap before reaching you. Large PRs are exactly when truncation bites. If diff stat in the context shows N files but you only see content for fewer, treat the rest as "exists but content not visible".
+
+From what you SEE, extract a probe list:
 - Every new HTTP route / endpoint (app.get/post/put/delete, router.*, '/api/...').
 - Every new component / page (new tsx/vue/svelte files).
 - Every new env var the code reads (process.env.X, getenv).
 - Every new fixture / mock / fake / stub ('tests/fixtures/**', '*fake-*', '*mock-*', '*stub-*').
 - Every new CLI flag ('--require-X', etc.).
 
-These are MANDATORY probe targets. Anything you don't probe needs an explicit reason in the report ("new /api/foo exercised by case 2", or "skipped /api/bar -- requires backend X unavailable in sandbox; tried [a/b/c/d], none unblocked").
+Probe list items you SEE are MANDATORY probe targets. Anything you choose not to probe needs an explicit reason in the report ("new /api/foo exercised by case 2", or "skipped /api/bar -- requires backend X unavailable in sandbox; mitigations [list] tried, none unblocked").
+
+If the diff is materially truncated, say so in §🧭 Scope ("diff was truncated; probe list reflects only visible portion") and emit §📎 Needs to request the maintainer attach the missing relevant source files into the private workspace for the next run.
 
 ## STEP 2 -- Unblock the positive path BEFORE giving up
 
-When the changed feature is gated on something missing in the sandbox, try in order:
+Your direct capabilities in this harness:
+- 'fs:write' on the HOST runner (you can read/write files on the runner filesystem).
+- Playwright browser control of the app at ${base_url}, including 'page.evaluate' and 'page.request' from the browser context.
+- The the PR app runs in a docker container; you DO NOT have direct shell access into the container (no 'docker exec', no 'gh' / 'grep' / arbitrary shell). The agent process lives on the host and talks to the app via HTTP only.
+- A per-PR private workspace dir on the host (\$WORKSPACE_DIR, when set) where maintainers may have pre-attached test plans / walkthroughs / sample data / screenshots. READ them; do not paste content into the report (see PRIVACY below).
 
-a. PR-provided fixtures take priority. If the diff includes 'tests/fixtures/fake-X.mjs' or similar, the PR author already gave you the stub. Wire it via the env var the code reads (e.g. FAKE_X_BIN=/path/to/fake-X.mjs), or symlink it into the container's PATH.
+When the positive path is gated on something missing in the sandbox, try in order:
 
-b. Build a minimal stub yourself if no fixture exists. INSIDE the sandbox container (never on the host), you may create a tiny stub binary or HTTP responder that satisfies the runtime's expected I/O. Example: write a shell script at /usr/local/bin/X that prints expected JSON on expected args, chmod +x. Document the stub's behavior in the report.
+a. PR-provided fixtures: if the diff includes 'tests/fixtures/fake-X.mjs' (or similar), the PR author wrote that stub specifically so tests can run without the real binary. The fixture lives on the host filesystem after checkout. The the PR daemon almost certainly reads an env var to point at it (look for 'process.env.VELA_BIN' / 'process.env.FAKE_X_BIN' etc. in the diff). Container env is set ONCE at 'docker run' before this prompt starts -- you cannot change it mid-run. Emit §🔑 Needs ("set FAKE_X_BIN=<path>") so the maintainer (or harness on next iteration) can configure the run.
 
-c. Probe APIs directly when the UI does not surface them. Use page.evaluate to fetch the new daemon route from devtools context. Useful when the route is real but no UI control reaches it in this sandbox state.
+b. Build a host-side stub if it would unblock: with 'fs:write' you can create a script at any host path. But the running daemon will not pick it up unless its env points at it -- same env-at-startup constraint as (a). Signal in §🔑 Needs / §📎 Needs.
 
-d. Search the repo / related PRs / issues for the unknown. 'grep -r' against apps/ and packages/, 'gh pr list --state all --search', READMEs and docs/. Especially for product names or acronyms you don't recognize.
+c. Probe APIs directly via Playwright -- this is your most direct unblock and needs no harness change:
+   - 'await page.evaluate(() => fetch(\"/api/new/route\", { method:\"POST\", body: JSON.stringify({...}) }).then(r => ({status: r.status, body: r.text()})))'
+   - 'await page.request.post(\"${base_url}/api/...\", { data: {...} })'
+   Useful when the new daemon route is real but no UI control reaches it in this sandbox state. Capture the status code + response shape as case evidence.
 
-If after (a)-(d) the positive path is genuinely unreachable, THEN mark inconclusive -- but the report MUST list which mitigations you tried and WHY each did not unblock.
+d. Use the private workspace if available. If \$WORKSPACE_DIR is set and has files, the maintainer pre-provided context for this run -- read them BEFORE running cases:
+   - test-plan.md / *.test-plan.md → declared cases are MUST-COVER; same priority as PR body Test Plan.
+   - walkthrough.md → step-by-step manual instructions to follow.
+   - *.png / *.jpg → visual reference for assertions.
+   - *.json / *.yaml / *.sql → sample data / seed input.
+   - *.pdf / *.md → spec / requirement references.
+
+   PRIVACY: workspace files are private maintainer-provided context. Reference them BY PURPOSE in the report ("verified positive-1 from test-plan.md"). NEVER paste their content into the report, NEVER pass content through 'page.evaluate' (trace would capture it).
+
+If after (a)-(d) the positive path is genuinely unreachable, THEN mark inconclusive -- but the report MUST list which mitigations you tried, WHY each did not unblock, and (when applicable) WHAT you would need in §🔑 Needs / §📎 Needs.
 
 ## STEP 3 -- Verify cases
 
@@ -1350,7 +1370,7 @@ If after (a)-(d) the positive path is genuinely unreachable, THEN mark inconclus
 
 The runner aborts this turn with NO report if you produce no output for about 3 minutes. So:
 - Stream short progress notes as you work (one line per action) so the keepalive does not trip.
-- Don't silently retry. Don't add "just one more" check after you have enough.
+- Do not silently retry. Do not add "just one more" check after you have enough.
 - As soon as you have covered your case list (or hit a documented blocker after exhausting mitigations), STOP and emit the final report.
 
 ## REPORT FORMAT
@@ -1376,7 +1396,7 @@ One short paragraph explaining the verdict in terms of the diff and observed beh
 Each bullet: status emoji + bold name + what was exercised + why it matters.
 Aim 4-7 for substantive PRs.
 Example:
-- ✅ **AMR runtime picker shows Vela row when fake-vela.mjs is wired**: launched app with VELA_BIN pointing at the PR's fake-vela fixture, opened /onboarding > Local agent, observed Vela row + login pill render, network captured GET /api/agents 200.
+- ✅ **AMR runtime picker shows Vela row when fake-vela.mjs is wired**: launched app with VELA_BIN pointing at the the PR fake-vela fixture, opened /onboarding > Local agent, observed Vela row + login pill render, network captured GET /api/agents 200.
 
 ### 🔍 Concrete Evidence
 
@@ -1392,9 +1412,38 @@ Example:
 
 ### 🧰 Mitigations Attempted (REQUIRED for Inconclusive; optional otherwise)
 
-- What you tried (stub / env / fixture / search / fetch probe) and the OUTCOME of each.
+- What you tried (workspace files / page.evaluate probe / host fs stub).
 - WHY each did not unblock (specific evidence).
 - Absence of this section for an Inconclusive verdict = the verdict will not be trusted.
+
+### 🔑 Needs (OPTIONAL -- soft request to maintainer for secrets)
+
+If proper verification required a secret you did not have, list it here. The dashboard parses this section and surfaces it to the maintainer as a one-click attach hint. Format:
+
+- \`<SECRET_NAME>\`: <one-line purpose, what it would unblock>
+
+Examples:
+- \`VELA_RUNTIME_KEY\`: real OpenRouter key to verify backend response in positive AMR login (fake-vela.mjs unblocks UI only)
+- \`AMR_USER\` + \`AMR_PASS\`: real Vela account creds to drive popup login
+
+Rules:
+- DO NOT paste any existing secret value here. Just request by NAME + PURPOSE.
+- Only ask if a specific 🧪 Cases item is ⚠️ / ⚪ because of this missing secret -- otherwise it is noise.
+- This is a soft signal; maintainer decides whether to attach. Nothing happens automatically.
+
+### 📎 Needs (OPTIONAL -- soft request for private workspace files)
+
+If proper verification required maintainer-provided context the PR / current workspace did not include, list it. The dashboard surfaces this so the maintainer can drop matching files into the Private Workspace before the next /explore. Format:
+
+- \`<filename-suggestion>\`: <one-line purpose>
+
+Examples:
+- \`amr-cloud-auth-spec.md\`: clarifies token exchange flow not in PR; would let me verify spec compliance
+- \`expected-vela-row.png\`: visual reference for the AMR runtime picker
+- \`seed-projects.json\`: project data for state X needed by case Y
+- \`<missing-source-file-from-truncated-diff>\`: when diff was truncated and probe list is incomplete
+
+Same rules as 🔑 Needs: only request if a specific case was blocked; reference the case in the purpose; no auto-action -- maintainer decides.
 
 Quality bar:
 - Most useful reviewer evidence first inside each section.
@@ -1402,6 +1451,7 @@ Quality bar:
 - Light emoji in headings is fine. Do not output literal backslash-n escape sequences.
 - Use Markdown links, not naked URLs.
 - Report what actually ran; avoid dry-run wording.
+- Each 🔑 Needs / 📎 Needs item MUST tie back to a specific blocked case in 🧪 Cases. Do not ask for things speculatively.
 
 $(cat "$fixture_instructions_file")
 
