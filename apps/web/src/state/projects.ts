@@ -67,11 +67,13 @@ export async function listProjects(workspaceId?: string): Promise<Project[]> {
   try {
     const query = workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : '';
     const resp = await fetch(`/api/projects${query}`);
-    if (!resp.ok) return [];
+    if (!resp.ok) {
+      throw new Error(await readApiError(resp, 'Could not load projects.'));
+    }
     const json = (await resp.json()) as ProjectsResponse;
     return json.projects ?? [];
-  } catch {
-    return [];
+  } catch (err) {
+    throw err instanceof Error ? err : new Error('Could not load projects.');
   }
 }
 
@@ -166,11 +168,13 @@ export async function listTemplates(workspaceId?: string): Promise<ProjectTempla
   try {
     const query = workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : '';
     const resp = await fetch(`/api/templates${query}`);
-    if (!resp.ok) return [];
+    if (!resp.ok) {
+      throw new Error(await readApiError(resp, 'Could not load templates.'));
+    }
     const json = (await resp.json()) as ProjectTemplatesResponse;
     return json.templates ?? [];
-  } catch {
-    return [];
+  } catch (err) {
+    throw err instanceof Error ? err : new Error('Could not load templates.');
   }
 }
 

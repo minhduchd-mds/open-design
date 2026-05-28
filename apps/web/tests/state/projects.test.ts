@@ -8,8 +8,9 @@ import {
   importClaudeDesignZip,
   importFolderProject,
   installGeneratedPluginFolder,
-  listTemplates,
+  listProjects,
   listPlugins,
+  listTemplates,
   patchProject,
   patchProjectResult,
   publishGeneratedPluginToGitHub,
@@ -354,6 +355,34 @@ describe('createPluginShareProject', () => {
   });
 });
 
+describe('listProjects', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('requests projects for the current workspace when provided', async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response(
+      JSON.stringify({ projects: [{ id: 'proj-1', name: 'Landing', createdAt: 1, updatedAt: 1 }] }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    ));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const projects = await listProjects('team-ws');
+
+    expect(projects).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledWith('/api/projects?workspaceId=team-ws');
+  });
+
+  it('rejects non-OK workspace-scoped project responses', async () => {
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => new Response(
+      JSON.stringify({ error: { message: 'workspace project list unavailable' } }),
+      { status: 500, headers: { 'content-type': 'application/json' } },
+    )));
+
+    await expect(listProjects('team-ws')).rejects.toThrow('workspace project list unavailable');
+  });
+});
+
 describe('listTemplates', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -370,6 +399,15 @@ describe('listTemplates', () => {
 
     expect(templates).toHaveLength(1);
     expect(fetchMock).toHaveBeenCalledWith('/api/templates?workspaceId=team-ws');
+  });
+
+  it('rejects non-OK workspace-scoped template responses', async () => {
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => new Response(
+      JSON.stringify({ error: { message: 'workspace template list forbidden' } }),
+      { status: 403, headers: { 'content-type': 'application/json' } },
+    )));
+
+    await expect(listTemplates('team-ws')).rejects.toThrow('workspace template list forbidden');
   });
 });
 

@@ -47,12 +47,16 @@ export function DesktopPetSurface() {
     }
     let cancelled = false;
     const refresh = async () => {
-      const [projects, runs] = await Promise.all([
-        listProjects(),
-        listProjectRuns(),
-      ]);
-      if (cancelled) return;
-      setTaskCenter(buildPetTaskCenter(projects, runs));
+      try {
+        const [projects, runs] = await Promise.all([
+          listProjects(),
+          listProjectRuns(),
+        ]);
+        if (cancelled) return;
+        setTaskCenter(buildPetTaskCenter(projects, runs));
+      } catch {
+        if (!cancelled) setTaskCenter({ running: [], queued: [], recent: [] });
+      }
     };
     const handleRunsChanged = () => {
       void refresh();
