@@ -643,6 +643,12 @@ export interface ShareOptionPopoverClickProps {
 }
 
 // FEEDBACK clicks (CSV rows 56 / 58)
+// `agent_provider_id` / `model_id` are carried on every feedback event so
+// `reason × agent` and `reason × model` analyses don't need to join back to
+// `run_created` (which loses rows when the feedback is given to a message
+// whose run is outside the query window — the dominant source of "unknown"
+// in earlier reports). `model_id` uses `'default'` instead of null when the
+// user did not pick a specific model; see `modelIdForTracking`.
 export interface AssistantFeedbackButtonClickProps {
   page_name: 'chat_panel';
   area: 'chat_panel';
@@ -653,6 +659,8 @@ export interface AssistantFeedbackButtonClickProps {
   conversation_id: string | null;
   assistant_message_id: string;
   run_id: string;
+  agent_provider_id: TrackingCliProviderId;
+  model_id: string;
   // For `clear_feedback_rating`, `rating` carries the rating that was
   // cleared (not the previous-before-clear value, which lives in
   // `rating_before`). Mason flagged the v1 emission supplied the wrong
@@ -672,6 +680,8 @@ export interface AssistantFeedbackReasonSubmitClickProps {
   conversation_id: string | null;
   assistant_message_id: string;
   run_id: string;
+  agent_provider_id: TrackingCliProviderId;
+  model_id: string;
   rating: 'positive' | 'negative';
   reason?: string;
   reason_count: number;
@@ -984,8 +994,11 @@ export interface RunCreatedProps {
   aspect?: string;
   has_attachment: boolean;
   user_query_tokens: number;
-  model_id: string | null;
-  agent_provider_id: string | null;
+  // `'default'` when the user did not pick a specific model and the agent's
+  // own default was selected; use `modelIdForTracking` to bucket null/empty
+  // into `'default'` at every emit site.
+  model_id: string;
+  agent_provider_id: TrackingCliProviderId;
   skill_id: string | null;
   mcp_id: string | null;
   token_count_source: TrackingTokenCountSource;
@@ -1038,6 +1051,8 @@ export interface FeedbackSubmitResultProps {
   conversation_id: string | null;
   assistant_message_id: string;
   run_id: string;
+  agent_provider_id: TrackingCliProviderId;
+  model_id: string;
   rating: 'positive' | 'negative';
   reason?: string;
   reason_count: number;
@@ -1166,6 +1181,16 @@ export function executionModeToTracking(
   mode: string | null | undefined,
 ): TrackingExecutionMode {
   return mode === 'daemon' ? 'local_cli' : 'byok';
+}
+
+// Model id bucket for analytics. `'default'` represents "user did not pick
+// a specific model — went with the agent's own default". This is a real,
+// analysable bucket, distinct from `null/unknown` which previously masked
+// both "no selection" and "join failed". Callers that have a non-empty
+// model string pass it through unchanged.
+export function modelIdForTracking(model: string | null | undefined): string {
+  const trimmed = typeof model === 'string' ? model.trim() : '';
+  return trimmed.length > 0 ? trimmed : 'default';
 }
 
 // Daemon agent id (apps/daemon/src/agents.ts) → CSV cli_provider_id.

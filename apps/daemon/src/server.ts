@@ -193,6 +193,7 @@ import {
 import {
   agentIdToTracking,
   deriveConfigureGlobals,
+  modelIdForTracking,
 } from '@open-design/contracts/analytics';
 import {
   redactSecrets,
@@ -10663,11 +10664,17 @@ export async function startServer({
           ? (reqBody.attachments as unknown[]).length > 0
           : false,
         user_query_tokens: userQueryTokens,
-        model_id: typeof reqBody.model === 'string' ? reqBody.model : null,
-        agent_provider_id:
-          typeof reqBody.agentId === 'string'
-            ? agentIdToTracking(reqBody.agentId)
-            : null,
+        // `modelIdForTracking` buckets null/empty into `'default'` so the
+        // PostHog `model_id` column always has an analysable value. The
+        // user-picked model only lands here on `run_created` (the agent
+        // hasn't initialised yet); `run_finished` below upgrades this to
+        // the agent-reported model when available.
+        model_id: modelIdForTracking(
+          typeof reqBody.model === 'string' ? reqBody.model : null,
+        ),
+        agent_provider_id: agentIdToTracking(
+          typeof reqBody.agentId === 'string' ? reqBody.agentId : null,
+        ),
         skill_id: typeof reqBody.skillId === 'string' ? reqBody.skillId : null,
         mcp_id: null,
         token_count_source: userQueryTokens > 0 ? 'estimated' : 'unknown',
@@ -10708,10 +10715,27 @@ export async function startServer({
         }
         let inputTokens: number | undefined;
         let outputTokens: number | undefined;
+        // Look for an agent-reported model on the run's `status` events.
+        // ACP sends `{ type:'status', label:'model', model:<id> }` after
+        // session/new (`apps/daemon/src/acp.ts`), and the various stream
+        // adapters emit `{ type:'status', label:'initializing', model:<id> }`
+        // (`claude-stream.ts`, `copilot-stream.ts`, `json-event-stream.ts`,
+        // etc.). Either signal beats the request-side `reqBody.model`
+        // because it's what the agent actually selected — including the
+        // case where the user didn't pick a model and the agent picked
+        // its own default. We only upgrade when `reqBody.model` is empty;
+        // an explicit user choice always wins.
+        let agentReportedModel: string | null = null;
         for (let i = run.events.length - 1; i >= 0; i -= 1) {
           const ev = run.events[i];
           const data = ev?.data as
-            | { type?: string; usage?: Record<string, unknown> | null }
+            | {
+                type?: string;
+                label?: string;
+                model?: unknown;
+                detail?: unknown;
+                usage?: Record<string, unknown> | null;
+              }
             | null
             | undefined;
           if (ev?.event === 'agent' && data?.type === 'usage' && data.usage) {
@@ -10720,12 +10744,32 @@ export async function startServer({
             if (typeof u.output_tokens === 'number') outputTokens = u.output_tokens;
             if (inputTokens !== undefined || outputTokens !== undefined) break;
           }
+          if (
+            !agentReportedModel &&
+            ev?.event === 'agent' &&
+            data?.type === 'status' &&
+            (data.label === 'model' || data.label === 'initializing')
+          ) {
+            const candidate =
+              typeof data.model === 'string'
+                ? data.model
+                : typeof data.detail === 'string'
+                  ? data.detail
+                  : null;
+            if (candidate && candidate.trim()) {
+              agentReportedModel = candidate.trim();
+            }
+          }
         }
         const haveUsage = inputTokens !== undefined || outputTokens !== undefined;
         const totalTokens =
           inputTokens !== undefined && outputTokens !== undefined
             ? inputTokens + outputTokens
             : undefined;
+        const finishedModelId =
+          typeof reqBody.model === 'string' && reqBody.model.trim()
+            ? modelIdForTracking(reqBody.model)
+            : modelIdForTracking(agentReportedModel);
         design.analytics.capture({
           eventName: 'run_finished',
           context: analyticsContext,
@@ -10734,6 +10778,7 @@ export async function startServer({
             ...baseProps,
             area: 'chat_panel',
             result,
+            model_id: finishedModelId,
             artifact_count: 0,
             total_duration_ms: Date.now() - runStartedAt,
             ...(errorCode ? { error_code: errorCode } : {}),
