@@ -49,6 +49,9 @@ const ANTIGRAVITY_AUTH_GUIDANCE =
 const ANTIGRAVITY_QUOTA_GUIDANCE =
   'Antigravity returned "RESOURCE_EXHAUSTED: Individual quota reached" for the current model. Each Antigravity model (Gemini 3 Pro / Flash, Claude 4.6, GPT-OSS) has its own quota.\n\nFix: open `agy` in a terminal and use its Switch Model picker (the menu at the bottom of the TUI) to pick a model with available quota, then retry here. Open Design uses whatever model you pick in agy\'s TUI when the Settings model picker is left on "Default". Quotas reset automatically on Antigravity\'s schedule.';
 
+const REASONIX_AUTH_GUIDANCE =
+  'DeepSeek Reasonix is installed but is not authenticated. Add your API key in `~/.reasonix/config.json` under `apiKey`, or expose DEEPSEEK_API_KEY to the Open Design daemon process, then retry. If Open Design is launched outside an interactive shell, shell rc files such as ~/.zshrc may not be loaded.';
+
 export function cursorAuthGuidance(): string {
   return CURSOR_AUTH_GUIDANCE;
 }
@@ -63,6 +66,10 @@ export function antigravityAuthGuidance(): string {
 
 export function antigravityQuotaGuidance(): string {
   return ANTIGRAVITY_QUOTA_GUIDANCE;
+}
+
+export function reasonixAuthGuidance(): string {
+  return REASONIX_AUTH_GUIDANCE;
 }
 
 export function isCursorAuthFailureText(text: string): boolean {
@@ -111,6 +118,18 @@ export function isDeepSeekAuthFailureText(text: string): boolean {
   );
 }
 
+export function isReasonixAuthFailureText(text: string): boolean {
+  const value = String(text || '');
+  if (!value.trim()) return false;
+  return (
+    /~\/\.reasonix\/config\.json/i.test(value) &&
+    /api[_ -]?key|missing|not set|required|unauthorized|invalid/i.test(value)
+  ) || (
+    /DEEPSEEK_API_KEY/i.test(value) &&
+    /auth|missing|not set|required|unauthorized|invalid/i.test(value)
+  );
+}
+
 export function classifyAgentAuthFailure(
   agentId: string,
   text: string,
@@ -134,6 +153,13 @@ export function classifyAgentAuthFailure(
     return {
       status: 'missing',
       message: antigravityAuthGuidance(),
+    };
+  }
+  if (agentId === 'reasonix') {
+    if (!isReasonixAuthFailureText(text)) return null;
+    return {
+      status: 'missing',
+      message: reasonixAuthGuidance(),
     };
   }
   return null;

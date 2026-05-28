@@ -41,7 +41,12 @@ import {
   sanitizeCustomModel,
   spawnEnvForAgent,
 } from './agents.js';
-import { rememberLiveModels, resolveModelForAgent } from './runtimes/models.js';
+import {
+  getRememberedLiveModels,
+  preferFreshLiveModels,
+  rememberLiveModels,
+  resolveModelForAgent,
+} from './runtimes/models.js';
 import {
   cancelVelaLogin,
   forgetVelaLogin,
@@ -173,6 +178,7 @@ import {
 } from './memory-connectors.js';
 import { attachAcpSession } from './acp.js';
 import { attachPiRpcSession } from './pi-rpc.js';
+import { stageAmrImagePaths } from './amr-image-staging.js';
 import {
   applyAutomationProposal,
   createAutomationProposal,
@@ -238,6 +244,7 @@ import { observePendingInstallerApplyAttempts } from './update-apply-observation
 import {
   agentIdToTracking,
   deriveConfigureGlobals,
+  projectKindToTracking,
   type ObservabilityEventRequest,
 } from '@open-design/contracts/analytics';
 import {
@@ -1897,6 +1904,19 @@ async function readProjectPluginManifest(folder) {
 
 export const __forTestReadProjectPluginManifest = readProjectPluginManifest;
 
+function resolveRunProjectKindForAnalytics({
+  hintProjectKind,
+  projectMetadata,
+}) {
+  if (typeof hintProjectKind === 'string') return hintProjectKind;
+  if (projectMetadata?.importedFrom === 'design-system') return 'design_system';
+  return projectKindToTracking(projectMetadata?.kind);
+}
+
+export function __forTestResolveRunProjectKindForAnalytics(args) {
+  return resolveRunProjectKindForAnalytics(args);
+}
+
 function githubRepoNameFromPluginName(name) {
   const slug = String(name)
     .toLowerCase()
@@ -2024,6 +2044,14 @@ async function copyPluginContextDir(src, dest, rootReal) {
 
 function shouldSkipPluginContextEntry(name) {
   return PLUGIN_CONTEXT_SKIP_DIRS.has(name) || PLUGIN_CONTEXT_SKIP_FILES.has(name);
+}
+
+export function selectPromptImagePaths(
+  agentId,
+  safeImages,
+  amrStagedImages,
+) {
+  return agentId === 'amr' ? amrStagedImages : safeImages;
 }
 
 async function ensureGhReady() {
@@ -2940,6 +2968,11 @@ function authorizeToolRequest(req, res, operation) {
     return null;
   }
   return validation.grant;
+}
+
+function optionalToolGrantFromRequest(req) {
+  const validation = toolTokenRegistry.validate(bearerTokenFromRequest(req));
+  return validation.ok ? validation.grant : null;
 }
 
 function requestProjectOverride(projectId, tokenProjectId) {
@@ -4988,7 +5021,11 @@ export async function startServer({
 
   const analyticsService = createAnalyticsService({ dataDir: RUNTIME_DATA_DIR });
   const design = {
-    runs: createChatRunService({ createSseResponse, createSseErrorPayload }),
+    runs: createChatRunService({
+      createSseResponse,
+      createSseErrorPayload,
+      runsLogDir: path.join(RUNTIME_DATA_DIR, 'runs'),
+    }),
     analytics: analyticsService,
     getAppVersion: () => cachedAppVersion?.version ?? '0.0.0',
     readAnalyticsContext,
@@ -5369,6 +5406,7 @@ export async function startServer({
     desktopAuthSecret: getDesktopAuthSecret,
     isDesktopAuthGateActive,
     pruneExpiredImportNonces,
+    optionalToolGrantFromRequest,
     requestProjectOverride,
     requestRunOverride,
     verifyDesktopImportToken,
@@ -10516,6 +10554,10 @@ export async function startServer({
         resolved.startsWith(UPLOAD_DIR + path.sep) && fs.existsSync(resolved)
       );
     });
+    const amrStagedImages =
+      def.id === 'amr'
+        ? await stageAmrImagePaths(cwd ?? PROJECT_ROOT, safeImages, UPLOAD_DIR)
+        : safeImages;
 
     // Project-scoped attachments: project-relative paths inside cwd. Each
     // is run through the same path-traversal guard the file CRUD endpoints
@@ -10790,6 +10832,11 @@ export async function startServer({
     const formOverride = formAlreadyAnswered
       ? FORM_ANSWERED_SYSTEM_OVERRIDE
       : '';
+    const promptImagePaths = selectPromptImagePaths(
+      def.id,
+      safeImages,
+      amrStagedImages,
+    );
     const composed = [
       instructionPrompt
         ? `# Instructions (read first)\n\n${formOverride}${instructionPrompt}${cwdHint}${linkedDirsHint}${ECHO_GUARD}\n\n---\n`
@@ -10801,8 +10848,8 @@ export async function startServer({
               ? `# Instructions\n\n${formOverride}${ECHO_GUARD}\n\n---\n`
               : '',
       `# User request\n\n${userRequestPrompt}${attachmentHint}${commentHint}`,
-      safeImages.length
-        ? `\n\n${safeImages.map((p) => `@${p}`).join(' ')}`
+      promptImagePaths.length
+        ? `\n\n${promptImagePaths.map((p) => `@${p}`).join(' ')}`
         : '',
     ].join('');
     // Per-agent model + reasoning the user picked in the model menu.
@@ -11016,7 +11063,11 @@ export async function startServer({
       } catch {
         liveModels = [];
       }
-      rememberLiveModels(def.id, liveModels);
+      const rememberedLiveModels = getRememberedLiveModels(def.id);
+      if (liveModels.length > 0) {
+        rememberLiveModels(def.id, liveModels);
+      }
+      liveModels = preferFreshLiveModels(liveModels, rememberedLiveModels);
       const liveModelIds = new Set(
         liveModels.map((candidate) => candidate?.id).filter(Boolean),
       );
@@ -11851,7 +11902,7 @@ export async function startServer({
             send(channel, payload);
           }
         },
-        imagePaths: def.supportsImagePaths ? safeImages : [],
+        imagePaths: def.supportsImagePaths ? amrStagedImages : [],
         uploadRoot: UPLOAD_DIR,
       });
     } else if (def.streamFormat === 'acp-json-rpc') {
@@ -11861,6 +11912,7 @@ export async function startServer({
         prompt: composed,
         cwd: effectiveCwd,
         model: safeModel,
+        imagePaths: def.supportsImagePaths ? amrStagedImages : [],
         mcpServers,
         ...(def.id === 'amr' ? { modelUnavailableErrorCode: 'AMR_MODEL_UNAVAILABLE' } : {}),
         send: (event, data) => {
@@ -12469,6 +12521,75 @@ export async function startServer({
         if (renderedQuery.length > 0) meta.message = renderedQuery;
       }
     }
+    // MCP / SDK callers POST /api/runs with just a projectId — no
+    // conversationId, no pre-created assistantMessageId — because they
+    // don't know about OD's chat-row lifecycle. The web flow
+    // (POST /api/chat) on the other hand creates both client-side and
+    // passes them in. Without binding the run to a conversation and
+    // pre-pinning an assistant message row, the OD studio page for
+    // the project shows an empty chat panel — the user has no way to
+    // see what the outer agent asked or what the inner agent replied,
+    // even though the run finished and produced files.
+    //
+    // Fall back here: pick the project's default conversation (the
+    // one create_project seeded), write a user message with the
+    // prompt as content, and synthesize an assistantMessageId so the
+    // pin helper below will insert the empty assistant row. From that
+    // point on, the existing appendMessageAgentEvent path accumulates
+    // every text_delta into the assistant row's content — same as web
+    // chat.
+    if (
+      typeof meta.projectId === 'string' &&
+      meta.projectId &&
+      (typeof meta.conversationId !== 'string' || !meta.conversationId)
+    ) {
+      try {
+        const convs = listConversations(db, meta.projectId);
+        const defaultConv = Array.isArray(convs) && convs.length > 0 ? convs[0] : null;
+        if (defaultConv && typeof defaultConv.id === 'string' && defaultConv.id) {
+          meta.conversationId = defaultConv.id;
+          if (typeof meta.assistantMessageId !== 'string' || !meta.assistantMessageId) {
+            meta.assistantMessageId = randomUUID();
+          }
+          const promptForUserMessage =
+            typeof meta.message === 'string' && meta.message.trim().length > 0
+              ? meta.message
+              : null;
+          if (promptForUserMessage) {
+            upsertMessage(db, defaultConv.id, {
+              id: randomUUID(),
+              role: 'user',
+              content: promptForUserMessage,
+              startedAt: Date.now(),
+              endedAt: Date.now(),
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('[runs] mcp conversation fallback failed', err);
+      }
+    }
+    // MCP / SDK callers may omit agentId. Resolve it from the saved
+    // app-config agent (the user's configured default) or the first
+    // available CLI so the run does not immediately fail with
+    // "unknown agent: undefined" inside startChatRun.
+    if (typeof meta.agentId !== 'string' || !meta.agentId) {
+      try {
+        const appCfg = await readAppConfig(RUNTIME_DATA_DIR);
+        const cfgAgent = typeof appCfg.agentId === 'string' && appCfg.agentId
+          ? appCfg.agentId
+          : null;
+        if (cfgAgent) {
+          meta.agentId = cfgAgent;
+        } else {
+          const agents = await detectAgents(appCfg.agentCliEnv ?? {}).catch(() => []);
+          const firstAvailable = agents.find((a) => a.available)?.id ?? null;
+          if (firstAvailable) meta.agentId = firstAvailable;
+        }
+      } catch (err) {
+        console.warn('[runs] agent id fallback failed', err);
+      }
+    }
     const run = design.runs.create(meta);
     try {
       pinAssistantMessageOnRunCreate(db, run);
@@ -12499,6 +12620,12 @@ export async function startServer({
     /** @type {import('@open-design/contracts').ChatRunCreateResponse} */
     const body = {
       runId: run.id,
+      // Surface the bound conversation/message so MCP / SDK callers
+      // who did not provide them get back the daemon-resolved values
+      // (used for building studio deep links and threading chat
+      // history). Always nullable so the contract stays additive.
+      conversationId: run.conversationId ?? null,
+      assistantMessageId: run.assistantMessageId ?? null,
       ...(resolvedSnapshot?.ok
         ? {
             appliedPluginSnapshotId: resolvedSnapshot.snapshotId,
@@ -12608,13 +12735,19 @@ export async function startServer({
       const hintProjectKind = typeof analyticsHints.projectKind === 'string'
         ? analyticsHints.projectKind
         : null;
+      const requestProjectId = typeof reqBody.projectId === 'string' ? reqBody.projectId : null;
+      const runProject = requestProjectId ? getProject(db, requestProjectId) : null;
+      const runProjectKind = resolveRunProjectKindForAnalytics({
+        hintProjectKind,
+        projectMetadata: runProject?.metadata,
+      });
       const dsRunContext =
         analyticsHints.designSystemRunContext
           && typeof analyticsHints.designSystemRunContext === 'object'
           ? (analyticsHints.designSystemRunContext as Record<string, unknown>)
           : {};
       const isDesignSystemRun =
-        hintProjectKind === 'design_system'
+        runProjectKind === 'design_system'
         || hintEntryFrom === 'design_system_create'
         || hintEntryFrom === 'onboarding_design_system'
         || hintEntryFrom === 'regenerate_from_review';
@@ -12624,18 +12757,19 @@ export async function startServer({
       // companion_surfaces / connectors / use_speaker_notes /
       // include_animations / reference_template / aspect /
       // project_source) — most aren't on the wire yet, but
-      // entry_from / projectKind / DS run context land here when the
-      // client populates `analyticsHints`. Other dimensions stay
-      // omitted until follow-up PRs thread them through.
+      // project_kind falls back to the stored project metadata so ordinary
+      // project runs are classified even when callers do not send
+      // `analyticsHints`. Other dimensions stay omitted until follow-up PRs
+      // thread them through.
       const baseProps: Record<string, unknown> = {
         page_name: isDesignSystemRun ? 'design_system_project' : 'chat_panel',
         area: isDesignSystemRun ? 'design_system_generation' : 'chat_composer',
         ...configureGlobals,
-        project_id: typeof reqBody.projectId === 'string' ? reqBody.projectId : null,
+        project_id: requestProjectId,
         conversation_id:
           typeof reqBody.conversationId === 'string' ? reqBody.conversationId : null,
         run_id: run.id,
-        project_kind: hintProjectKind,
+        project_kind: runProjectKind,
         ...(hintEntryFrom ? { entry_from: hintEntryFrom } : {}),
         design_system_id:
           typeof reqBody.designSystemId === 'string'
