@@ -120,7 +120,7 @@ function Copy-Artifact([string]$Source, [string]$Name, [string]$ReleaseDir) {
 }
 
 function Invoke-Mc([string[]]$Arguments) {
-  & mc @Arguments
+  & mc @Arguments | Out-Null
   if ($LASTEXITCODE -ne 0) {
     throw "mc failed with exit code ${LASTEXITCODE}: $($Arguments -join ' ')"
   }
