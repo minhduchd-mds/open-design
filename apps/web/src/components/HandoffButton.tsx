@@ -11,6 +11,7 @@ import type {
   HostEditorsResponse,
 } from '@open-design/contracts';
 import { fetchHostEditors, openProjectInEditor } from '../providers/registry';
+import { useT } from '../i18n';
 import { Icon } from './Icon';
 import { EditorIcon } from './EditorIcon';
 
@@ -42,6 +43,7 @@ function writePreferred(id: HostEditorId): void {
 }
 
 export function HandoffButton({ projectId, onRequestRevealInFinder }: Props) {
+  const t = useT();
   const [editors, setEditors] = useState<HostEditor[]>([]);
   const [platform, setPlatform] = useState<HostEditorsResponse['platform']>('unknown');
   const [loaded, setLoaded] = useState(false);
@@ -91,6 +93,9 @@ export function HandoffButton({ projectId, onRequestRevealInFinder }: Props) {
   const preferred = readPreferred();
   const primary =
     available.find((e) => e.id === preferred) ?? available[0] ?? null;
+  const primaryTitle = primary
+    ? t('handoff.openInTarget', { target: primary.label })
+    : t('handoff.action');
 
   async function launch(editor: HostEditor) {
     if (!editor.available) {
@@ -135,7 +140,7 @@ export function HandoffButton({ projectId, onRequestRevealInFinder }: Props) {
       <button
         type="button"
         className="handoff-trigger handoff-trigger--solo"
-        title={`No editors found on $PATH — opens in ${fallbackLabel}`}
+        title={t('handoff.fallbackTitle', { target: fallbackLabel })}
         onClick={() => onRequestRevealInFinder?.()}
       >
         <EditorIcon editorId={fallbackId} size={20} />
@@ -159,7 +164,8 @@ export function HandoffButton({ projectId, onRequestRevealInFinder }: Props) {
           type="button"
           className="handoff-trigger"
           data-testid="handoff-trigger"
-          title={primary ? `交付给 ${primary.label}` : '交付'}
+          title={primaryTitle}
+          aria-label={primaryTitle}
           onClick={() => {
             if (primary && busy !== primary.id) {
               void launch(primary);
@@ -172,21 +178,21 @@ export function HandoffButton({ projectId, onRequestRevealInFinder }: Props) {
           {primary ? (
             <>
               <EditorIcon editorId={primary.id} size={20} />
-              <span className="handoff-trigger-label">
-                交付给 {primary.label}
+              <span className="handoff-trigger-label sr-only">
+                {primaryTitle}
               </span>
             </>
           ) : (
             <>
               <EditorIcon editorId="finder" size={20} />
-              <span className="handoff-trigger-label">交付</span>
+              <span className="handoff-trigger-label sr-only">{primaryTitle}</span>
             </>
           )}
         </button>
         <button
           type="button"
           className="handoff-caret"
-          aria-label="Choose hand-off target"
+          aria-label={t('handoff.chooseTargetAria')}
           data-testid="handoff-caret"
           onClick={() => setOpen((v) => !v)}
           disabled={busy !== null}
@@ -196,6 +202,7 @@ export function HandoffButton({ projectId, onRequestRevealInFinder }: Props) {
       </div>
       {open ? (
         <div className="handoff-menu" role="menu" data-testid="handoff-menu">
+          <div className="handoff-menu-title">{t('handoff.menuTitle')}</div>
           {available.map((editor) => (
             <button
               key={editor.id}
@@ -216,7 +223,7 @@ export function HandoffButton({ projectId, onRequestRevealInFinder }: Props) {
           {unavailable.length > 0 ? (
             <>
               <div className="handoff-menu-divider" />
-              <div className="handoff-menu-section">Not installed</div>
+              <div className="handoff-menu-section">{t('handoff.notInstalled')}</div>
               {unavailable.map((editor) => (
                 <button
                   key={editor.id}
@@ -226,7 +233,7 @@ export function HandoffButton({ projectId, onRequestRevealInFinder }: Props) {
                   data-testid={`handoff-menu-item-${editor.id}`}
                   onClick={() => void launch(editor)}
                   disabled={busy === editor.id}
-                  title={`${editor.label} — not detected on $PATH`}
+                  title={t('handoff.notDetectedTitle', { target: editor.label })}
                 >
                   <EditorIcon editorId={editor.id} size={20} />
                   <span>{editor.label}</span>
