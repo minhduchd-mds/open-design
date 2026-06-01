@@ -279,7 +279,7 @@
   min-height: 34px;
   padding: 0 16px;
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: var(--accent);
   color: var(--accent-contrast, #fff);
   font-size: 13px;
@@ -303,7 +303,7 @@
   min-height: 34px;
   padding: 0 16px;
   border: 1px solid var(--border-strong, var(--border));
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text);
   font-size: 13px;
