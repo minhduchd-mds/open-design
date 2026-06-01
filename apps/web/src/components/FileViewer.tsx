@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type DragEvent as ReactDragEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { APP_CHROME_FILE_ACTIONS_ID, APP_CHROME_FILE_ACTIONS_SELECTOR } from './AppChromeHeader';
 import {
@@ -2162,6 +2162,7 @@ export function CommentSidePanel({
   onToggleSelect,
   onSelectAll,
   onClearSelection,
+  onReorder,
   onReply,
   onSendSelected,
   onCreateComment,
@@ -2179,6 +2180,7 @@ export function CommentSidePanel({
   onToggleSelect: (commentId: string) => void;
   onSelectAll: () => void;
   onClearSelection: () => void;
+  onReorder?: (orderedIds: string[]) => void;
   onReply: (comment: PreviewComment) => void;
   onSendSelected: () => void | Promise<void>;
   onCreateComment?: (note: string) => boolean | Promise<boolean>;
@@ -2187,12 +2189,62 @@ export function CommentSidePanel({
   composer?: ReactNode;
 }) {
   const [newCommentDraft, setNewCommentDraft] = useState('');
-  const sorted = [...comments].sort((a, b) => commentActivityAt(b) - commentActivityAt(a));
+  const [dragState, setDragState] = useState<CommentSideDragState | null>(null);
+  const sorted = comments;
   const visibleSelectedIds = new Set(comments.filter((comment) => selectedIds.has(comment.id)).map((comment) => comment.id));
   const selectedCount = visibleSelectedIds.size;
   const allSelected = comments.length > 0 && selectedCount === comments.length;
   const commentsLabel = t('chat.tabComments');
   const canCreateComment = Boolean(onCreateComment) && newCommentDraft.trim().length > 0 && !sending;
+  const canReorder = Boolean(onReorder && sorted.length > 1);
+  const handleDragStart = (event: ReactDragEvent<HTMLButtonElement>, comment: PreviewComment) => {
+    if (!canReorder) return;
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData(COMMENT_SIDE_DRAG_MIME, comment.id);
+    event.dataTransfer.setData('text/plain', comment.id);
+    setDragState({ draggingId: comment.id, overId: comment.id, edge: null });
+  };
+  const handleDragOver = (event: ReactDragEvent<HTMLDivElement>, targetId: string) => {
+    if (!canReorder) return;
+    const draggingId = dragState?.draggingId || event.dataTransfer.getData(COMMENT_SIDE_DRAG_MIME);
+    if (!draggingId) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    if (draggingId === targetId) {
+      if (dragState?.overId !== targetId || dragState.edge !== null) {
+        setDragState({ draggingId, overId: targetId, edge: null });
+      }
+      return;
+    }
+    const edge = commentSideDropEdgeForEvent(event);
+    if (
+      dragState?.draggingId !== draggingId ||
+      dragState.overId !== targetId ||
+      dragState.edge !== edge
+    ) {
+      setDragState({ draggingId, overId: targetId, edge });
+    }
+  };
+  const handleDrop = (event: ReactDragEvent<HTMLDivElement>, targetId: string) => {
+    if (!canReorder) return;
+    event.preventDefault();
+    const draggingId =
+      dragState?.draggingId ||
+      event.dataTransfer.getData(COMMENT_SIDE_DRAG_MIME) ||
+      event.dataTransfer.getData('text/plain');
+    if (!draggingId || draggingId === targetId) {
+      setDragState(null);
+      return;
+    }
+    const edge = dragState?.overId === targetId && dragState.edge
+      ? dragState.edge
+      : commentSideDropEdgeForEvent(event);
+    const nextIds = reorderPreviewCommentIds(sorted, draggingId, targetId, edge);
+    if (nextIds.join('\0') !== sorted.map((comment) => comment.id).join('\0')) {
+      onReorder?.(nextIds);
+    }
+    setDragState(null);
+  };
   const submitNewComment = async () => {
     if (!onCreateComment || !newCommentDraft.trim()) return;
     const saved = await onCreateComment(newCommentDraft.trim());
@@ -2244,7 +2296,14 @@ export function CommentSidePanel({
         </button>
         </div>
       </div>
-      <div className="comment-side-list">
+      <div
+        className="comment-side-list"
+        onDragLeave={(event) => {
+          const related = event.relatedTarget;
+          if (related instanceof Node && event.currentTarget.contains(related)) return;
+          setDragState(null);
+        }}
+      >
         {sorted.length === 0 ? (
           <div className="comment-side-empty">
             {t('chat.comments.emptySaved')}
@@ -2252,15 +2311,23 @@ export function CommentSidePanel({
         ) : sorted.map((comment, index) => {
           const selected = visibleSelectedIds.has(comment.id);
           const active = comment.id === activeCommentId;
+          const isDragging = dragState?.draggingId === comment.id;
+          const dropClass = dragState?.overId === comment.id &&
+            dragState.draggingId !== comment.id &&
+            dragState.edge
+            ? ` comment-side-item-drop-${dragState.edge}`
+            : '';
           return (
             <div
               key={comment.id}
-              className={`comment-side-item${selected ? ' selected' : ''}${active ? ' active' : ''}`}
+              className={`comment-side-item${selected ? ' selected' : ''}${active ? ' active' : ''}${isDragging ? ' dragging' : ''}${dropClass}`}
               data-testid="comment-side-item"
               data-comment-id={comment.id}
               aria-current={active ? 'true' : undefined}
               role="button"
               tabIndex={0}
+              onDragOver={(event) => handleDragOver(event, comment.id)}
+              onDrop={(event) => handleDrop(event, comment.id)}
               onClick={() => onReply(comment)}
               onKeyDown={(event) => {
                 if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -2269,6 +2336,19 @@ export function CommentSidePanel({
               }}
             >
               <div className="comment-side-item-head">
+                <button
+                  type="button"
+                  className="comment-side-drag-handle"
+                  title={t('chat.queuedReorder')}
+                  aria-label={t('chat.queuedReorder')}
+                  draggable={canReorder}
+                  disabled={!canReorder}
+                  onClick={(event) => event.stopPropagation()}
+                  onDragStart={(event) => handleDragStart(event, comment)}
+                  onDragEnd={() => setDragState(null)}
+                >
+                  <Icon name="grip-vertical" size={13} />
+                </button>
                 <span className="comment-side-author">
                   <strong>{`${index + 1}. ${commentDisplayLabel(comment, t)}`}</strong>
                 </span>
@@ -2392,6 +2472,37 @@ export function CommentSidePanel({
       ) : null}
     </aside>
   );
+}
+
+const COMMENT_SIDE_DRAG_MIME = 'application/x-open-design-preview-comment';
+
+type CommentSideDropEdge = 'before' | 'after';
+
+interface CommentSideDragState {
+  draggingId: string;
+  overId: string | null;
+  edge: CommentSideDropEdge | null;
+}
+
+function commentSideDropEdgeForEvent(event: ReactDragEvent<HTMLElement>): CommentSideDropEdge {
+  const rect = event.currentTarget.getBoundingClientRect();
+  return event.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+}
+
+function reorderPreviewCommentIds(
+  comments: PreviewComment[],
+  draggingId: string,
+  targetId: string,
+  edge: CommentSideDropEdge,
+): string[] {
+  const ids = comments.map((comment) => comment.id);
+  const from = ids.indexOf(draggingId);
+  if (from < 0) return ids;
+  const [draggedId] = ids.splice(from, 1);
+  const targetIndex = ids.indexOf(targetId);
+  if (targetIndex < 0 || !draggedId) return comments.map((comment) => comment.id);
+  ids.splice(edge === 'after' ? targetIndex + 1 : targetIndex, 0, draggedId);
+  return ids;
 }
 
 // Maps a CSS computed value (e.g. "rgb(40, 50, 60)" or "16px") to a form
@@ -4368,6 +4479,7 @@ function HtmlViewer({
   const [activePreviewCommentId, setActivePreviewCommentId] = useState<string | null>(null);
   const [liveCommentTargets, setLiveCommentTargets] = useState<Map<string, PreviewCommentSnapshot>>(() => new Map());
   const liveCommentTargetsRef = useRef(liveCommentTargets);
+  const [commentOrderIds, setCommentOrderIds] = useState<string[]>([]);
   const [commentDraft, setCommentDraft] = useState('');
   // Inspect mode shares the iframe selection bridge with comment mode but
   // routes the picked element to a side panel that mutates per-element CSS
@@ -6342,6 +6454,8 @@ function HtmlViewer({
       const attachments = buildBoardCommentAttachments({
         target: targetFromSnapshot(activeCommentTarget),
         notes: nextNotes,
+        includeImageOnly: boardImages.length > 0,
+        imageAttachmentCount: boardImages.length,
       }).map((attachment) => (
         existingAttachments.length > 0
           ? { ...attachment, imageAttachments: existingAttachments }
@@ -6590,12 +6704,32 @@ function HtmlViewer({
       setImageExportBusy(false);
     }
   }
-  const visibleSideComments = useMemo(
+  const activitySortedSideComments = useMemo(
     () => previewComments
       .filter((comment) => comment.filePath === file.name && comment.status === 'open')
       .sort((a, b) => commentActivityAt(b) - commentActivityAt(a)),
     [file.name, previewComments],
   );
+  useEffect(() => {
+    const activityIds = activitySortedSideComments.map((comment) => comment.id);
+    setCommentOrderIds((current) => {
+      const visible = new Set(activityIds);
+      const kept = current.filter((id) => visible.has(id));
+      const added = activityIds.filter((id) => !kept.includes(id));
+      const next = [...added, ...kept];
+      return next.join('\0') === current.join('\0') ? current : next;
+    });
+  }, [activitySortedSideComments]);
+  const visibleSideComments = useMemo(() => {
+    if (commentOrderIds.length === 0) return activitySortedSideComments;
+    const byId = new Map(activitySortedSideComments.map((comment) => [comment.id, comment]));
+    const ordered = commentOrderIds
+      .map((id) => byId.get(id))
+      .filter((comment): comment is PreviewComment => Boolean(comment));
+    const orderedIds = new Set(ordered.map((comment) => comment.id));
+    const missing = activitySortedSideComments.filter((comment) => !orderedIds.has(comment.id));
+    return [...ordered, ...missing];
+  }, [activitySortedSideComments, commentOrderIds]);
   const activeSideCommentId = activePreviewCommentId;
   const activeCommentTargetVisible = commentTargetIntersectsPreview(
     activeCommentTarget,
@@ -6955,6 +7089,7 @@ function HtmlViewer({
       }}
       onSelectAll={() => setSelectedSideCommentIds(new Set(visibleSideComments.map((comment) => comment.id)))}
       onClearSelection={() => setSelectedSideCommentIds(new Set())}
+      onReorder={(orderedIds) => setCommentOrderIds(orderedIds)}
       onReply={(comment) => {
         // Reply == edit on a flat-thread model: prefill the
         // popover with the existing note so the user sees and

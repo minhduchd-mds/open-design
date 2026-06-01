@@ -2185,9 +2185,12 @@ function StagedCommentAttachments({
     <div className="staged-row comment-staged-row" data-testid="staged-comment-attachments">
       {visibleAttachments.map((a) => (
         <div key={a.id} className="staged-chip staged-comment">
-          <span className="staged-name" title={`${a.screenshotPath ? `${a.screenshotPath}: ` : ''}${commentTargetDisplayName(a)}: ${a.comment}`}>
+          <span
+            className="staged-name"
+            title={`${a.screenshotPath ? `${a.screenshotPath}: ` : ''}${commentTargetDisplayName(a)}${a.comment ? `: ${a.comment}` : ''}`}
+          >
             <strong>{commentTargetDisplayName(a)}</strong>
-            <span>{a.comment}</span>
+            {a.comment ? <span>{a.comment}</span> : null}
           </span>
           <button
             className="staged-remove"

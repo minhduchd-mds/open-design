@@ -2039,9 +2039,9 @@ function UserMessage({
         <div className="user-attachments comment-history-attachments">
           {commentAttachments.filter((attachment) => attachment.selectionKind !== 'visual').map((a) => (
             <span key={a.id} className="user-attachment staged-comment">
-              <span className="staged-name" title={`${commentTargetDisplayName(a)}: ${a.comment}`}>
+              <span className="staged-name" title={a.comment ? `${commentTargetDisplayName(a)}: ${a.comment}` : commentTargetDisplayName(a)}>
                 <strong>{commentTargetDisplayName(a)}</strong>
-                <span>{a.comment}</span>
+                {a.comment ? <span>{a.comment}</span> : null}
               </span>
             </span>
           ))}

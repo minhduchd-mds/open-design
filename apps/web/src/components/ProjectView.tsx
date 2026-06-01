@@ -349,6 +349,18 @@ function mergeChatAttachments(...groups: ChatAttachment[][]): ChatAttachment[] {
   return out;
 }
 
+function commentTaskQuery(attachment: ChatCommentAttachment): string {
+  return attachment.comment.trim();
+}
+
+function commentTaskContextAttachment(attachment: ChatCommentAttachment): ChatCommentAttachment {
+  return {
+    ...attachment,
+    comment: '',
+    commentContext: 'query',
+  };
+}
+
 function designSystemNeedsWorkPrompt(
   sectionTitle: string,
   feedback: string,
@@ -3283,10 +3295,11 @@ export function ProjectView({
       for (let i = 0; i < commentAttachments.length; i++) {
         const commentAttachment = commentAttachments[i]!;
         const savedImages = chatAttachmentsFromPreviewCommentImages(commentAttachment.imageAttachments);
+        const prompt = commentTaskQuery(commentAttachment);
         await handleSend(
-          '',
+          prompt,
           mergeChatAttachments(i === 0 ? uploaded : [], savedImages),
-          [commentAttachment],
+          [commentTaskContextAttachment(commentAttachment)],
           { queueOnly: true },
         );
       }

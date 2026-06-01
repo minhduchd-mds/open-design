@@ -260,6 +260,8 @@ export interface ChatCommentAttachment {
   markKind?: PreviewVisualMarkKind;
   intent?: string;
   imageAttachments?: PreviewCommentAttachment[];
+  /** `'query'` means `comment` was promoted to the message text; keep target data as context only. */
+  commentContext?: 'context' | 'query';
   source?: 'saved-comment' | 'board-batch';
 }
 

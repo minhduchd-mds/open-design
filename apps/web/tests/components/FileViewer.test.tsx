@@ -70,6 +70,18 @@ function baseFile(overrides: Partial<ProjectFile>): ProjectFile {
   };
 }
 
+function createDragDataTransfer() {
+  const store = new Map<string, string>();
+  return {
+    effectAllowed: 'move',
+    dropEffect: 'move',
+    getData: vi.fn((type: string) => store.get(type) ?? ''),
+    setData: vi.fn((type: string, value: string) => {
+      store.set(type, value);
+    }),
+  };
+}
+
 function deferredResponse() {
   let resolve!: (value: Response) => void;
   const promise = new Promise<Response>((next) => {
@@ -3099,6 +3111,82 @@ describe('FileViewer tweaks toolbar', () => {
     expect(screen.queryByText('不要github，换成微信')).toBeNull();
     expect(screen.queryByTestId('comment-side-selectbar')).toBeNull();
     expect(screen.queryByTestId('comment-side-collapsed-rail')).toBeNull();
+  });
+
+  it('reorders saved comments with the drag handle for send sequence', () => {
+    const onReorder = vi.fn();
+    const comments: PreviewComment[] = [
+      {
+        id: 'comment-1',
+        projectId: 'project-1',
+        conversationId: 'conversation-1',
+        filePath: 'preview.html',
+        elementId: 'first',
+        selector: '[data-od-id="first"]',
+        label: 'First',
+        text: 'First',
+        htmlHint: '<p>First</p>',
+        position: { x: 0, y: 0, width: 100, height: 30 },
+        note: 'First task',
+        status: 'open',
+        createdAt: 10,
+        updatedAt: 10,
+      },
+      {
+        id: 'comment-2',
+        projectId: 'project-1',
+        conversationId: 'conversation-1',
+        filePath: 'preview.html',
+        elementId: 'second',
+        selector: '[data-od-id="second"]',
+        label: 'Second',
+        text: 'Second',
+        htmlHint: '<p>Second</p>',
+        position: { x: 0, y: 40, width: 100, height: 30 },
+        note: 'Second task',
+        status: 'open',
+        createdAt: 20,
+        updatedAt: 20,
+      },
+    ];
+
+    render(
+      <CommentSidePanel
+        comments={comments}
+        selectedIds={new Set()}
+        activeCommentId={null}
+        collapsed={false}
+        onCollapsedChange={() => {}}
+        onClose={() => {}}
+        onToggleSelect={() => {}}
+        onSelectAll={() => {}}
+        onClearSelection={() => {}}
+        onReorder={onReorder}
+        onReply={() => {}}
+        onSendSelected={() => {}}
+        sending={false}
+        t={t}
+      />,
+    );
+
+    const items = screen.getAllByTestId('comment-side-item');
+    items[0]!.getBoundingClientRect = vi.fn(() => ({
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      right: 300,
+      bottom: 40,
+      width: 300,
+      height: 40,
+      toJSON: () => ({}),
+    }));
+    const dataTransfer = createDragDataTransfer();
+    fireEvent.dragStart(screen.getAllByLabelText('chat.queuedReorder')[1]!, { dataTransfer });
+    fireEvent.dragOver(items[0]!, { dataTransfer, clientY: 0 });
+    fireEvent.drop(items[0]!, { dataTransfer, clientY: 0 });
+
+    expect(onReorder).toHaveBeenCalledWith(['comment-2', 'comment-1']);
   });
 
   it('does not classify text labels containing a standalone article as links', () => {

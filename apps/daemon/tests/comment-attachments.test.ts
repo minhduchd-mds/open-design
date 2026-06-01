@@ -291,6 +291,22 @@ describe('preview comment agent payload', () => {
     expect(hint).toContain('image.1: uploads/reference.png | reference.png');
   });
 
+  it('omits comment text from context when the UI sends it as the task query', () => {
+    const normalized = normalizeCommentAttachments([
+      commentAttachment({
+        id: 'c1',
+        comment: '',
+        commentContext: 'query',
+      }),
+    ]);
+
+    const hint = renderCommentAttachmentHint(normalized);
+
+    expect(normalized[0]).toMatchObject({ comment: '', commentContext: 'query' });
+    expect(hint).toContain('selector: [data-od-id="hero-title"]');
+    expect(hint).not.toContain('comment:');
+  });
+
   it('renders pod attachments with grouped member context', () => {
     const normalized = normalizeCommentAttachments([
       commentAttachment({

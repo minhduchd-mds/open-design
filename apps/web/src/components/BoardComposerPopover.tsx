@@ -306,15 +306,17 @@ export function BoardComposerPopover({
     observer.observe(node);
     return () => observer.disconnect();
   }, [commenting, draft, images.length, existingImages.length, notes.length, podMembers.length]);
+  const trimmedDraft = draft.trim();
+  const existingNote = existing?.note.trim() ?? '';
+  const hasFreshImage = images.length > 0;
   // An attached image alone is enough to send (the element context rides along
   // even without a typed note).
-  const hasAnyImage = images.length > 0 || existingImages.length > 0;
+  const hasAnyImage = hasFreshImage || existingImages.length > 0;
   const sendDisabled = (pendingCount === 0 && !hasAnyImage) || sending;
   const isPodSelection = target.selectionKind === 'pod';
-  // Comment (save) is allowed whenever there is text OR a freshly attached
-  // image — it no longer requires the text to have changed, so users can save
-  // an image-only note or re-save after only adding an image.
-  const saveDisabled = (!draft.trim() && !hasAnyImage) || sending;
+  const hasSaveContent = Boolean(trimmedDraft) || hasAnyImage;
+  const existingChanged = existing ? trimmedDraft !== existingNote || hasFreshImage : true;
+  const saveDisabled = !hasSaveContent || !existingChanged || sending;
   function pickImages(list: FileList | null) {
     const imgs = Array.from(list ?? []).filter((f) => f.type.startsWith('image/'));
     if (imgs.length > 0) onAttachImages?.(imgs);

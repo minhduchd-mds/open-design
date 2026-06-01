@@ -176,6 +176,8 @@ export function commentsToAttachments(comments: PreviewComment[]): ChatCommentAt
 export function buildBoardCommentAttachments(input: {
   target: PreviewCommentTarget;
   notes: string[];
+  includeImageOnly?: boolean;
+  imageAttachmentCount?: number;
 }): ChatCommentAttachment[] {
   const podMembers = normalizeMembers(input.target.podMembers);
   const selectionKind = input.target.selectionKind === 'pod' ? 'pod' : 'element';
@@ -187,8 +189,15 @@ export function buildBoardCommentAttachments(input: {
             ? Math.round(input.target.memberCount)
             : 0)
       : undefined;
-  return input.notes
+  const notes = input.notes
     .map((note) => note.trim())
+    .filter(Boolean);
+  const comments = notes.length > 0
+    ? notes
+    : input.includeImageOnly
+      ? [imageOnlyCommentFallback(input.imageAttachmentCount ?? 0)]
+      : [];
+  return comments
     .filter(Boolean)
     .map((note, index) => ({
       id: `${input.target.elementId}-board-${index + 1}`,
@@ -343,8 +352,10 @@ function renderCommentAttachmentContext(commentAttachments: ChatCommentAttachmen
       `currentText: ${trimContextText(item.currentText || '') || '(empty)'}`,
       `htmlHint: ${trimHtmlHint(item.htmlHint || '') || '(none)'}`,
       `computedStyle: ${formatAnnotationStyle(item.style) || '(none)'}`,
-      `comment: ${item.comment}`,
     );
+    if (item.comment && item.commentContext !== 'query') {
+      lines.push(`comment: ${item.comment}`);
+    }
     if (selectionKind === 'visual') {
       lines.push(
         `screenshot: ${item.screenshotPath || '(missing)'}`,

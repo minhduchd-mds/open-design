@@ -1530,9 +1530,10 @@
   font-size: 12.5px;
 }
 .comment-side-item {
+  position: relative;
   border: 1px solid transparent;
   border-radius: 8px;
-  padding: 10px 12px;
+  padding: 10px 12px 10px 8px;
   background: transparent;
   color: var(--text);
   display: flex;
@@ -1548,10 +1549,57 @@
   border-color: var(--comment-accent-border);
   box-shadow: inset 3px 0 0 var(--comment-accent);
 }
+.comment-side-item.dragging {
+  opacity: 0.45;
+}
+.comment-side-item-drop-before::before,
+.comment-side-item-drop-after::after {
+  content: '';
+  position: absolute;
+  left: 32px;
+  right: 12px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--selected);
+  box-shadow: 0 0 0 2px var(--selected-soft);
+}
+.comment-side-item-drop-before::before {
+  top: -2px;
+}
+.comment-side-item-drop-after::after {
+  bottom: -2px;
+}
 .comment-side-item-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+}
+.comment-side-drag-handle {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: grab;
+}
+.comment-side-drag-handle:active:not(:disabled) {
+  cursor: grabbing;
+}
+.comment-side-drag-handle:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+.comment-side-drag-handle:hover:not(:disabled),
+.comment-side-drag-handle:focus-visible {
+  border-color: var(--border);
+  background: var(--bg-panel);
+  color: var(--text);
 }
 .comment-side-author {
   display: inline-flex;

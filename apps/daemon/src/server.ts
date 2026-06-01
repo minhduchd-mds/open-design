@@ -835,10 +835,13 @@ export function normalizeCommentAttachments(input) {
       const markKind = normalizeVisualMarkKind(raw.markKind);
       const intent = compactString(raw.intent, 220);
       const imageAttachments = normalizePreviewCommentImageAttachments(raw.imageAttachments);
-      const comment = cleanString(raw.comment) || intent || imageOnlyCommentFallback(imageAttachments.length);
+      const commentContext = raw.commentContext === 'query' ? 'query' : 'context';
+      const comment = commentContext === 'query'
+        ? ''
+        : cleanString(raw.comment) || intent || imageOnlyCommentFallback(imageAttachments.length);
       const selectionKind =
         raw.selectionKind === 'visual' ? 'visual' : raw.selectionKind === 'pod' ? 'pod' : 'element';
-      if (!filePath || !elementId || !comment) return null;
+      if (!filePath || !elementId) return null;
       if (selectionKind !== 'visual' && !selector) return null;
       if (selectionKind === 'visual' && !screenshotPath) return null;
       const podMembers = selectionKind === 'pod' ? normalizeAttachmentPodMembers(raw.podMembers) : [];
@@ -873,6 +876,7 @@ export function normalizeCommentAttachments(input) {
           ? intent || visualAnnotationIntent(markKind)
           : undefined,
         imageAttachments: imageAttachments.length > 0 ? imageAttachments : undefined,
+        commentContext,
         source: raw.source === 'board-batch' ? 'board-batch' : 'saved-comment',
       };
     })
@@ -901,8 +905,10 @@ export function renderCommentAttachmentHint(commentAttachments) {
       `currentText: ${item.currentText || '(empty)'}`,
       `htmlHint: ${item.htmlHint || '(none)'}`,
       `computedStyle: ${formatAnnotationStyle(item.style) || '(none)'}`,
-      `comment: ${item.comment}`,
     );
+    if (item.comment && item.commentContext !== 'query') {
+      lines.push(`comment: ${item.comment}`);
+    }
     if (targetKind === 'visual') {
       lines.push(
         `screenshot: ${item.screenshotPath}`,
