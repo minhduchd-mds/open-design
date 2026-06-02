@@ -218,10 +218,18 @@
 
     for (const el of elements) observer.observe(el);
 
-    const scene = document.querySelector('[data-hero-scene]');
+    // Restart the looping accent GIF every 40s. We clone + replace the node
+    // rather than toggling `src`: assigning '' would resolve to the document
+    // URL and fire a bogus request for '/' (re-downloading the HTML and
+    // briefly flashing a broken image). Cloning re-decodes the same cached
+    // GIF from its first frame with no extra network request.
+    let scene = document.querySelector('[data-hero-scene]');
     if (scene) {
-      const src = scene.src;
-      setInterval(() => { scene.src = ''; scene.src = src; }, 40000);
+      setInterval(() => {
+        const fresh = scene.cloneNode(true);
+        scene.replaceWith(fresh);
+        scene = fresh;
+      }, 40000);
     }
   })();
 </script>
