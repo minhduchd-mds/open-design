@@ -21,7 +21,6 @@ import {
 import {
   imageAsset,
   PRECISE_LAZY_PLACEHOLDER,
-  repositoryAsset,
 } from './image-assets';
 import { getPluginsCopy } from './_lib/plugins-i18n';
 
@@ -322,7 +321,7 @@ export default function Page({
             </div>
             <img
               className='hero-dancer'
-              src='/hero-dancer.png'
+              src={imageAsset('hero-dancer.png', { width: 560, quality: 82 })}
               alt=''
               width={694}
               height={1097}
@@ -330,7 +329,7 @@ export default function Page({
             />
             <img
               className='hero-angel'
-              src={repositoryAsset('resources/images/landing-page/hero-angel.png')}
+              src={imageAsset('hero-angel.png', { width: 760, quality: 82 })}
               alt=''
               width={1002}
               height={1239}
