@@ -997,7 +997,7 @@ describe('SettingsDialog execution settings BYOK interactions', () => {
       expect(JSON.parse(String(init?.body))).toMatchObject({
         mode: 'provider',
         protocol: 'anthropic',
-        apiKey: 'sk-test-provider',
+        apiKey: 'sk-ant-test-provider',
         baseUrl: 'https://api.anthropic.com',
         model: 'claude-sonnet-4-5',
       });
@@ -1014,7 +1014,7 @@ describe('SettingsDialog execution settings BYOK interactions', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    renderSettingsDialog({ apiKey: 'sk-test-provider' });
+    renderSettingsDialog({ apiKey: 'sk-ant-test-provider' });
 
     expect(screen.getByRole('button', { name: 'Test' })).toBeTruthy();
 
@@ -1030,6 +1030,31 @@ describe('SettingsDialog execution settings BYOK interactions', () => {
       ([input]) => input.toString() === '/api/test/connection',
     );
     expect(testConnectionCalls).toHaveLength(1);
+  });
+
+  it('blocks an obvious OpenAI key in the Anthropic tab before testing', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (input.toString() === '/api/memory') {
+        return new Response(
+          JSON.stringify({ enabled: true, memories: [], extraction: null }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      throw new Error(`unexpected request: ${input.toString()}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderSettingsDialog({ apiKey: 'sk-openai-provider' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Test' }));
+
+    expect(screen.getByRole('alert').textContent).toContain('Invalid API key.');
+    await waitFor(() => {
+      const testConnectionCalls = fetchMock.mock.calls.filter(
+        ([input]) => input.toString() === '/api/test/connection',
+      );
+      expect(testConnectionCalls).toHaveLength(0);
+    });
   });
 
   it('lets users retry a failed BYOK connection test without editing the API key', async () => {
@@ -1065,7 +1090,7 @@ describe('SettingsDialog execution settings BYOK interactions', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    renderSettingsDialog({ apiKey: 'sk-test-provider' });
+    renderSettingsDialog({ apiKey: 'sk-ant-test-provider' });
 
     fireEvent.click(screen.getByRole('button', { name: 'Test' }));
     expect(await screen.findByRole('button', { name: 'Retry test' })).toBeTruthy();
