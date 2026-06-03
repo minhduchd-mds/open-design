@@ -146,9 +146,18 @@ export async function persistComposioConfigChange(
 }
 
 export function buildPersistedConfig(next: AppConfig, current: AppConfig): AppConfig {
+  const stalePrivacySnapshot =
+    current.privacyDecisionAt != null && next.privacyDecisionAt == null;
   return {
     ...next,
     onboardingCompleted: current.onboardingCompleted ? true : next.onboardingCompleted,
+    ...(stalePrivacySnapshot
+      ? {
+          installationId: current.installationId,
+          privacyDecisionAt: current.privacyDecisionAt,
+          telemetry: current.telemetry,
+        }
+      : {}),
     composio: next.composio
       ? {
           apiKey: '',

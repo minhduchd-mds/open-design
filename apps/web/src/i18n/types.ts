@@ -225,6 +225,7 @@ export interface Dict {
   'settings.test': string;
   'settings.testTitle': string;
   'settings.testRunning': string;
+  'settings.byokReadyToTest': string;
   'settings.testCancel': string;
   'settings.testRetry': string;
   'settings.required': string;
@@ -280,6 +281,9 @@ export interface Dict {
   'settings.amrLoginErrorCompact': string;
   'settings.apiSection': string;
   'settings.quickFillProvider': string;
+  'settings.providerPreset': string;
+  'settings.protocolGroupProtocols': string;
+  'settings.protocolGroupGateways': string;
   'settings.customProvider': string;
   'settings.apiKey': string;
   'settings.apiKeyGetLink': string;
@@ -314,6 +318,7 @@ export interface Dict {
   'settings.azureBaseUrlPlaceholder': string;
   'settings.azureBaseUrlHint': string;
   'settings.azureDeploymentModel': string;
+  'settings.azureCustomDeploymentName': string;
   'settings.azureDeploymentModelHint': string;
   'settings.azureModelFetchHint': string;
   'settings.apiVersion': string;

@@ -63,6 +63,7 @@ interface SearchableModelSelectProps
   searchPlaceholder: string;
   searchInputTestId?: string;
   popoverTestId?: string;
+  popoverClassName?: string;
   additionalOptions?: Array<{ value: string; label: string }>;
   minSearchableOptions?: number;
   popoverMinWidth?: number;
@@ -79,6 +80,7 @@ export const SearchableModelSelect = forwardRef<
     searchPlaceholder,
     searchInputTestId,
     popoverTestId,
+    popoverClassName,
     additionalOptions,
     minSearchableOptions = 8,
     popoverMinWidth,
@@ -229,7 +231,7 @@ export const SearchableModelSelect = forwardRef<
         ? createPortal(
             <div
               ref={popoverRef}
-              className="model-select-searchable__popover"
+              className={`model-select-searchable__popover${popoverClassName ? ` ${popoverClassName}` : ''}`}
               role="presentation"
               data-testid={popoverTestId}
               onMouseDown={(event) => event.stopPropagation()}

@@ -90,7 +90,6 @@ import { SettingsDialog } from '../../src/components/SettingsDialog';
 import type { AgentRefreshOptions, SettingsSection } from '../../src/components/SettingsDialog';
 import { I18nProvider } from '../../src/i18n';
 import { LOCALES } from '../../src/i18n/types';
-import { AMR_CONSOLE_URL } from '../../src/runtime/amr-guidance';
 import type { AgentInfo, AppConfig, AppVersionInfo } from '../../src/types';
 
 const baseConfig: AppConfig = {
@@ -287,6 +286,16 @@ async function waitForPersist(
   });
 }
 
+function openGatewayPresetPopover() {
+  fireEvent.click(screen.getByRole('combobox', { name: 'Gateway preset' }));
+  return screen.getByTestId('settings-byok-provider-preset-popover');
+}
+
+function selectGatewayPreset(label: string) {
+  const popover = openGatewayPresetPopover();
+  fireEvent.click(within(popover).getByRole('option', { name: label }));
+}
+
 function deferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
   let reject!: (reason?: unknown) => void;
@@ -378,7 +387,9 @@ describe('SettingsDialog execution settings BYOK interactions', () => {
     expect(screen.getByRole('tab', { name: 'OpenAI' })).toBeTruthy();
     expect(screen.getByRole('tab', { name: 'Azure OpenAI' })).toBeTruthy();
     expect(screen.getByRole('tab', { name: 'Google Gemini' })).toBeTruthy();
-    expect(screen.getByLabelText('Quick fill provider')).toBeTruthy();
+    expect(screen.getByText('Protocols')).toBeTruthy();
+    expect(screen.getByText('Gateways')).toBeTruthy();
+    expect(screen.getByLabelText('Gateway preset')).toBeTruthy();
     expect(screen.getByLabelText('Model')).toBeTruthy();
     const baseUrlInput = screen.getByLabelText('Base URL') as HTMLInputElement;
     expect(baseUrlInput.value).toBe('https://api.anthropic.com');
@@ -392,7 +403,7 @@ describe('SettingsDialog execution settings BYOK interactions', () => {
     expect(within(memoryModelDetails!).queryByLabelText('Base URL')).toBeNull();
     expect(
       screen
-        .getByRole('link', { name: 'Get your key at console.anthropic.com ↗' })
+        .getByRole('link', { name: 'Get key ↗' })
         .getAttribute('href'),
     ).toBe('https://console.anthropic.com/settings/keys');
 
@@ -406,34 +417,36 @@ describe('SettingsDialog execution settings BYOK interactions', () => {
     expect(apiKeyInput.type).toBe('password');
 
     fireEvent.click(screen.getByRole('tab', { name: 'OpenAI' }));
-    expect(screen.getByLabelText('Quick fill provider')).toBeTruthy();
-    expect(screen.getByLabelText('Base URL').closest('details')).toBeNull();
+    expect(screen.getByLabelText('Gateway preset')).toBeTruthy();
+    expect((screen.getByLabelText('Base URL') as HTMLInputElement).value).toBe(
+      'https://api.openai.com/v1',
+    );
     expect(
       screen
-        .getByRole('link', { name: 'Get your key at platform.openai.com ↗' })
+        .getByRole('link', { name: 'Get key ↗' })
         .getAttribute('href'),
     ).toBe('https://platform.openai.com/api-keys');
   });
 
-  it('warns BYOK users that API mode cannot edit project files (issue #1106)', () => {
+  it('keeps BYOK file-editing limits discoverable from the provider heading (issue #1106)', () => {
     // Regression cover: switching from Local CLI to BYOK previously gave no
     // signal that file-editing tools (`Read`/`Write`/`Edit`) are absent on the
     // API path. Users typed "continue adjusting the design" expecting edits
-    // and got an HTML monologue back. The notice must be visible on every
-    // BYOK protocol tab so the missing tool surface is discoverable before
-    // the user wastes a turn.
+    // and got an HTML monologue back. The notice now sits behind a heading
+    // info icon so it stays discoverable without competing with setup fields.
     renderSettingsDialog();
 
-    const notice = screen.getByTestId('settings-byok-no-file-tools-notice');
-    expect(notice.textContent).toContain('BYOK mode');
-    expect(notice.textContent).toContain("can't read, write, or edit files");
-    expect(notice.textContent).toContain('Local CLI mode');
+    const trigger = screen.getByTestId('settings-byok-no-file-tools-trigger');
+    expect(trigger).toBeTruthy();
+    const notice = screen.getByRole('tooltip');
+    expect(notice.textContent).toContain("BYOK can't read, write, or edit project files");
+    expect(notice.textContent).toContain('Local CLI');
 
     fireEvent.click(screen.getByRole('tab', { name: 'OpenAI' }));
-    expect(screen.getByTestId('settings-byok-no-file-tools-notice')).toBeTruthy();
+    expect(screen.getByTestId('settings-byok-no-file-tools-trigger')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('tab', { name: 'Google Gemini' }));
-    expect(screen.getByTestId('settings-byok-no-file-tools-notice')).toBeTruthy();
+    expect(screen.getByTestId('settings-byok-no-file-tools-trigger')).toBeTruthy();
   });
 
   it('hides the BYOK no-file-tools notice when Local CLI mode is selected', () => {
@@ -462,22 +475,19 @@ describe('SettingsDialog execution settings BYOK interactions', () => {
     renderSettingsDialog({ apiProtocol: 'openai', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o', apiProviderBaseUrl: 'https://api.openai.com/v1' });
 
     fireEvent.click(screen.getByRole('tab', { name: 'OpenAI' }));
-    // Quick fill dropdown indexes for the openai protocol:
-    // 0 = OpenAI, 1 = OpenRouter, 2 = DeepSeek — OpenAI, …
-    fireEvent.change(screen.getByLabelText('Quick fill provider'), {
-      target: { value: '2' },
-    });
+    selectGatewayPreset('DeepSeek — OpenAI');
 
     expect(screen.getByRole('combobox', { name: 'Model' }).textContent).toContain('deepseek-chat');
     expect((screen.getByLabelText('Base URL') as HTMLInputElement).value).toBe('https://api.deepseek.com');
   });
 
-  it('keeps Anthropic-compatible presets selectable from quick fill', () => {
+  it('keeps Anthropic-compatible gateway presets selectable', () => {
     renderSettingsDialog();
 
-    const providerSelect = screen.getByLabelText('Quick fill provider') as HTMLSelectElement;
-    expect(Array.from(providerSelect.options).map((option) => option.textContent)).toEqual(
+    const providerPopover = openGatewayPresetPopover();
+    expect(within(providerPopover).getAllByRole('option').map((option) => option.textContent?.trim())).toEqual(
       expect.arrayContaining([
+        'Custom provider',
         'Anthropic (Claude)',
         'DeepSeek — Anthropic',
         'MiniMax — Anthropic',
@@ -485,7 +495,7 @@ describe('SettingsDialog execution settings BYOK interactions', () => {
       ]),
     );
 
-    fireEvent.change(providerSelect, { target: { value: '1' } });
+    fireEvent.click(within(providerPopover).getByRole('option', { name: 'DeepSeek — Anthropic' }));
 
     expect(screen.getByRole('combobox', { name: 'Model' }).textContent).toContain('deepseek-chat');
     expect((screen.getByLabelText('Base URL') as HTMLInputElement).value).toBe(
@@ -497,14 +507,13 @@ describe('SettingsDialog execution settings BYOK interactions', () => {
     renderSettingsDialog({ apiProtocol: 'openai', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o', apiProviderBaseUrl: 'https://api.openai.com/v1' });
 
     fireEvent.click(screen.getByRole('tab', { name: 'OpenAI' }));
-    const providerSelect = screen.getByLabelText('Quick fill provider') as HTMLSelectElement;
-    expect(providerSelect.value).toBe('0');
+    expect(screen.getByRole('combobox', { name: 'Gateway preset' }).textContent).toContain('OpenAI');
 
     fireEvent.change(screen.getByLabelText('Base URL'), {
       target: { value: 'https://my-proxy.example.com/v1' },
     });
 
-    expect(providerSelect.value).toBe('');
+    expect(screen.getByRole('combobox', { name: 'Gateway preset' }).textContent).toContain('Custom provider');
     expect((screen.getByLabelText('Base URL') as HTMLInputElement).value).toBe(
       'https://my-proxy.example.com/v1',
     );
@@ -514,21 +523,24 @@ describe('SettingsDialog execution settings BYOK interactions', () => {
     renderSettingsDialog();
 
     fireEvent.click(screen.getByRole('tab', { name: 'Ollama Cloud' }));
-    const providerSelect = screen.getByLabelText('Quick fill provider') as HTMLSelectElement;
-    expect(providerSelect.options[0]?.textContent).toBe('Custom provider');
-    expect(providerSelect.options[1]?.textContent).toBe('Ollama Cloud (managed)');
-    expect(providerSelect.options[2]?.textContent).toBe('Ollama Self-hosted (local)');
+    const providerPopover = openGatewayPresetPopover();
+    expect(within(providerPopover).getAllByRole('option').map((option) => option.textContent?.trim())).toEqual([
+      'Custom provider',
+      'Ollama Cloud (managed)',
+      'Ollama Self-hosted (local)',
+    ]);
+    fireEvent.click(screen.getByRole('combobox', { name: 'Gateway preset' }));
     expect((screen.getByLabelText('Base URL') as HTMLInputElement).readOnly).toBe(false);
 
-    fireEvent.change(providerSelect, { target: { value: '1' } });
+    selectGatewayPreset('Ollama Self-hosted (local)');
     expect((screen.getByLabelText('Base URL') as HTMLInputElement).value).toBe(
       'http://localhost:11434',
     );
-    expect(screen.queryByRole('link', { name: /Get your key/i })).toBeNull();
+    expect(screen.queryByRole('link', { name: /Get key/i })).toBeNull();
     expect(screen.getByRole('button', { name: 'Test' })).toBeTruthy();
   });
 
-  it('saves and tests the self-hosted Ollama preset without an API key', async () => {
+  it('saves and auto-tests the self-hosted Ollama preset without an API key', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = input.toString();
       if (url === '/api/memory') {
@@ -560,9 +572,7 @@ describe('SettingsDialog execution settings BYOK interactions', () => {
     const { onPersist } = renderSettingsDialog();
 
     fireEvent.click(screen.getByRole('tab', { name: 'Ollama Cloud' }));
-    fireEvent.change(screen.getByLabelText('Quick fill provider'), {
-      target: { value: '1' },
-    });
+    selectGatewayPreset('Ollama Self-hosted (local)');
 
     await waitForPersist(
       onPersist,
@@ -575,8 +585,6 @@ describe('SettingsDialog execution settings BYOK interactions', () => {
       }),
       {},
     );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Test' }));
 
     await waitFor(() => {
       expect(screen.getByText(/Connected\. Replied in 28 ms/)).toBeTruthy();
@@ -618,7 +626,7 @@ describe('SettingsDialog execution settings BYOK interactions', () => {
       target: { value: 'http://10.0.0.5:11434/v1' },
     });
     expect(screen.getByRole('alert').textContent).toContain(
-      'Enter a valid public http:// or https:// URL.',
+      'Use a public http:// or https:// URL.',
     );
 
     fireEvent.change(screen.getByLabelText('Base URL'), {
@@ -702,7 +710,7 @@ describe('SettingsDialog execution settings BYOK interactions', () => {
     expect(screen.getByLabelText('Deployment name')).toBeTruthy();
     expect(screen.getByLabelText('API version')).toBeTruthy();
     expect((screen.getByLabelText('Base URL') as HTMLInputElement).placeholder).toBe(
-      'https://my-resource.openai.azure.com',
+      'Paste Azure endpoint URL',
     );
     expect(
       screen.getByText('Find this in Azure portal → your resource → Endpoint.'),
@@ -714,7 +722,7 @@ describe('SettingsDialog execution settings BYOK interactions', () => {
     fireEvent.change(screen.getByLabelText('Deployment name'), {
       target: { value: '__custom__' },
     });
-    fireEvent.change(screen.getByLabelText('Custom model id'), {
+    fireEvent.change(screen.getByLabelText('Custom deployment name'), {
       target: { value: 'deployment-one' },
     });
     fireEvent.change(screen.getByLabelText('Base URL'), {
@@ -722,6 +730,10 @@ describe('SettingsDialog execution settings BYOK interactions', () => {
     });
     fireEvent.change(screen.getByLabelText('API version'), {
       target: { value: '2024-10-21' },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Ready to test')).toBeTruthy();
     });
 
     await waitForPersist(
@@ -815,7 +827,7 @@ describe('SettingsDialog execution settings BYOK interactions', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: 'Azure OpenAI' }));
     expect(screen.queryByRole('button', { name: 'Fetch models' })).toBeNull();
-    expect(screen.getByText(/Automatic deployment discovery is not available/)).toBeTruthy();
+    expect(screen.getByText(/Azure deployments can’t be fetched automatically/)).toBeTruthy();
 
     fireEvent.click(screen.getByRole('tab', { name: 'Ollama Cloud' }));
     expect(screen.queryByRole('button', { name: 'Fetch models' })).toBeNull();
@@ -951,7 +963,76 @@ describe('SettingsDialog execution settings BYOK interactions', () => {
     expect(screen.queryByText('Fill API key to test the connection.')).toBeNull();
   });
 
-  it('filters long BYOK model lists in Settings after provider discovery succeeds', async () => {
+  it('auto-tests a saved complete BYOK config when Settings opens', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString();
+      if (url === '/api/memory') {
+        return new Response(
+          JSON.stringify({ enabled: true, memories: [], extraction: null }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      expect(url).toBe('/api/test/connection');
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          kind: 'ok',
+          latencyMs: 21,
+          model: 'claude-sonnet-4-5',
+          sample: 'pong',
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderSettingsDialog({ apiKey: 'sk-ant-test-provider' });
+
+    expect(await screen.findByText(/Connected\. Replied in 21 ms/)).toBeTruthy();
+
+    const testConnectionCalls = fetchMock.mock.calls.filter(
+      ([input]) => input.toString() === '/api/test/connection',
+    );
+    expect(testConnectionCalls).toHaveLength(1);
+  });
+
+  it('auto-tests BYOK after required fields become locally valid', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString();
+      if (url === '/api/memory') {
+        return new Response(
+          JSON.stringify({ enabled: true, memories: [], extraction: null }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      expect(url).toBe('/api/test/connection');
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          kind: 'ok',
+          latencyMs: 14,
+          model: 'claude-sonnet-4-5',
+          sample: 'pong',
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderSettingsDialog({ apiKey: '' });
+
+    fireEvent.change(screen.getByLabelText('API key'), {
+      target: { value: 'sk-ant-test-provider' },
+    });
+
+    expect(await screen.findByText(/Connected\. Replied in 14 ms/)).toBeTruthy();
+    const testConnectionCalls = fetchMock.mock.calls.filter(
+      ([input]) => input.toString() === '/api/test/connection',
+    );
+    expect(testConnectionCalls).toHaveLength(1);
+  });
+
+  it('shows long BYOK model lists without a search field after provider discovery succeeds', async () => {
     fetchProviderModelsMock.mockResolvedValueOnce({
       ok: true,
       kind: 'success',
@@ -981,17 +1062,15 @@ describe('SettingsDialog execution settings BYOK interactions', () => {
     const modelPicker = screen.getByRole('combobox', { name: 'Model' });
     fireEvent.click(modelPicker);
 
-    const searchInput = screen.getByTestId('settings-byok-model-search') as HTMLInputElement;
-    fireEvent.change(searchInput, { target: { value: '5.5' } });
-
     const modelPopover = screen.getByTestId('settings-byok-model-popover');
+    expect(within(modelPopover).queryByTestId('settings-byok-model-search')).toBeNull();
     expect(
       within(modelPopover).getAllByRole('option').map((option) => option.textContent?.trim()),
-    ).toEqual([
+    ).toEqual(expect.arrayContaining([
       'gpt-4.1-mini · From your account',
       'gpt-5.5 · From your account',
       'Custom (type below)…',
-    ]);
+    ]));
   });
 
   it('fetches provider models, merges them into the picker, and preserves a custom current model', async () => {
@@ -1083,6 +1162,8 @@ describe('SettingsDialog execution settings BYOK interactions', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'OpenAI' }));
 
     expect(await screen.findByText('Invalid API key.')).toBeTruthy();
+    expect(screen.queryByText('Ready to test')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Test' })).toBeTruthy();
   });
 
   it('renders non-auth provider model discovery failures explicitly', async () => {
@@ -1135,7 +1216,7 @@ describe('SettingsDialog execution settings BYOK interactions', () => {
     );
   });
 
-  it('runs the BYOK connection test only after required fields are present', async () => {
+  it('runs the BYOK connection test manually only after required fields are present', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = input.toString();
       // MemoryModelInline mounts inside the BYOK section and reads the
@@ -1173,7 +1254,7 @@ describe('SettingsDialog execution settings BYOK interactions', () => {
 
     expect(screen.getByRole('button', { name: 'Test' })).toBeTruthy();
 
-    fireEvent.blur(screen.getByLabelText('API key'));
+    fireEvent.click(screen.getByRole('button', { name: 'Test' }));
 
     await waitFor(() => {
       expect(screen.getByText('Testing connection…')).toBeTruthy();
@@ -1201,11 +1282,13 @@ describe('SettingsDialog execution settings BYOK interactions', () => {
 
     renderSettingsDialog({ apiKey: 'sk-openai-provider' });
 
+    expect(screen.getByRole('alert').textContent).toContain('Invalid API key.');
+    expect(screen.queryByText('Ready to test')).toBeNull();
+
     fireEvent.click(screen.getByRole('button', { name: 'Test' }));
 
-    expect(
-      screen.getByText('This looks like an OpenAI key, not an Anthropic key.'),
-    ).toBeTruthy();
+    expect(screen.getByRole('alert').textContent).toContain('Invalid API key.');
+    expect(screen.queryByText('Ready to test')).toBeNull();
     await waitFor(() => {
       const testConnectionCalls = fetchMock.mock.calls.filter(
         ([input]) => input.toString() === '/api/test/connection',
@@ -1228,6 +1311,82 @@ describe('SettingsDialog execution settings BYOK interactions', () => {
       }),
       undefined,
     );
+  });
+
+  it('shows API key and Base URL errors together for mistyped first-party URLs', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (input.toString() === '/api/memory') {
+        return new Response(
+          JSON.stringify({ enabled: true, memories: [], extraction: null }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      throw new Error(`unexpected request: ${input.toString()}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderSettingsDialog({
+      apiKey: 'sk-openai-provider',
+      baseUrl: 'https://api.anthropic.comsssss',
+      apiProviderBaseUrl: null,
+    });
+
+    const apiKeyField = screen.getByLabelText('API key').closest('label');
+    const baseUrlField = screen.getByLabelText('Base URL').closest('label');
+    expect(apiKeyField).toBeTruthy();
+    expect(baseUrlField).toBeTruthy();
+    expect(
+      within(apiKeyField as HTMLElement).getByText('Invalid API key.'),
+    ).toBeTruthy();
+    expect(
+      within(baseUrlField as HTMLElement).getByText('Base URL is invalid or unreachable.'),
+    ).toBeTruthy();
+    expect(screen.queryByText('Ready to test')).toBeNull();
+
+    await new Promise((resolve) => window.setTimeout(resolve, 600));
+    const testConnectionCalls = fetchMock.mock.calls.filter(
+      ([input]) => input.toString() === '/api/test/connection',
+    );
+    expect(testConnectionCalls).toHaveLength(0);
+  });
+
+  it('blocks mistyped first-party URLs with a valid key before auto-testing', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (input.toString() === '/api/memory') {
+        return new Response(
+          JSON.stringify({ enabled: true, memories: [], extraction: null }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      throw new Error(`unexpected request: ${input.toString()}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderSettingsDialog({
+      apiKey: 'sk-ant-test-provider',
+      baseUrl: 'https://api.anthropic.comx',
+      apiProviderBaseUrl: null,
+    });
+
+    const apiKeyField = screen.getByLabelText('API key').closest('label');
+    const baseUrlField = screen.getByLabelText('Base URL').closest('label');
+    expect(apiKeyField).toBeTruthy();
+    expect(baseUrlField).toBeTruthy();
+    expect(
+      within(apiKeyField as HTMLElement).queryByText('Invalid API key.'),
+    ).toBeNull();
+    expect(
+      within(baseUrlField as HTMLElement).getByText('Base URL is invalid or unreachable.'),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Test' })).toBeNull();
+    expect(screen.queryByText('Ready to test')).toBeNull();
+
+    await new Promise((resolve) => window.setTimeout(resolve, 600));
+    const testConnectionCalls = fetchMock.mock.calls.filter(
+      ([input]) => input.toString() === '/api/test/connection',
+    );
+    expect(testConnectionCalls).toHaveLength(0);
+    expect(fetchProviderModelsMock).not.toHaveBeenCalled();
   });
 
   it('sends a cleaned API key when the pasted value has trailing newline/zero-width characters', async () => {
@@ -1420,6 +1579,76 @@ describe('SettingsDialog execution settings BYOK interactions', () => {
       }),
       undefined,
     );
+  });
+
+  it('renders invalid Base URL test failures on the Base URL field', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString();
+      if (url === '/api/memory') {
+        return new Response(
+          JSON.stringify({ enabled: true, memories: [], extraction: null }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      expect(url).toBe('/api/test/connection');
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          kind: 'invalid_base_url',
+          latencyMs: 12,
+          model: 'claude-sonnet-4-5',
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderSettingsDialog({ apiKey: 'sk-ant-test-provider' });
+
+    expect(await screen.findByText('Base URL is invalid or unreachable.')).toBeTruthy();
+    const baseUrlField = screen.getByLabelText('Base URL').closest('label');
+    expect(baseUrlField).toBeTruthy();
+    expect(
+      within(baseUrlField as HTMLElement).getByText('Base URL is invalid or unreachable.'),
+    ).toBeTruthy();
+    expect(screen.getAllByText('Base URL is invalid or unreachable.')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Retry test' })).toBeTruthy();
+  });
+
+  it('renders auth failed test failures on the API key field', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString();
+      if (url === '/api/memory') {
+        return new Response(
+          JSON.stringify({ enabled: true, memories: [], extraction: null }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      expect(url).toBe('/api/test/connection');
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          kind: 'auth_failed',
+          latencyMs: 12,
+          model: 'claude-sonnet-4-5',
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderSettingsDialog({ apiKey: 'sk-ant-test-provider' });
+
+    expect(await screen.findByText('Invalid API key.')).toBeTruthy();
+    const apiKeyField = screen.getByLabelText('API key').closest('label');
+    expect(apiKeyField).toBeTruthy();
+    expect(
+      within(apiKeyField as HTMLElement).getByText('Invalid API key.'),
+    ).toBeTruthy();
+    expect(screen.getAllByText('Invalid API key.')).toHaveLength(1);
+    expect(screen.queryByText('Authentication failed. Check your API key.')).toBeNull();
+    expect(screen.queryByText('Ready to test')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Retry test' })).toBeTruthy();
   });
 
   it('focuses the model field when the BYOK test returns model not found', async () => {
@@ -1693,7 +1922,7 @@ describe('SettingsDialog execution settings Local CLI interactions', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Local CLI.*2 installed/i }));
 
     const memoryModel = await screen.findByRole('combobox', { name: 'Memory model' });
-    expect(memoryModel.textContent?.trim()).toBe('Same as chat (Claude Code)');
+    expect(memoryModel.textContent).toBe('Same as chat (Claude Code)');
     expect(screen.getByText(/anthropic is only the fallback provider family/i)).toBeTruthy();
   });
 
@@ -1897,7 +2126,6 @@ describe('SettingsDialog execution settings Local CLI interactions', () => {
     expect(screen.getByText('Many models')).toBeTruthy();
     expect(screen.queryByText('Limited bonus: +100%')).toBeNull();
     expect(await screen.findByRole('button', { name: 'Authorize' })).toBeTruthy();
-    expect(screen.queryByRole('link', { name: 'AMR Console' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Test' })).toBeNull();
   });
 
@@ -2197,422 +2425,6 @@ describe('SettingsDialog execution settings Local CLI interactions', () => {
     });
   });
 
-  // Flicker regression: the AMR card re-reads `/vela/status` every time the
-  // `agents` prop identity changes (the post-sign-in model-catalog rescan loop
-  // hands down a fresh array on each retry). Resetting `amrCardStatusReady` to
-  // false on each of those refreshes swapped the live pill for the hidden
-  // `--placeholder`, so the Sign out action blinked out and back on every
-  // rescan tick. The card must keep the pill mounted and update status in place.
-  it('keeps the AMR Sign out action mounted across agents-list refreshes (no flicker)', async () => {
-    let statusCalls = 0;
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = input.toString();
-      if (url === '/api/memory') {
-        return new Response(
-          JSON.stringify({ enabled: true, memories: [], extraction: null }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        );
-      }
-      if (url === '/api/integrations/vela/status') {
-        statusCalls += 1;
-        // The first read resolves signed-in. A later read (triggered by an
-        // agents-list refresh) hangs — mimicking vela lagging behind the
-        // credential write — so the card is forced to hold the last known
-        // pill instead of falling back to the placeholder while it waits.
-        if (statusCalls === 1) {
-          return new Response(
-            JSON.stringify({
-              loggedIn: true,
-              loginInFlight: false,
-              profile: 'local',
-              user: { id: 'u1', email: 'amr@example.com' },
-              configPath: '/Users/test/.amr/config.json',
-            }),
-            { status: 200, headers: { 'content-type': 'application/json' } },
-          );
-        }
-        return new Promise<Response>(() => {});
-      }
-      throw new Error(`Unexpected fetch: ${url}`);
-    });
-    vi.stubGlobal('fetch', fetchMock);
-
-    const sharedProps = {
-      initial: { ...baseConfig, mode: 'daemon' as const, agentId: 'amr' },
-      daemonLive: true,
-      appVersionInfo: null,
-      initialSection: 'execution' as const,
-      onPersist: vi.fn(),
-      onPersistComposioKey: vi.fn(),
-      onClose: vi.fn(),
-      onRefreshAgents: vi.fn<OnRefreshAgents>(),
-    };
-    const { rerender } = render(
-      <SettingsDialog {...sharedProps} agents={[{ ...amrAgent }]} />,
-    );
-
-    fireEvent.click(screen.getByRole('tab', { name: /Local CLI.*1 installed/i }));
-    expect(await screen.findByRole('button', { name: 'Sign out' })).toBeTruthy();
-
-    // A background agents refresh hands down a new array reference. Under the
-    // bug this synchronously tore the pill down to the hidden placeholder.
-    rerender(<SettingsDialog {...sharedProps} agents={[{ ...amrAgent }]} />);
-
-    // No await: the regression is a synchronous swap to `--placeholder` during
-    // the refetch window.
-    expect(screen.getByRole('button', { name: 'Sign out' })).toBeTruthy();
-    expect(
-      document.querySelector('.agent-card-amr-auth--placeholder'),
-    ).toBeNull();
-  });
-
-  // Out-of-band sign-in regression: the vela device-login flow completes in an
-  // external browser / AMR console. If the in-pill poll has already timed out
-  // (or the login was finished fully out-of-band), the card kept showing the
-  // stale signed-out state until Settings was closed and reopened. Returning
-  // focus to the window must reconcile the card without a reopen.
-  it('refreshes AMR sign-in state when the window regains focus after an external login', async () => {
-    let loggedIn = false;
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = input.toString();
-      if (url === '/api/memory') {
-        return new Response(
-          JSON.stringify({ enabled: true, memories: [], extraction: null }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        );
-      }
-      if (url === '/api/integrations/vela/status') {
-        return new Response(
-          JSON.stringify({
-            loggedIn,
-            loginInFlight: false,
-            profile: 'local',
-            user: loggedIn ? { id: 'u1', email: 'amr@example.com' } : null,
-            configPath: '/Users/test/.amr/config.json',
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        );
-      }
-      throw new Error(`Unexpected fetch: ${url}`);
-    });
-    vi.stubGlobal('fetch', fetchMock);
-
-    renderSettingsDialog(
-      { mode: 'daemon', agentId: 'amr' },
-      { agents: [amrAgent] },
-    );
-
-    fireEvent.click(screen.getByRole('tab', { name: /Local CLI.*1 installed/i }));
-    expect(await screen.findByRole('button', { name: 'Authorize' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Sign out' })).toBeNull();
-
-    // The user finishes the login in the external console and returns to Open
-    // Design. Focus alone must reconcile the card.
-    loggedIn = true;
-    window.dispatchEvent(new Event('focus'));
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Sign out' })).toBeTruthy();
-    });
-    expect(screen.getByText('amr@example.com')).toBeTruthy();
-  });
-
-  // Error-recovery regression: the in-pill poll gives up early on the
-  // `loginInFlight:false` "stopped" path (vela's redirect/wallet flow hands the
-  // browser off and the spawned child exits before the credential lands),
-  // leaving the pill holding an internal `errorMessage`. Because the pill ranks
-  // `errorMessage` above `loggedIn`, simply pushing a fresh signed-in status
-  // into the card is NOT enough — focus must drive the pill through its own
-  // reconcile listener so the stale error clears and the card flips from
-  // Authorize back to Sign out. A failed launch reproduces the same stuck
-  // error state without waiting on the poll timers.
-  it('reconciles the AMR card to Signed in on focus even after the pill showed a login error', async () => {
-    let loggedIn = false;
-    let startCalls = 0;
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = input.toString();
-      if (url === '/api/memory') {
-        return new Response(
-          JSON.stringify({ enabled: true, memories: [], extraction: null }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        );
-      }
-      if (url === '/api/integrations/vela/status') {
-        return new Response(
-          JSON.stringify({
-            loggedIn,
-            loginInFlight: false,
-            profile: 'local',
-            user: loggedIn ? { id: 'u1', email: 'amr@example.com' } : null,
-            configPath: '/Users/test/.amr/config.json',
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        );
-      }
-      if (url === '/api/integrations/vela/login' && init?.method === 'POST') {
-        startCalls += 1;
-        // Launch fails -> the pill surfaces its compact error state.
-        return new Response(JSON.stringify({ error: 'spawn failed' }), {
-          status: 500,
-          headers: { 'content-type': 'application/json' },
-        });
-      }
-      throw new Error(`Unexpected fetch: ${url}`);
-    });
-    vi.stubGlobal('fetch', fetchMock);
-
-    renderSettingsDialog(
-      { mode: 'daemon', agentId: 'amr' },
-      { agents: [amrAgent] },
-    );
-
-    fireEvent.click(screen.getByRole('tab', { name: /Local CLI.*1 installed/i }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Authorize' }));
-
-    // The failed launch leaves the pill in its error state: still Authorize,
-    // no Sign out.
-    await waitFor(() => expect(startCalls).toBe(1));
-    expect(screen.queryByRole('button', { name: 'Sign out' })).toBeNull();
-
-    // Login is finished out-of-band; returning focus must reconcile the card
-    // despite the lingering pill error.
-    loggedIn = true;
-    window.dispatchEvent(new Event('focus'));
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Sign out' })).toBeTruthy();
-    });
-  });
-
-  // Ping-pong regression: an earlier fix resynced on focus by re-publishing the
-  // `od:amr-login-status-change` event, which restarts the pill's poll/pending
-  // machine. While the external browser steals and returns focus during a
-  // login, that kicked the action back and forth between "Signing in…" and
-  // "Authorize". Focus must do a passive status read only — never re-emit the
-  // login-state event.
-  it('does not re-publish the AMR login-state event on window focus', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = input.toString();
-      if (url === '/api/memory') {
-        return new Response(
-          JSON.stringify({ enabled: true, memories: [], extraction: null }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        );
-      }
-      if (url === '/api/integrations/vela/status') {
-        return new Response(
-          JSON.stringify({
-            loggedIn: true,
-            loginInFlight: false,
-            profile: 'local',
-            user: { id: 'u1', email: 'amr@example.com' },
-            configPath: '/Users/test/.amr/config.json',
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        );
-      }
-      throw new Error(`Unexpected fetch: ${url}`);
-    });
-    vi.stubGlobal('fetch', fetchMock);
-
-    renderSettingsDialog(
-      { mode: 'daemon', agentId: 'amr' },
-      { agents: [amrAgent] },
-    );
-
-    fireEvent.click(screen.getByRole('tab', { name: /Local CLI.*1 installed/i }));
-    expect(await screen.findByRole('button', { name: 'Sign out' })).toBeTruthy();
-
-    const loginEventSpy = vi.fn();
-    window.addEventListener('od:amr-login-status-change', loginEventSpy);
-    const statusReadsBefore = fetchMock.mock.calls.filter(
-      ([input]) => input?.toString() === '/api/integrations/vela/status',
-    ).length;
-
-    window.dispatchEvent(new Event('focus'));
-
-    // The focus handler does a passive status read…
-    await waitFor(() => {
-      const statusReadsAfter = fetchMock.mock.calls.filter(
-        ([input]) => input?.toString() === '/api/integrations/vela/status',
-      ).length;
-      expect(statusReadsAfter).toBeGreaterThan(statusReadsBefore);
-    });
-    // …but must NOT re-publish the login-state machine event.
-    expect(loginEventSpy).not.toHaveBeenCalled();
-    window.removeEventListener('od:amr-login-status-change', loginEventSpy);
-  });
-
-  // First-install repro: the agent list is last detected while signed out, so
-  // AMR comes back with an empty (fail-closed) model list. The live `vela
-  // models` catalog only becomes fetchable AFTER the credential lands, so when
-  // the user signs in the UI must re-detect agents — otherwise the "live model
-  // list" dropdown stays hidden until the app is restarted / reinstalled.
-  it('re-detects agents when AMR sign-in completes so the live model list appears without a restart', async () => {
-    let loggedIn = false;
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = input.toString();
-      if (url === '/api/memory') {
-        return new Response(
-          JSON.stringify({ enabled: true, memories: [], extraction: null }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        );
-      }
-      if (url === '/api/integrations/vela/status') {
-        return new Response(
-          JSON.stringify({
-            loggedIn,
-            loginInFlight: false,
-            profile: 'local',
-            user: loggedIn ? { id: 'u1', email: 'amr@example.com' } : null,
-            configPath: '/Users/test/.amr/config.json',
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        );
-      }
-      throw new Error(`Unexpected fetch: ${url}`);
-    });
-    vi.stubGlobal('fetch', fetchMock);
-
-    // AMR detected while signed out -> empty, fail-closed model list.
-    const signedOutAmr: AgentInfo = { ...amrAgent, models: [] };
-    const onRefreshAgents = vi.fn<OnRefreshAgents>(async () => [
-      { ...amrAgent, models: [{ id: 'glm-5.1', label: 'glm-5.1' }] },
-    ]);
-
-    renderSettingsDialog(
-      { mode: 'daemon', agentId: 'amr' },
-      { agents: [signedOutAmr], onRefreshAgents },
-    );
-
-    fireEvent.click(screen.getByRole('tab', { name: /Local CLI.*1 installed/i }));
-    // The initial signed-out detection must NOT trigger a rescan on its own.
-    await screen.findByRole('button', { name: 'Authorize' });
-    expect(onRefreshAgents).not.toHaveBeenCalled();
-
-    // Login completes out-of-band (vela CLI owns the browser device flow).
-    loggedIn = true;
-    window.dispatchEvent(
-      new CustomEvent('od:amr-login-status-change', {
-        detail: { reason: 'status-changed' },
-      }),
-    );
-
-    await waitFor(() => {
-      expect(onRefreshAgents).toHaveBeenCalled();
-    });
-  });
-
-  // Laggy-onboarding regression: onboarding signs in and re-detects exactly
-  // once, so if that single call lands during vela's catalog-propagation
-  // window, Settings later mounts ALREADY signed in but with an empty model
-  // list. An edge-only (signed-out -> signed-in) trigger would never fire
-  // here, leaving the picker stuck on its loading row. Settings must chase the
-  // catalog on mount whenever AMR is signed in but has no models yet.
-  it('re-detects agents when Settings opens already signed in but the AMR model list is still empty', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = input.toString();
-      if (url === '/api/memory') {
-        return new Response(
-          JSON.stringify({ enabled: true, memories: [], extraction: null }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        );
-      }
-      if (url === '/api/integrations/vela/status') {
-        return new Response(
-          JSON.stringify({
-            loggedIn: true,
-            loginInFlight: false,
-            profile: 'local',
-            user: { id: 'u1', email: 'amr@example.com' },
-            configPath: '/Users/test/.amr/config.json',
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        );
-      }
-      throw new Error(`Unexpected fetch: ${url}`);
-    });
-    vi.stubGlobal('fetch', fetchMock);
-
-    // Signed in at mount, but the catalog hasn't arrived (empty model list).
-    const signedInEmptyAmr: AgentInfo = { ...amrAgent, models: [] };
-    const onRefreshAgents = vi.fn<OnRefreshAgents>(async () => [
-      { ...amrAgent, models: [{ id: 'glm-5.1', label: 'glm-5.1' }] },
-    ]);
-
-    renderSettingsDialog(
-      { mode: 'daemon', agentId: 'amr' },
-      { agents: [signedInEmptyAmr], onRefreshAgents },
-    );
-
-    fireEvent.click(screen.getByRole('tab', { name: /Local CLI.*1 installed/i }));
-
-    // No sign-in event is dispatched — the chase must fire from the mounted,
-    // already-signed-in-but-empty state.
-    await waitFor(() => {
-      expect(onRefreshAgents).toHaveBeenCalled();
-    });
-  });
-
-  // The live `vela models` catalog lands a beat after sign-in. Rather than
-  // leave the picker blank until then (the "appears seconds later" complaint),
-  // the row renders immediately in a loading state.
-  it('shows a loading state in the AMR model picker between sign-in and the live catalog arriving', async () => {
-    let loggedIn = false;
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = input.toString();
-      if (url === '/api/memory') {
-        return new Response(
-          JSON.stringify({ enabled: true, memories: [], extraction: null }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        );
-      }
-      if (url === '/api/integrations/vela/status') {
-        return new Response(
-          JSON.stringify({
-            loggedIn,
-            loginInFlight: false,
-            profile: 'local',
-            user: loggedIn ? { id: 'u1', email: 'amr@example.com' } : null,
-            configPath: '/Users/test/.amr/config.json',
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        );
-      }
-      throw new Error(`Unexpected fetch: ${url}`);
-    });
-    vi.stubGlobal('fetch', fetchMock);
-
-    const signedOutAmr: AgentInfo = { ...amrAgent, models: [] };
-    // vela's catalog is still empty on the first re-detect after sign-in, so
-    // the picker must stay in its loading state rather than vanish.
-    const onRefreshAgents = vi.fn<OnRefreshAgents>(async () => [
-      { ...amrAgent, models: [] },
-    ]);
-
-    renderSettingsDialog(
-      { mode: 'daemon', agentId: 'amr' },
-      { agents: [signedOutAmr], onRefreshAgents },
-    );
-
-    fireEvent.click(screen.getByRole('tab', { name: /Local CLI.*1 installed/i }));
-    await screen.findByRole('button', { name: 'Authorize' });
-    // Signed out: no picker and no loading row.
-    expect(screen.queryByTestId('settings-agent-model-loading-amr')).toBeNull();
-
-    loggedIn = true;
-    window.dispatchEvent(
-      new CustomEvent('od:amr-login-status-change', {
-        detail: { reason: 'status-changed' },
-      }),
-    );
-
-    // Picker appears immediately in a loading state, before models arrive.
-    expect(
-      await screen.findByTestId('settings-agent-model-loading-amr'),
-    ).toBeTruthy();
-  });
-
   it('renders the signed-in AMR account state inside Settings without leaking vela branding', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = input.toString();
@@ -2649,10 +2461,6 @@ describe('SettingsDialog execution settings Local CLI interactions', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Local CLI.*1 installed/i }));
 
     expect(await screen.findByRole('button', { name: 'Sign out' })).toBeTruthy();
-    const consoleLink = screen.getByRole('link', { name: 'AMR Console' });
-    expect(consoleLink.getAttribute('href')).toBe(AMR_CONSOLE_URL);
-    expect(consoleLink.getAttribute('target')).toBe('_blank');
-    expect(consoleLink.getAttribute('rel')).toBe('noopener noreferrer');
     expect(screen.getByRole('button', { name: /^Open Design AMR\b/ })).toBeTruthy();
     expect(screen.getByText('signed-in@example.com')).toBeTruthy();
     expect(screen.queryByText(/AMR \(vela\)/i)).toBeNull();
