@@ -440,9 +440,18 @@ Phase 1 capture target:
 - Keep top-level `trace.input` as the user prompt.
 - Keep `generation.input` as the user prompt.
 - Emit `promptStack` on trace and generation metadata.
-- Use `redacted-section-content` as the Phase 1 capture mode whenever existing
-  Langfuse delivery is eligible: `telemetry.metrics === true`,
-  `telemetry.content === true`, and a Langfuse sink is configured.
+- Record `promptContentCapture` (the flat `PromptPrivacyTelemetry.contentCapture`
+  dimension) explicitly from consent state on every eligible run, so dashboards
+  and the privacy audit trail can tell "content consent off" apart from missing
+  data. Phase 1 wires exactly these states:
+  - `telemetry.metrics === true && telemetry.content === true` and a Langfuse
+    sink is configured → `redacted-section-content`: emit `promptStack` with
+    hashes, flags, routing, and bounded `redactedContent`.
+  - `telemetry.metrics === true && telemetry.content === false` (sink
+    configured) → `off`: emit `promptStack` with hashes, flags, and routing
+    only, and never attach `redactedContent` (per "Never emit prompt previews
+    when Langfuse content capture is disabled").
+  - otherwise (metrics disabled or no sink) → no `promptStack` emission.
 - Reuse the existing Settings -> Privacy "Conversation and tool content" consent
   gate. Do not add a prompt-stack-specific UI toggle or environment override in
   Phase 1.
@@ -465,6 +474,15 @@ Phase 1 section-content allowlist:
   `pluginStagePrompt` sections (aligned with the `skillId`, `designSystemId`,
   and `appliedPluginSnapshotId` routing dimensions) when they can be separated
   from raw attachments.
+- `runtimeToolPrompt` carries the highest token risk in this list. Honoring
+  "Omit tool tokens entirely. Do not rely on redaction for tool token safety,"
+  capture its `redactedContent` only after OD tool tokens, MCP bearer tokens /
+  MCP config, and OAuth-derived material are structurally stripped (removed by
+  field/section boundary, not by best-effort lexical redaction) before the
+  preview is built. If a token-bearing subsection cannot be cleanly separated,
+  demote `runtimeToolPrompt` to metadata-only for that run rather than uploading
+  it behind lexical redaction. Lexical secret redaction stays a second layer,
+  never the primary guarantee for tool-token safety.
 - Metadata-only in Phase 1: `cwdHint`, `linkedDirsHint`, `attachments`,
   `commentAttachments`, and `promptImagePaths`. Report presence, counts, file
   extensions, size buckets, hashes, and truncation state where available, but do
