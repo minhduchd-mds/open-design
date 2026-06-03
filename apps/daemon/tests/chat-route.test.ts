@@ -1904,7 +1904,11 @@ process.stdin.on('end', () => {
             }),
           });
           expect(projectResponse.status).toBe(200);
-          const projectBody = await projectResponse.json() as { conversationId: string };
+          const projectBody = await projectResponse.json() as {
+            conversationId: string;
+            appliedPluginSnapshotId?: string;
+          };
+          expect(projectBody.appliedPluginSnapshotId).toBeTruthy();
 
           const currentPrompt = [
             '[form answers — task-type]',
@@ -1929,6 +1933,7 @@ process.stdin.on('end', () => {
               agentId: 'opencode',
               projectId,
               conversationId: projectBody.conversationId,
+              appliedPluginSnapshotId: projectBody.appliedPluginSnapshotId,
               message: transcript,
               currentPrompt,
             }),
@@ -1952,6 +1957,216 @@ process.stdin.on('end', () => {
         process.env.OD_CAPTURE_PROMPT_PATH = previousCapturePath;
       }
     }
+  });
+
+  it('routes direct image prompts away from od-default and into image generation', async () => {
+    const captureDir = mkdtempSync(join(tmpdir(), 'od-direct-image-route-'));
+    tempDirs.push(captureDir);
+    const capturePath = join(captureDir, 'prompt.txt');
+    const previousCapturePath = process.env.OD_CAPTURE_PROMPT_PATH;
+    process.env.OD_CAPTURE_PROMPT_PATH = capturePath;
+    try {
+      await withFakeAgent(
+        'opencode',
+        `
+const fs = require('node:fs');
+let input = '';
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', (chunk) => { input += chunk; });
+process.stdin.on('end', () => {
+  fs.writeFileSync(process.env.OD_CAPTURE_PROMPT_PATH, input, 'utf8');
+  console.log(JSON.stringify({ type: 'text', part: { text: 'direct image route locked' } }));
+});
+`,
+        async () => {
+          const projectId = `project-${randomUUID()}`;
+          const projectResponse = await fetch(`${baseUrl}/api/projects`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: projectId,
+              name: 'Direct image prompt project',
+              metadata: { kind: 'other' },
+              pluginId: 'od-default',
+            }),
+          });
+          expect(projectResponse.status).toBe(200);
+          const projectBody = await projectResponse.json() as {
+            conversationId: string;
+            appliedPluginSnapshotId?: string;
+          };
+          expect(projectBody.appliedPluginSnapshotId).toBeTruthy();
+
+          const currentPrompt = 'Generate a cinematic product image for a launch campaign.';
+          const transcript = [
+            '## user',
+            currentPrompt,
+          ].join('\n');
+
+          const createResponse = await fetch(`${baseUrl}/api/runs`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              agentId: 'opencode',
+              projectId,
+              conversationId: projectBody.conversationId,
+              appliedPluginSnapshotId: projectBody.appliedPluginSnapshotId,
+              message: transcript,
+              currentPrompt,
+            }),
+          });
+          expect(createResponse.status).toBe(202);
+          const createBody = await createResponse.json() as { runId: string; pluginId: string | null };
+          expect(createBody.pluginId).toBe('od-media-generation');
+
+          const statusBody = await waitForRunStatus(baseUrl, createBody.runId);
+          expect(statusBody.status).toBe('succeeded');
+          expect(existsSync(capturePath)).toBe(true);
+          const prompt = readFileSync(capturePath, 'utf8');
+          expect(prompt).toContain('- **imageModel**: gpt-image-2 (default');
+          expect(prompt).toContain('media generate --surface image --model <imageModel>');
+        },
+      );
+    } finally {
+      if (previousCapturePath == null) {
+        delete process.env.OD_CAPTURE_PROMPT_PATH;
+      } else {
+        process.env.OD_CAPTURE_PROMPT_PATH = previousCapturePath;
+      }
+    }
+  });
+
+  it('keeps od-default routing for artifact prompts that only mention images incidentally', async () => {
+    await withFakeAgent(
+      'opencode',
+      `console.log(JSON.stringify({ type: 'text', part: { text: 'artifact route locked' } }));`,
+      async () => {
+        const projectId = `project-${randomUUID()}`;
+        const projectResponse = await fetch(`${baseUrl}/api/projects`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: projectId,
+            name: 'Artifact prompt project',
+            metadata: { kind: 'other' },
+            pluginId: 'od-default',
+          }),
+        });
+        expect(projectResponse.status).toBe(200);
+        const projectBody = await projectResponse.json() as {
+          conversationId: string;
+          appliedPluginSnapshotId?: string;
+        };
+        expect(projectBody.appliedPluginSnapshotId).toBeTruthy();
+
+        const currentPrompt = 'Create a landing page with a hero image for a launch campaign.';
+        const createResponse = await fetch(`${baseUrl}/api/runs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            agentId: 'opencode',
+            projectId,
+            conversationId: projectBody.conversationId,
+            appliedPluginSnapshotId: projectBody.appliedPluginSnapshotId,
+            message: ['## user', currentPrompt].join('\n'),
+            currentPrompt,
+          }),
+        });
+        expect(createResponse.status).toBe(202);
+        const createBody = await createResponse.json() as { pluginId?: string | null };
+        expect(createBody.pluginId).not.toBe('od-media-generation');
+      },
+    );
+  });
+
+  it('preserves explicit invalid snapshot errors instead of overriding into media routing', async () => {
+    const projectId = `project-${randomUUID()}`;
+    const projectResponse = await fetch(`${baseUrl}/api/projects`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: projectId,
+        name: 'Invalid snapshot project',
+        metadata: { kind: 'other' },
+        pluginId: 'od-default',
+      }),
+    });
+    expect(projectResponse.status).toBe(200);
+    const projectBody = await projectResponse.json() as { conversationId: string };
+
+    const createResponse = await fetch(`${baseUrl}/api/runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        agentId: 'opencode',
+        projectId,
+        conversationId: projectBody.conversationId,
+        appliedPluginSnapshotId: `missing-${randomUUID()}`,
+        message: 'Generate a cinematic product image for a launch campaign.',
+        currentPrompt: 'Generate a cinematic product image for a launch campaign.',
+      }),
+    });
+    expect(createResponse.status).toBe(404);
+    const createBody = await createResponse.json() as {
+      error?: { code?: string };
+    };
+    expect(createBody.error?.code).toBe('snapshot-not-found');
+  });
+
+  it('keeps explicit non-default snapshots ahead of pluginId od-default', async () => {
+    await withFakeAgent(
+      'opencode',
+      `console.log(JSON.stringify({ type: 'text', part: { text: 'snapshot precedence locked' } }));`,
+      async () => {
+        const deckProjectId = `project-${randomUUID()}`;
+        const deckProjectResponse = await fetch(`${baseUrl}/api/projects`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: deckProjectId,
+            name: 'Deck snapshot source',
+            metadata: { kind: 'deck' },
+            pluginId: 'example-simple-deck',
+          }),
+        });
+        expect(deckProjectResponse.status).toBe(200);
+        const deckProjectBody = await deckProjectResponse.json() as {
+          appliedPluginSnapshotId?: string;
+        };
+        expect(deckProjectBody.appliedPluginSnapshotId).toBeTruthy();
+
+        const projectId = `project-${randomUUID()}`;
+        const projectResponse = await fetch(`${baseUrl}/api/projects`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: projectId,
+            name: 'Snapshot precedence project',
+            metadata: { kind: 'other' },
+            pluginId: 'od-default',
+          }),
+        });
+        expect(projectResponse.status).toBe(200);
+        const projectBody = await projectResponse.json() as { conversationId: string };
+
+        const createResponse = await fetch(`${baseUrl}/api/runs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            agentId: 'opencode',
+            projectId,
+            conversationId: projectBody.conversationId,
+            pluginId: 'od-default',
+            appliedPluginSnapshotId: deckProjectBody.appliedPluginSnapshotId,
+            message: '[form answers — task-type]\n- What should I build?: Image',
+            currentPrompt: '[form answers — task-type]\n- What should I build?: Image',
+          }),
+        });
+        expect(createResponse.status).toBe(202);
+        const createBody = await createResponse.json() as { pluginId?: string | null };
+        expect(createBody.pluginId).toBe('example-simple-deck');
+      },
+    );
   });
 });
 

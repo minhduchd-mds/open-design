@@ -2756,9 +2756,62 @@ const TASK_TYPE_MEDIA_ROUTE_BY_LABEL = {
   Audio:       { kind: 'audio' },
 };
 
+const MEDIA_TASK_HINTS = [
+  {
+    taskType: 'Image',
+    patterns: [
+      /\b(generate|create|make|render|produce)\s+(?:me\s+|an?\s+|the\s+|some\s+)?(?:[\w-]+\s+){0,2}(image|picture|photo|illustration|poster|logo|icon|banner|portrait|moodboard)\b/i,
+      /\b(gpt-image(?:-\d+)?)\b/i,
+      /(生图|配图|生成图片)/,
+    ],
+  },
+  {
+    taskType: 'Video',
+    patterns: [
+      /\b(generate|create|make|render|produce)\s+(?:me\s+|an?\s+|the\s+|some\s+)?(?:[\w-]+\s+){0,2}(video|animation|clip|trailer|reel|teaser|storyboard)\b/i,
+      /(生成视频|做视频)/,
+    ],
+  },
+  {
+    taskType: 'Audio',
+    patterns: [
+      /\b(generate|create|make|produce)\s+(?:me\s+|an?\s+|the\s+|some\s+)?(?:[\w-]+\s+){0,2}(audio|soundtrack|voiceover|music|sound effect|podcast)\b/i,
+      /(生成音频|做音频|配音)/,
+    ],
+  },
+] as const;
+
+function latestUserTurnFromPrompt(prompt) {
+  if (typeof prompt !== 'string') return '';
+  if (!prompt.includes('## user')) return prompt.trim();
+  const sections = prompt.split(/^## user\s*$/gim);
+  const latestSection = sections.at(-1);
+  if (typeof latestSection !== 'string') return prompt.trim();
+  const latestTurn = latestSection.split(/^## (?:user|assistant)\s*$/gim)[0];
+  return typeof latestTurn === 'string' ? latestTurn.trim() : prompt.trim();
+}
+
+function taskTypeAnswerValueFromLine(answerLine) {
+  if (typeof answerLine !== 'string') return null;
+  const stableValue = /\[value:\s*([^\]]+?)\s*\]\s*$/i.exec(answerLine)?.[1]?.trim();
+  if (stableValue) return stableValue;
+  const answer = answerLine.replace(/\s*\[value:\s*[^\]]+\]\s*$/i, '').trim();
+  return answer && answer !== '(skipped)' ? answer : null;
+}
+
+function inferTaskTypeAnswerFromPrompt(prompt) {
+  const latestUserTurn = latestUserTurnFromPrompt(prompt);
+  if (!latestUserTurn) return null;
+  for (const hint of MEDIA_TASK_HINTS) {
+    if (hint.patterns.some((pattern) => pattern.test(latestUserTurn))) {
+      return hint.taskType;
+    }
+  }
+  return null;
+}
+
 function taskTypeAnswerFromPrompt(prompt) {
-  if (typeof prompt !== 'string') return null;
-  const trimmed = prompt.trim();
+  const trimmed = latestUserTurnFromPrompt(prompt);
   if (!trimmed) return null;
   const match = FORM_ANSWERS_HEADER_RE.exec(trimmed);
   if (!match) return null;
@@ -2768,8 +2821,7 @@ function taskTypeAnswerFromPrompt(prompt) {
   for (const line of lines) {
     const bullet = /^\s*-\s+[^:]+:\s*(.+?)\s*$/.exec(line);
     if (!bullet) continue;
-    const answer = bullet[1].replace(/\s*\[value:\s*[^\]]+\]\s*$/i, '').trim();
-    return answer && answer !== '(skipped)' ? answer : null;
+    return taskTypeAnswerValueFromLine(bullet[1]);
   }
   return null;
 }
@@ -13695,16 +13747,53 @@ export async function startServer({
     if (!toolBundle.ok) {
       return sendApiError(res, 400, 'BAD_REQUEST', toolBundle.message);
     }
-    const taskTypeAnswer = taskTypeAnswerFromPrompt(
-      typeof requestBody.currentPrompt === 'string' ? requestBody.currentPrompt : requestBody.message,
-    );
+    const promptForTaskTypeRouting =
+      typeof requestBody.currentPrompt === 'string' ? requestBody.currentPrompt : requestBody.message;
+    const submittedTaskTypeAnswer = taskTypeAnswerFromPrompt(promptForTaskTypeRouting);
     let projectRow =
       typeof requestBody.projectId === 'string' && requestBody.projectId
         ? getProject(db, requestBody.projectId)
         : null;
+    const explicitPluginIdFromBody =
+      typeof requestBody.pluginId === 'string' && requestBody.pluginId.trim().length > 0
+        ? requestBody.pluginId.trim()
+        : null;
+    const explicitSnapshotIdFromBody =
+      typeof requestBody.appliedPluginSnapshotId === 'string'
+        && requestBody.appliedPluginSnapshotId.trim().length > 0
+        ? requestBody.appliedPluginSnapshotId.trim()
+        : null;
+    const explicitSnapshot = explicitSnapshotIdFromBody
+      ? getSnapshot(db, explicitSnapshotIdFromBody)
+      : null;
+    const explicitSnapshotPluginId = explicitSnapshot?.pluginId ?? null;
+    const explicitSnapshotIsFresh = explicitSnapshot != null && explicitSnapshot.status !== 'stale';
+    const hasExplicitPluginSelection =
+      explicitPluginIdFromBody !== null || explicitSnapshotIdFromBody !== null;
+    const explicitDefaultRouterRequested =
+      explicitSnapshotIdFromBody !== null
+        ? explicitSnapshotPluginId === 'od-default' && explicitSnapshotIsFresh
+        : explicitPluginIdFromBody === 'od-default';
+    const pinnedProjectPluginId =
+      typeof projectRow?.appliedPluginSnapshotId === 'string' && projectRow.appliedPluginSnapshotId.length > 0
+        ? getSnapshot(db, projectRow.appliedPluginSnapshotId)?.pluginId ?? null
+        : null;
+    const activeDefaultRouter =
+      projectRow != null
+      && (
+        explicitDefaultRouterRequested
+        || (!hasExplicitPluginSelection && pinnedProjectPluginId === 'od-default')
+      );
+    const taskTypeAnswer = submittedTaskTypeAnswer
+      ?? (
+        activeDefaultRouter
+          ? inferTaskTypeAnswerFromPrompt(promptForTaskTypeRouting)
+          : null
+      );
+    const routedTaskTypeAnswer = activeDefaultRouter ? taskTypeAnswer : null;
     let taskTypeMediaExecution = null;
-    if (projectRow && taskTypeAnswer) {
-      const nextMetadata = mediaProjectMetadataForTaskTypeAnswer(taskTypeAnswer, projectRow.metadata);
+    if (projectRow && routedTaskTypeAnswer) {
+      const nextMetadata = mediaProjectMetadataForTaskTypeAnswer(routedTaskTypeAnswer, projectRow.metadata);
       if (nextMetadata) {
         if (JSON.stringify(projectRow.metadata ?? null) !== JSON.stringify(nextMetadata)) {
           projectRow = updateProject(db, requestBody.projectId, { metadata: nextMetadata }) ?? projectRow;
@@ -13736,24 +13825,30 @@ export async function startServer({
       } catch (err) {
         return res.status(500).json({ error: String(err) });
       }
-      const explicitPlugin =
-        requestBody.pluginId || requestBody.appliedPluginSnapshotId;
+      const explicitPluginId = explicitPluginIdFromBody ?? explicitSnapshotPluginId;
+      const fallbackPluginId = defaultScenarioPluginIdForProjectMetadata(projectRow?.metadata);
+      const shouldOverrideExplicitDefaultPlugin =
+        explicitDefaultRouterRequested && fallbackPluginId === 'od-media-generation';
       let runResolveBody = requestBody;
-      if (!explicitPlugin) {
+      if (!hasExplicitPluginSelection || shouldOverrideExplicitDefaultPlugin) {
         const hasPin =
           typeof projectRow?.appliedPluginSnapshotId === 'string'
           && projectRow.appliedPluginSnapshotId.length > 0;
         const pinnedPluginId = hasPin
           ? getSnapshot(db, projectRow.appliedPluginSnapshotId)?.pluginId ?? null
           : null;
-        const fallbackPluginId = defaultScenarioPluginIdForProjectMetadata(projectRow?.metadata);
         if (fallbackPluginId && (!hasPin || pinnedPluginId === 'od-default')) {
           if (fallbackPluginId && getInstalledPlugin(db, fallbackPluginId)) {
             const pluginInputs = fallbackPluginId === 'od-media-generation'
               ? mediaPluginInputsForProjectMetadata(projectRow?.metadata, projectRow)
               : null;
+            const {
+              appliedPluginSnapshotId: _ignoredAppliedPluginSnapshotId,
+              pluginId: _ignoredPluginId,
+              ...runResolveBase
+            } = requestBody;
             runResolveBody = {
-              ...requestBody,
+              ...runResolveBase,
               pluginId: fallbackPluginId,
               ...(pluginInputs ? { pluginInputs } : {}),
             };
@@ -13771,7 +13866,7 @@ export async function startServer({
         connectorProbe: buildConnectorProbe(connectorService),
       });
       if (resolved && !resolved.ok) {
-        if (!explicitPlugin) {
+        if (!hasExplicitPluginSelection || shouldOverrideExplicitDefaultPlugin) {
           console.warn(
             `[plugins] default-scenario fallback skipped for run on project ${requestBody.projectId}: ${resolved.body?.error?.code ?? 'unknown'}`,
           );
@@ -13791,7 +13886,7 @@ export async function startServer({
     };
     if (resolvedSnapshot?.ok) {
       meta.appliedPluginSnapshotId = resolvedSnapshot.snapshotId;
-      if (!meta.pluginId) meta.pluginId = resolvedSnapshot.snapshot.pluginId;
+      meta.pluginId = resolvedSnapshot.snapshot.pluginId;
       if (typeof meta.message !== 'string' || meta.message.trim().length === 0) {
         const renderedQuery = renderPluginBriefTemplate(
           resolvedSnapshot.snapshot.query,
