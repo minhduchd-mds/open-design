@@ -1,95 +1,95 @@
-# 设计：跨平台「WebUI」打包类型
+# Design: Cross-platform "WebUI" packaging type
 
-- 日期：2026-05-30
-- 状态：已确认设计，待写实现计划
-- 范围：新增一种打包类型，把 daemon+web 运行时打成终端启动、跨平台、可配置的包（不含 Electron）
+- Date: 2026-05-30
+- Status: Design confirmed, implementation plan pending
+- Scope: Add a new packaging type that bundles the daemon+web runtime into a terminal-launched, cross-platform, configurable package (no Electron)
 
-## 1. 背景与目标
+## 1. Background and goals
 
-当前打包产物只有 Windows / mac 的 GUI 安装包（Electron）。需要新增「WebUI」打包类型，满足：
+The current build artifacts are limited to the Windows / mac GUI installers (Electron). We need to add a "WebUI" packaging type that satisfies:
 
-1. 跨平台支持（Windows、mac、Linux）。
-2. 终端启动；GUI 系统双击后弹出终端窗口，终端打印访问地址；若系统有浏览器则直接打开对应 URL。
-3. 非 GUI 系统用终端启动，启动后终端打印访问地址。
-4. 支持启动参数或配置文件配置：token、端口、远程访问。
-5. 同时提供启动命令和停止命令。
+1. Cross-platform support (Windows, mac, Linux).
+2. Terminal launch; on GUI systems, double-clicking pops up a terminal window, the terminal prints the access URL, and if a browser is available it opens the corresponding URL directly.
+3. Non-GUI systems launch from the terminal, and after startup the terminal prints the access URL.
+4. Support configuration via launch arguments or a config file: token, port, remote access.
+5. Provide both a start command and a stop command.
 
-## 2. 设计决策（已确认）
+## 2. Design decisions (confirmed)
 
-| 项 | 决策 |
+| Item | Decision |
 | --- | --- |
-| 运行时 | 捆绑系统 Node + 脚本，复用现有 `apps/packaged/src/headless.ts` 启动路径，不含 Electron |
-| 部署形态 | 双进程（daemon + web Next.js 进程，`OD_WEB_OUTPUT_MODE=server`）；浏览器访问 web 端口 |
-| 命令形态 | 单一启动器 + 子命令：`open-design start / stop / status` |
-| 配置文件 | 启动器同级目录 `webui.config.json`（JSON）；优先级：命令行参数 > 配置文件 > 环境变量 > 默认值 |
-| 远程 + token 语义 | token 仅保护 daemon `/api`（给程序化客户端）；Web UI 远程访问不强制 token（前端当前不携带 token，经 web 同机环回代理访问 daemon，环回豁免） |
-| 远程无 token | 绑定非环回 host 且未给 token 时，自动生成强 token 并打印（供 API 客户端使用） |
-| Node 运行时 | 要求系统已装 Node 24；仅 `better-sqlite3` 原生模块按平台预编译 |
-| 构建产物 | 每平台一个压缩包，`tools-pack webui build --to <平台>` |
+| Runtime | Bundle the system Node + scripts, reuse the existing `apps/packaged/src/headless.ts` startup path, no Electron |
+| Deployment shape | Dual-process (daemon + web Next.js process, `OD_WEB_OUTPUT_MODE=server`); the browser accesses the web port |
+| Command shape | A single launcher + subcommands: `open-design start / stop / status` |
+| Config file | `webui.config.json` (JSON) alongside the launcher; precedence: command-line arguments > config file > environment variables > defaults |
+| Remote + token semantics | The token only protects the daemon `/api` (for programmatic clients); remote Web UI access does not require a token (the frontend currently carries no token and reaches the daemon through the web same-host loopback proxy, which is exempted) |
+| Remote without token | When binding a non-loopback host without a provided token, a strong token is generated automatically and printed (for use by API clients) |
+| Node runtime | Requires Node 24 already installed on the system; only the `better-sqlite3` native module is prebuilt per platform |
+| Build artifacts | One archive per platform, `tools-pack webui build --to <platform>` |
 
-## 3. 运行时架构与网络模型（双进程）
+## 3. Runtime architecture and network model (dual-process)
 
-webui 运行时复用 `startPackagedSidecars` 启动两个子进程：
+The webui runtime reuses `startPackagedSidecars` to launch two child processes:
 
-- **daemon**：HTTP API + 业务逻辑。绑定 `OD_BIND_HOST`（默认 `127.0.0.1`），端口 `OD_PORT`（可动态）。`OD_API_TOKEN` 保护 `/api`，但对环回来源豁免。
-- **web**（Next.js 进程，`OD_WEB_OUTPUT_MODE=server`）：浏览器访问的前端。监听 host `OD_HOST`（`apps/web/sidecar/server.ts:30`，默认 `127.0.0.1`），端口 `OD_WEB_PORT` / `PORT`。web 把 `/api` 代理到 daemon，代理目标恒为 `127.0.0.1`（`apps/web/next.config.ts:12`、`apps/web/sidecar/server.ts` 的 `DAEMON_HOST`）。
+- **daemon**: HTTP API + business logic. Binds `OD_BIND_HOST` (default `127.0.0.1`), port `OD_PORT` (can be dynamic). `OD_API_TOKEN` protects `/api`, but loopback origins are exempted.
+- **web** (Next.js process, `OD_WEB_OUTPUT_MODE=server`): the browser-facing frontend. Listens on host `OD_HOST` (`apps/web/sidecar/server.ts:30`, default `127.0.0.1`), port `OD_WEB_PORT` / `PORT`. The web process proxies `/api` to the daemon, with the proxy target always `127.0.0.1` (`apps/web/next.config.ts:12`, `DAEMON_HOST` in `apps/web/sidecar/server.ts`).
 
-由此推导出配置到环境变量的映射：
+This yields the following configuration-to-environment-variable mapping:
 
-| 启动器配置 | 作用对象 | 环境变量 | 默认 |
+| Launcher config | Applies to | Environment variable | Default |
 | --- | --- | --- | --- |
-| `port` | web（浏览器访问端口） | `OD_WEB_PORT` 与 `PORT` | 7456 |
-| `host` | web 监听 + daemon 绑定 | web `OD_HOST` 同时 daemon `OD_BIND_HOST` | 127.0.0.1 |
-| `token` | daemon API | `OD_API_TOKEN` | 无 |
+| `port` | web (browser access port) | `OD_WEB_PORT` and `PORT` | 7456 |
+| `host` | web listener + daemon binding | web `OD_HOST` and daemon `OD_BIND_HOST` | 127.0.0.1 |
+| `token` | daemon API | `OD_API_TOKEN` | none |
 
-安全语义校验：
+Security-semantics validation:
 
-- 本地访问 `http://127.0.0.1:<port>`：web→daemon 环回，UI 完整可用，无需 token。
-- 远程访问 `http://<lan-ip>:<port>`：web 监听 `0.0.0.0` 可达；web→daemon 仍走 `127.0.0.1` 环回 ⇒ 远程用户经 UI 操作不需要 token（符合「UI 远程不强制」）。
-- 远程程序化客户端直连 daemon `/api`：源为非环回 ⇒ 需要 `Authorization: Bearer <token>`（符合「token 仅护 API」）。daemon 绑定非环回时强制要求 token，故未提供时自动生成。
+- Local access `http://127.0.0.1:<port>`: web→daemon loopback, the UI is fully usable, no token required.
+- Remote access `http://<lan-ip>:<port>`: web listens on `0.0.0.0` and is reachable; web→daemon still goes over `127.0.0.1` loopback ⇒ remote users operating through the UI do not need a token (consistent with "UI remote not required").
+- Remote programmatic clients connecting directly to the daemon `/api`: the origin is non-loopback ⇒ requires `Authorization: Bearer <token>` (consistent with "token only protects the API"). The daemon requires a token when binding a non-loopback host, so one is generated automatically when not provided.
 
-> 注：当前 web 前端不读取/携带 token（仓库内无 `?token=` / `Authorization: Bearer` 处理）。本特性不改前端 token 行为；远程 Web UI 的访问控制由用户自行用反向代理 / VPN / 网络隔离负责，README 须明确说明。
+> Note: the current web frontend does not read/carry a token (there is no `?token=` / `Authorization: Bearer` handling in the repo). This feature does not change frontend token behavior; access control for the remote Web UI is the user's responsibility via reverse proxy / VPN / network isolation, and the README must state this clearly.
 
-## 4. 复用的现有能力
+## 4. Existing capabilities reused
 
-- `apps/packaged/src/headless.ts`：已能在无 Electron 下启动 daemon+web sidecar、建立 IPC（STATUS/SHUTDOWN）、打印 URL。webui-launcher 的 start 在其基础上扩展（增加配置解析、网络注入、浏览器打开、start/stop/status 子命令）。
-- `apps/daemon/src/browser-open.ts` 的 `openBrowser()` / `createBrowserOpenInvocation()`：已跨平台（`open` / `xdg-open` / `cmd start`），对缺失 opener 安全（尽力而为，失败仅告警不崩溃）。
-- daemon 的绑定校验：`apps/daemon/src/server.ts:3819-3826`，非环回 host 且无 `OD_API_TOKEN` 时抛错（报错文案含 `openssl rand -hex 32` 提示）。
-- `tools/pack/src/linux.ts` 的组装流程（`writeAssembledApp`、`runProductionInstall`、`copyResourceTree`）与 `tools/pack/src/workspace-build.ts` 的 `ensureWorkspaceBuildArtifacts`：作为 webui 构建的组装与产物来源参考。
+- `apps/packaged/src/headless.ts`: already capable of starting the daemon+web sidecars without Electron, establishing IPC (STATUS/SHUTDOWN), and printing the URL. The webui-launcher's start builds on top of it (adding config parsing, network injection, browser opening, and the start/stop/status subcommands).
+- `openBrowser()` / `createBrowserOpenInvocation()` in `apps/daemon/src/browser-open.ts`: already cross-platform (`open` / `xdg-open` / `cmd start`), safe when an opener is missing (best-effort; failure only warns and does not crash).
+- The daemon's binding validation: `apps/daemon/src/server.ts:3819-3826`, which throws when the host is non-loopback and `OD_API_TOKEN` is absent (the error message includes an `openssl rand -hex 32` hint).
+- The assembly flow in `tools/pack/src/linux.ts` (`writeAssembledApp`, `runProductionInstall`, `copyResourceTree`) and `ensureWorkspaceBuildArtifacts` in `tools/pack/src/workspace-build.ts`: a reference for the webui build's assembly and artifact sourcing.
 
-### 需要改造的注入点
+### Injection points that need rework
 
-现有 `startPackagedSidecars`（`apps/packaged/src/sidecars.ts`）把 daemon 子进程的 `OD_PORT`（即 `SIDECAR_ENV.DAEMON_PORT`）硬编码为 `"0"`，且**不注入** `OD_BIND_HOST` / `OD_API_TOKEN`；web 子进程也不注入 `OD_HOST` / 固定 `OD_WEB_PORT`。因此需要给 `startPackagedSidecars` 增加可选的 `network` 选项，并在 `buildPackagedDaemonSpawnEnv`（daemon）与 web 子进程 env 构造处注入上表的环境变量。该改造对现有 headless / Electron 调用保持默认行为不变（不传 `network` 时维持动态端口 + 环回 + 无 token）。
+The existing `startPackagedSidecars` (`apps/packaged/src/sidecars.ts`) hardcodes the daemon child process's `OD_PORT` (i.e. `SIDECAR_ENV.DAEMON_PORT`) to `"0"`, and **does not inject** `OD_BIND_HOST` / `OD_API_TOKEN`; the web child process likewise does not inject `OD_HOST` / a fixed `OD_WEB_PORT`. We therefore need to add an optional `network` option to `startPackagedSidecars` and inject the environment variables from the table above in `buildPackagedDaemonSpawnEnv` (daemon) and in the web child process's env construction. This rework keeps the existing headless / Electron callers' default behavior unchanged (when `network` is not passed, it retains dynamic ports + loopback + no token).
 
-## 5. 产物结构
+## 5. Artifact structure
 
-构建命令：
+Build command:
 
 ```
 tools-pack webui build --to <mac|win|linux> [--arch <x64|arm64>] [--app-version <ver>] [--json]
 ```
 
-每平台一个压缩包（mac/win → `.zip`，linux → `.tar.gz`）：
+One archive per platform (mac/win → `.zip`, linux → `.tar.gz`):
 
 ```
-open-design-webui-<版本>-<os>-<arch>.(zip|tar.gz)
-  app/                         # 组装好的 node 应用：daemon dist + web 产物(server 模式) + packaged dist
-    node_modules/              # 生产依赖，含本平台预编译的 better-sqlite3
-  bin/open-design              # 启动器外壳脚本 -> 调 `node app/.../webui-launcher.mjs`
-  Open Design WebUI.command    # mac 双击 -> 打开 Terminal 运行 `open-design start`
-  Open Design WebUI.bat        # win 双击 -> 打开 cmd 窗口运行 start
-  open-design-webui.desktop    # linux 双击（Terminal=true）；附 start.sh 兜底
+open-design-webui-<version>-<os>-<arch>.(zip|tar.gz)
+  app/                         # assembled node app: daemon dist + web artifacts (server mode) + packaged dist
+    node_modules/              # production dependencies, including the platform-prebuilt better-sqlite3
+  bin/open-design              # launcher shell script -> calls `node app/.../webui-launcher.mjs`
+  Open Design WebUI.command    # mac double-click -> opens Terminal and runs `open-design start`
+  Open Design WebUI.bat        # win double-click -> opens a cmd window and runs start
+  open-design-webui.desktop    # linux double-click (Terminal=true); ships start.sh as a fallback
   webui.config.example.json
   README(.md)
 ```
 
-原生模块策略：要求系统 Node 24（24.x 内 ABI 137 稳定），故只有 `better-sqlite3` 的预编译产物按平台/架构区分。构建时通过 `prebuild-install --platform/--arch`（或等价方式）拉取目标平台预编译二进制放入 `app/node_modules`，受支持平台无需本机编译器。跨架构构建需目标平台预编译包存在。
+Native module strategy: requires system Node 24 (ABI 137 is stable within 24.x), so only the `better-sqlite3` prebuilt artifact is differentiated per platform/architecture. At build time, the target-platform prebuilt binary is fetched via `prebuild-install --platform/--arch` (or an equivalent method) and placed into `app/node_modules`, so supported platforms need no local compiler. Cross-architecture builds require the target platform's prebuilt package to exist.
 
-web 输出模式：webui 统一用 `OD_WEB_OUTPUT_MODE=server`（与现有 Linux headless 一致、已验证可在打包后运行的双进程组合）；构建命令层覆盖各平台默认，避免 mac/win 落到 standalone、linux 落到 server 的不一致。
+Web output mode: webui uniformly uses `OD_WEB_OUTPUT_MODE=server` (consistent with the existing Linux headless setup, a dual-process combination already verified to run after packaging); the build command layer overrides each platform's default to avoid the inconsistency where mac/win fall back to standalone and linux falls back to server.
 
-## 6. 启动器 CLI
+## 6. Launcher CLI
 
-新入口（位于 `apps/packaged`，例如 `webui-launcher.ts`，编译产物 `dist/webui-launcher.mjs`）。`bin/open-design` 外壳脚本负责定位系统 node 并转发参数。
+A new entry point (located in `apps/packaged`, e.g. `webui-launcher.ts`, compiled output `dist/webui-launcher.mjs`). The `bin/open-design` shell script is responsible for locating the system node and forwarding arguments.
 
 ```
 open-design start [--port N] [--host ADDR] [--token T] [--no-open] [--config PATH] [--json]
@@ -97,11 +97,11 @@ open-design stop  [--json]
 open-design status [--json]
 ```
 
-### 配置解析（需求 4）
+### Config resolution (requirement 4)
 
-优先级：命令行参数 > `webui.config.json`（自动发现，启动器同级目录）> `OD_*` 环境变量 > 默认值。纯函数 `resolveWebuiConfig(...)`，便于单测。
+Precedence: command-line arguments > `webui.config.json` (auto-discovered, alongside the launcher) > `OD_*` environment variables > defaults. A pure function `resolveWebuiConfig(...)`, for easy unit testing.
 
-配置键：
+Config keys:
 
 ```json
 {
@@ -114,74 +114,74 @@ open-design status [--json]
 }
 ```
 
-- `--config PATH` 可显式指定配置文件路径（覆盖自动发现）。
-- 解析结果映射为 §3 表中的环境变量后再启动运行时。
+- `--config PATH` can explicitly specify the config file path (overriding auto-discovery).
+- The resolved result is mapped to the environment variables in the §3 table before starting the runtime.
 
-### Node 检查
+### Node check
 
-外壳脚本（`bin/open-design` 及各双击包装）先校验 `node --version` ≥ 24；缺失或版本过低时给出清晰的安装/升级提示并退出（双击 GUI 会话的 PATH 可能不含 node，这里必须有明确报错）。
+The shell scripts (`bin/open-design` and each double-click wrapper) first verify that `node --version` ≥ 24; when node is missing or the version is too low, they print a clear install/upgrade hint and exit (a double-click GUI session's PATH may not include node, so an explicit error is required here).
 
 ### start
 
-1. 解析配置（`resolveWebuiConfig`）。
-2. 若 `host` 为非环回地址且未提供 token → 生成强随机 token（`odtoken_<base64url(randomBytes(32))>`），在终端醒目打印（供 API 客户端使用）。
-3. 调 `startPackagedSidecars` 并传入 `network: { webHost, webPort, daemonBindHost, apiToken }`。
-4. 写 `webui-root.json`（pid、url、startedAt）到命名空间 runtime 目录。
-5. 打印访问 URL（本机 `http://<host or localhost>:<port>`）。
-6. 按 §7 GUI 规则尝试打开浏览器。
-7. 建立 IPC server（复用现有 STATUS/SHUTDOWN handler），监听 SIGINT/SIGTERM 优雅关停。
+1. Resolve config (`resolveWebuiConfig`).
+2. If `host` is a non-loopback address and no token is provided → generate a strong random token (`odtoken_<base64url(randomBytes(32))>`) and print it prominently in the terminal (for use by API clients).
+3. Call `startPackagedSidecars`, passing `network: { webHost, webPort, daemonBindHost, apiToken }`.
+4. Write `webui-root.json` (pid, url, startedAt) to the namespace runtime directory.
+5. Print the access URL (local `http://<host or localhost>:<port>`).
+6. Attempt to open the browser per the §7 GUI rules.
+7. Establish the IPC server (reusing the existing STATUS/SHUTDOWN handler), and listen for SIGINT/SIGTERM for graceful shutdown.
 
 ### stop
 
-读取 `webui-root.json`，通过 IPC 发送 `SHUTDOWN`（现有机制）；IPC 不可达时回退到向 pid 发信号；随后清理 identity 文件。
+Read `webui-root.json`, send `SHUTDOWN` over IPC (the existing mechanism); when IPC is unreachable, fall back to signaling the pid; then clean up the identity file.
 
 ### status
 
-通过 IPC 发送 `STATUS`，打印运行状态与 URL；`--json` 输出机器可读结果。
+Send `STATUS` over IPC, print the running state and URL; `--json` outputs a machine-readable result.
 
-## 7. GUI 与非 GUI 行为（需求 2、3）
+## 7. GUI and non-GUI behavior (requirements 2, 3)
 
-- 双击包装（`.command` / `.bat` / `.desktop`）打开一个**终端窗口**并运行 `open-design start`，因此 GUI 用户能看到终端输出和 URL。
-- `openBrowser` 默认按 `auto` 处理：仅在检测到显示设备时打开浏览器。判定 `hasDisplay(platform, env)`：
-  - Windows：视为有显示。
-  - mac：有显示，除非检测到 `SSH_CONNECTION`（远程会话不开浏览器）。
-  - Linux：仅当存在 `DISPLAY` 或 `WAYLAND_DISPLAY`。
-- 无 GUI 服务器：仅打印 URL 并继续运行（满足需求 3）。
-- `--no-open` 或 `openBrowser: false` 强制关闭自动开浏览器。
-- 打开浏览器复用 `openBrowser()`，本身尽力而为，失败仅告警。
+- The double-click wrappers (`.command` / `.bat` / `.desktop`) open a **terminal window** and run `open-design start`, so GUI users can see the terminal output and the URL.
+- `openBrowser` defaults to `auto` handling: it only opens the browser when a display device is detected. The decision `hasDisplay(platform, env)`:
+  - Windows: treated as having a display.
+  - mac: has a display, unless `SSH_CONNECTION` is detected (a remote session does not open the browser).
+  - Linux: only when `DISPLAY` or `WAYLAND_DISPLAY` exists.
+- Headless servers: only print the URL and keep running (satisfying requirement 3).
+- `--no-open` or `openBrowser: false` forcibly disables auto-opening the browser.
+- Opening the browser reuses `openBrowser()`, which is itself best-effort and only warns on failure.
 
-## 8. 边界与一致性
+## 8. Boundaries and consistency
 
-- `webui-root.json` 为 packaged 本地 identity 文件，不是 web/daemon API DTO，**无需改动 `packages/contracts`**。
-- 本特性属于打包/工具链能力（`tools/pack` 构建命令 + packaged 启动器），不是产品业务能力，因此 AGENTS.md「UI + od CLI 双轨」规则不适用——启动器本身即 CLI 面，没有对应的 web UI 面。**会在 PR 说明里点明这一点，避免 review 误判为缺失 UI 面。**
-- 进程身份/命名空间/路径沿用现有 sidecar 约定，不引入第二套进程身份模型；不手搓 `--od-stamp-*`，用 `createProcessStampArgs`。
-- pack 资源文件放在 `tools/pack/resources/` 下（新增 `tools/pack/resources/webui/`）。
-- `startPackagedSidecars` 的 `network` 改造必须保持现有 headless / Electron 调用的默认行为不变（默认动态端口 + 环回 + 无 token）。
+- `webui-root.json` is a packaged local identity file, not a web/daemon API DTO, so **no changes to `packages/contracts` are needed**.
+- This feature is a packaging/toolchain capability (`tools/pack` build command + the packaged launcher), not a product business capability, so the AGENTS.md "UI + od CLI dual-track" rule does not apply—the launcher itself is the CLI surface, and there is no corresponding web UI surface. **This will be called out in the PR description to avoid reviewers mistaking it for a missing UI surface.**
+- Process identity/namespace/paths follow the existing sidecar conventions, introducing no second process-identity model; `--od-stamp-*` is not hand-built, and `createProcessStampArgs` is used.
+- The pack resource files live under `tools/pack/resources/` (adding `tools/pack/resources/webui/`).
+- The `network` rework of `startPackagedSidecars` must keep the existing headless / Electron callers' default behavior unchanged (default dynamic ports + loopback + no token).
 
-## 9. 测试策略
+## 9. Testing strategy
 
-- `apps/packaged` 单测（vitest，`tests/*.test.ts`）：
-  - `resolveWebuiConfig` 优先级（命令行 > 配置文件 > 环境变量 > 默认）。
-  - 远程访问无 token 时自动生成 token 的逻辑。
-  - `hasDisplay()` 在各平台/各环境变量下的判定。
-  - argv 解析与 `--config` / `--no-open` 等开关。
-  - `buildPackagedDaemonSpawnEnv` 在传/不传 `network` 时的环境变量分支（保持默认行为不变）。
-- `tools/pack` 单测（vitest）：
-  - webui 压缩包文件清单（app/、bin/open-design、各双击包装、配置示例、README 均存在）。
-  - 按 `--to` 选对 `better-sqlite3` 预编译产物。
-- 冒烟：解压产物 → `open-design start` → 轮询 URL 返回 200 → `open-design status` → `open-design stop`（按平台可选门控）。
+- `apps/packaged` unit tests (vitest, `tests/*.test.ts`):
+  - `resolveWebuiConfig` precedence (command line > config file > environment variables > defaults).
+  - The logic that auto-generates a token when remote access has no token.
+  - `hasDisplay()` decisions across platforms / environment variables.
+  - argv parsing and switches like `--config` / `--no-open`.
+  - The `buildPackagedDaemonSpawnEnv` environment-variable branches with and without `network` passed (keeping default behavior unchanged).
+- `tools/pack` unit tests (vitest):
+  - The webui archive file manifest (app/, bin/open-design, each double-click wrapper, the config example, and README all present).
+  - Selecting the correct `better-sqlite3` prebuilt artifact per `--to`.
+- Smoke: unpack the artifact → `open-design start` → poll until the URL returns 200 → `open-design status` → `open-design stop` (optionally gated per platform).
 
-## 10. 风险与缓解
+## 10. Risks and mitigations
 
-- **Linux 双击差异**：不同桌面环境对 `.desktop` / 可执行脚本双击行为不一致 → 终端启动为主路径，双击为尽力而为，README 说明。
-- **跨架构 better-sqlite3 预编译缺失**：构建目标架构时若无对应预编译包则失败 → 构建前校验并给出明确报错，文档列出受支持的 os/arch 组合。
-- **GUI 会话 PATH 缺少 node**：双击启动可能找不到 node → 外壳脚本显式检测并报错，提示安装 Node 24。
-- **远程 Web UI 无应用层鉴权**：token 不护 UI（前端不携带）→ README 明确要求用户用反向代理 / VPN / 网络隔离保护远程暴露面。
+- **Linux double-click variance**: different desktop environments handle `.desktop` / executable-script double-clicks inconsistently → terminal launch is the primary path, double-click is best-effort, documented in the README.
+- **Missing cross-architecture better-sqlite3 prebuilt**: a build targeting an architecture fails when there is no matching prebuilt package → validate before building and give a clear error, with the supported os/arch combinations listed in the docs.
+- **GUI session PATH missing node**: a double-click launch may fail to find node → the shell script explicitly detects this and errors, prompting to install Node 24.
+- **No application-layer auth for the remote Web UI**: the token does not protect the UI (the frontend carries no token) → the README clearly requires users to protect the remote exposure surface with a reverse proxy / VPN / network isolation.
 
-## 11. 不在本次范围（YAGNI）
+## 11. Out of scope (YAGNI)
 
-- 不引入自包含单可执行文件（SEA/pkg）方案。
-- 不复用 Electron 无窗口模式。
-- 不改 web 前端的 token 携带行为（不做 `?token=` 前端读取）。
-- 不接入产品自动更新（updater）流程。
-- 不做系统服务/守护进程注册（systemd/launchd/Windows 服务）——仅前台终端进程 + start/stop。
+- No self-contained single-executable (SEA/pkg) approach.
+- No reuse of an Electron windowless mode.
+- No change to the web frontend's token-carrying behavior (no `?token=` frontend reading).
+- No integration with the product auto-update (updater) flow.
+- No system service / daemon registration (systemd/launchd/Windows service)—only a foreground terminal process + start/stop.
