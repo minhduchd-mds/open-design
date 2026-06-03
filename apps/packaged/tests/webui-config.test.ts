@@ -5,8 +5,10 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
+  composeHttpUrl,
   defaultWebuiConfigFileContents,
   ensureWebuiConfigScaffold,
+  formatHostForUrl,
   generateApiToken,
   hasDisplay,
   isLoopbackHost,
@@ -16,6 +18,7 @@ import {
   resolveDisplayHost,
   resolveRuntimeNamespace,
   resolveWebuiConfig,
+  type ResolvedWebuiConfig,
 } from "../src/webui-config.js";
 
 describe("parseWebuiArgs", () => {
@@ -154,13 +157,54 @@ describe("resolveDisplayHost", () => {
   });
 });
 
+describe("formatHostForUrl / composeHttpUrl", () => {
+  it("brackets a bare IPv6 literal so the URL is parseable", () => {
+    expect(formatHostForUrl("fd00::10")).toBe("[fd00::10]");
+    expect(formatHostForUrl("::1")).toBe("[::1]");
+    const url = composeHttpUrl("fd00::10", 7456);
+    expect(url).toBe("http://[fd00::10]:7456");
+    // The whole point: it must round-trip through the URL parser without
+    // throwing. Node returns IPv6 hostnames in bracketed form.
+    expect(() => new URL(url)).not.toThrow();
+    expect(new URL(url).hostname).toBe("[fd00::10]");
+    expect(new URL(url).port).toBe("7456");
+  });
+
+  it("leaves IPv4, hostnames, and already-bracketed literals unchanged", () => {
+    expect(formatHostForUrl("192.168.1.50")).toBe("192.168.1.50");
+    expect(formatHostForUrl("localhost")).toBe("localhost");
+    expect(formatHostForUrl("[fd00::10]")).toBe("[fd00::10]");
+    expect(composeHttpUrl("192.168.1.50", 7456)).toBe("http://192.168.1.50:7456");
+  });
+
+  it("composes a parseable URL for a concrete IPv6 bind end-to-end", () => {
+    // --host fd00::10 → resolveDisplayHost passes it through → URL must bracket.
+    const display = resolveDisplayHost("fd00::10");
+    const url = composeHttpUrl(display, 7457);
+    expect(url).toBe("http://[fd00::10]:7457");
+    expect(() => new URL(url)).not.toThrow();
+    expect(new URL(url).hostname).toBe("[fd00::10]");
+  });
+});
+
 describe("persistTokenToConfig", () => {
+  const resolved = (overrides: Partial<ResolvedWebuiConfig> = {}): ResolvedWebuiConfig => ({
+    port: 7456,
+    daemonPort: 7457,
+    host: "0.0.0.0",
+    token: null,
+    openBrowser: true,
+    namespace: null,
+    dataDir: null,
+    ...overrides,
+  });
+
   it("writes the token while preserving existing keys", () => {
     const dir = mkdtempSync(join(tmpdir(), "od-token-"));
     const configPath = join(dir, "webui.config.json");
     writeFileSync(configPath, JSON.stringify({ port: 7456, host: "0.0.0.0", token: null }), "utf8");
 
-    const result = persistTokenToConfig(configPath, "odtoken_abc");
+    const result = persistTokenToConfig(configPath, "odtoken_abc", resolved());
     expect(result.persisted).toBe(true);
     const written = JSON.parse(loadConfigFileRaw(configPath));
     expect(written.token).toBe("odtoken_abc");
@@ -170,8 +214,40 @@ describe("persistTokenToConfig", () => {
     rmSync(dir, { force: true, recursive: true });
   });
 
+  it("materializes the FULL resolved shape when the target file does not exist", () => {
+    // Explicit --config path that was never scaffolded: the created file must
+    // carry host/port/daemonPort/namespace/dataDir so the next `start --config`
+    // reproduces the same runtime — not just the token.
+    const dir = mkdtempSync(join(tmpdir(), "od-token-new-"));
+    const configPath = join(dir, "missing.json");
+
+    const result = persistTokenToConfig(
+      configPath,
+      "odtoken_remote",
+      resolved({ host: "0.0.0.0", port: 9000, daemonPort: null, namespace: "team-a", dataDir: "/srv/od" }),
+    );
+    expect(result.persisted).toBe(true);
+    const written = JSON.parse(loadConfigFileRaw(configPath));
+    expect(written.token).toBe("odtoken_remote");
+    expect(written.host).toBe("0.0.0.0");
+    expect(written.port).toBe(9000);
+    // dynamic daemonPort (null) round-trips as 0, NOT the fixed 7457 default.
+    expect(written.daemonPort).toBe(0);
+    expect(written.namespace).toBe("team-a");
+    expect(written.dataDir).toBe("/srv/od");
+    // Re-resolving the written file reproduces the same runtime settings.
+    const reResolved = resolveWebuiConfig({ flags: {}, configFile: written, env: {} });
+    expect(reResolved.host).toBe("0.0.0.0");
+    expect(reResolved.port).toBe(9000);
+    expect(reResolved.daemonPort).toBe(null); // 0 → dynamic
+    expect(reResolved.namespace).toBe("team-a");
+    expect(reResolved.dataDir).toBe("/srv/od");
+
+    rmSync(dir, { force: true, recursive: true });
+  });
+
   it("reports persisted=false on an unwritable path instead of throwing", () => {
-    const result = persistTokenToConfig("/proc/nonexistent-dir/webui.config.json", "odtoken_x");
+    const result = persistTokenToConfig("/proc/nonexistent-dir/webui.config.json", "odtoken_x", resolved());
     expect(result.persisted).toBe(false);
     expect(result.error).toBeTypeOf("string");
   });

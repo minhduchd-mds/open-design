@@ -189,19 +189,59 @@ export function resolveDisplayHost(
   return isLoopbackHost(host) ? "localhost" : host;
 }
 
-// Persists an auto-generated token back into webui.config.json so the next
-// start reuses it instead of minting a new one. Preserves any existing keys.
-// Never throws on a read-only install dir — the caller falls back to an
-// in-memory token for the current run.
+// Makes a host safe to interpolate into a URL authority. A bare IPv6 literal
+// (e.g. `fd00::10`, or `::1`) must be bracketed — `http://fd00::10:7456` is not
+// parseable, `http://[fd00::10]:7456` is. IPv4 addresses, hostnames, and
+// already-bracketed literals pass through unchanged.
+export function formatHostForUrl(host: string): string {
+  if (host.startsWith("[")) return host;
+  return isIP(host) === 6 ? `[${host}]` : host;
+}
+
+// Builds an `http://host:port` URL with an IPv6-safe authority. `host` is the
+// already-resolved DISPLAY host (see {@link resolveDisplayHost}); this is the
+// single chokepoint that brackets IPv6 literals so every printed/opened URL is
+// actually parseable.
+export function composeHttpUrl(host: string, port: number | string): string {
+  return `http://${formatHostForUrl(host)}:${port}`;
+}
+
+// Serializes a resolved runtime config back to the on-disk file shape. Used when
+// a config file must be CREATED from scratch (an explicit `--config <path>` that
+// was never scaffolded), so the file captures the full runtime — not just the
+// token. `daemonPort` null (dynamic) round-trips as 0 to preserve the
+// dynamic-loopback semantics; null `namespace`/`dataDir` are omitted (absent =
+// default).
+function resolvedConfigToFile(resolved: ResolvedWebuiConfig): WebuiConfigFile {
+  const file: WebuiConfigFile = {
+    port: resolved.port,
+    daemonPort: resolved.daemonPort ?? 0,
+    host: resolved.host,
+    openBrowser: resolved.openBrowser,
+  };
+  if (resolved.namespace != null) file.namespace = resolved.namespace;
+  if (resolved.dataDir != null) file.dataDir = resolved.dataDir;
+  return file;
+}
+
+// Persists an auto-generated token into webui.config.json so the next start
+// reuses it instead of minting a new one. When the target file already exists,
+// its keys are preserved and only the token is added. When it does NOT exist
+// yet — notably an explicit `--config <path>` that discoverConfigFile()
+// deliberately did not scaffold — the FULL resolved runtime shape is written so
+// a follow-up `start --config <path>` reproduces the same host/port/namespace/
+// dataDir instead of silently falling back to defaults. Never throws on a
+// read-only dir — the caller falls back to an in-memory token for this run.
 export function persistTokenToConfig(
   configPath: string,
   token: string,
+  resolved: ResolvedWebuiConfig,
 ): { persisted: boolean; error?: string } {
   try {
-    const existing: WebuiConfigFile = existsSync(configPath)
+    const base: WebuiConfigFile = existsSync(configPath)
       ? (JSON.parse(readFileSync(configPath, "utf8")) as WebuiConfigFile)
-      : {};
-    const next = { ...existing, token };
+      : resolvedConfigToFile(resolved);
+    const next = { ...base, token };
     writeFileSync(configPath, `${JSON.stringify(next, null, 2)}\n`, "utf8");
     return { persisted: true };
   } catch (error) {

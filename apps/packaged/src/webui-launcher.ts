@@ -28,6 +28,7 @@ import { resolvePackagedNamespacePaths, resolveWebuiNamespacesRoot } from "./pat
 import { readSidecarLogTail, startPackagedSidecars } from "./sidecars.js";
 import { resolveWebuiLocale, webuiMessages } from "./webui-i18n.js";
 import {
+  composeHttpUrl,
   ensureWebuiConfigScaffold,
   generateApiToken,
   hasDisplay,
@@ -133,8 +134,9 @@ function discoverConfigFile(explicitPath: string | undefined): ConfigDiscovery {
 
 function browserUrl(config: ResolvedWebuiConfig): string {
   // resolveDisplayHost turns a bind-all host (0.0.0.0) into the machine's real
-  // LAN IP so the printed address is actually openable.
-  return `http://${resolveDisplayHost(config.host)}:${config.port}`;
+  // LAN IP so the printed address is actually openable; composeHttpUrl brackets
+  // IPv6 literals so the URL stays parseable.
+  return composeHttpUrl(resolveDisplayHost(config.host), config.port);
 }
 
 // The daemon binds `config.host`, so its direct API is reachable at the same
@@ -148,7 +150,7 @@ function daemonDirectUrlFor(config: ResolvedWebuiConfig, daemonSidecarUrl: strin
   } catch {
     port = config.daemonPort != null ? String(config.daemonPort) : null;
   }
-  return port != null ? `http://${host}:${port}` : null;
+  return port != null ? composeHttpUrl(host, port) : null;
 }
 
 function currentLocale() {
@@ -364,7 +366,7 @@ async function commandStart(
     // First remote start with no token: mint one and persist it to the config
     // file so subsequent restarts reuse it (no fresh token, no repeated notice).
     token = generateApiToken();
-    const persisted = persistTokenToConfig(configPath, token);
+    const persisted = persistTokenToConfig(configPath, token, config);
     tokenPersisted = persisted.persisted;
     tokenNotice = persisted.persisted ? t.tokenPersisted(configPath) : t.tokenPersistFailed(persisted.error ?? "");
   }
