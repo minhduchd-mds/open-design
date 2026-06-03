@@ -650,7 +650,7 @@ async function sendPrompt(page: Page, prompt: string) {
   await expect(input).toBeVisible({ timeout: T.short });
   await input.click();
   await input.fill(prompt);
-  await expect(input).toHaveValue(prompt, { timeout: T.short });
+  await expect(input).toHaveText(prompt, { timeout: T.short });
   await expect(sendButton).toBeEnabled({ timeout: T.short });
   await Promise.all([
     page.waitForResponse(isCreateRunResponse, { timeout: 5_000 }),
@@ -694,7 +694,7 @@ async function runExampleUsePromptFlow(
 
   await expect(page).toHaveURL(/\/projects\//);
   await expect(page.getByTestId('chat-composer')).toBeVisible();
-  await expect(page.getByTestId('chat-composer-input')).toHaveValue(entry.prompt);
+  await expect(page.getByTestId('chat-composer-input')).toHaveText(entry.prompt);
   await expect(page.getByTestId('project-title')).toContainText('Warm Utility Example');
   await expect(page.getByTestId('project-meta')).toContainText('Warm Utility Example');
 }
@@ -973,7 +973,7 @@ async function runCommentAttachmentFlow(
 
   await expect(page.getByTestId('comment-saved-marker-hero-title')).toBeVisible();
   await expect(page.getByTestId('staged-comment-attachments')).toHaveCount(0);
-  await expect(page.getByTestId('chat-composer-input')).toHaveValue('');
+  await expect(page.getByTestId('chat-composer-input')).toHaveText('');
   await expect(page.getByTestId('chat-send')).toBeDisabled();
   await expect(page.getByTestId('comment-popover')).toHaveCount(0);
 
@@ -1326,7 +1326,7 @@ async function runConversationPersistenceFlow(
 
   await page.getByTestId('new-conversation').click();
   await expect(page.getByTestId('chat-composer-input')).toBeVisible();
-  await expect(page.getByTestId('chat-composer-input')).toHaveValue('');
+  await expect(page.getByTestId('chat-composer-input')).toHaveText('');
 
   const nextPrompt = entry.secondaryPrompt!;
   await sendPrompt(page, nextPrompt);
@@ -1388,7 +1388,7 @@ async function runFileMentionFlow(
   await page.getByTestId('chat-composer-input').pressSequentially('Review @ref');
   await expect(page.getByTestId('mention-popover')).toBeVisible();
   await page.getByTestId('mention-popover').getByRole('button', { name: /reference\.txt/i }).click();
-  await expect(page.getByTestId('chat-composer-input')).toHaveValue('Review @reference.txt ');
+  await expect(page.getByTestId('chat-composer-input')).toHaveText('Review @reference.txt ');
   await expect(page.getByTestId('staged-attachments')).toBeVisible();
   await expect(page.getByTestId('staged-attachments').getByText('reference.txt', { exact: true })).toBeVisible();
   await expect(page.getByTestId('chat-send')).toBeEnabled();
@@ -1474,7 +1474,7 @@ async function runConversationDeleteRecoveryFlow(
 
   await page.getByTestId('new-conversation').click();
   await expect(page.getByTestId('chat-composer-input')).toBeVisible();
-  await expect(page.getByTestId('chat-composer-input')).toHaveValue('');
+  await expect(page.getByTestId('chat-composer-input')).toHaveText('');
 
   const nextPrompt = entry.secondaryPrompt!;
   await sendPrompt(page, nextPrompt);

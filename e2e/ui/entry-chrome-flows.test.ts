@@ -480,7 +480,7 @@ test('home starters can browse registry and use a starter query from Home', asyn
   await page.getByTestId('plugins-home-use-with-query-localized-plugin').click();
 
   const input = page.getByTestId('home-hero-input');
-  await expect(input).toHaveValue('Make a design systems brief.');
+  await expect(input).toHaveText('Make a design systems brief.');
 });
 
 test('home starters shows the empty catalog state when no plugins are available', async ({ page }) => {
@@ -555,7 +555,7 @@ test('home starters can jump into plugin creation through the registry browse fl
   await expect(page.locator('h1').filter({ hasText: 'Plugins' })).toBeVisible();
   await page.getByTestId('plugins-create-button').click();
 
-  await expect(page.getByTestId('home-hero-input')).toHaveValue(/Create an Open Design plugin/i);
+  await expect(page.getByTestId('home-hero-input')).toHaveText(/Create an Open Design plugin/i);
 });
 
 test('home starters search can enter a no-results state and recover with clear', async ({ page }) => {
@@ -775,7 +775,7 @@ test('home starters Use plugin from the details modal applies the plugin to the 
   await page.getByTestId('plugin-details-use-detail-use-plugin').click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByTestId('home-hero-context-plugin-detail-use-plugin')).toBeVisible();
-  await expect(page.getByTestId('home-hero-input')).toHaveValue('');
+  await expect(page.getByTestId('home-hero-input')).toHaveText('');
 });
 
 test('home starters direct Use keeps prompt empty and still allows a freeform submit', async ({ page }) => {
@@ -790,11 +790,11 @@ test('home starters direct Use keeps prompt empty and still allows a freeform su
   await gotoEntryHome(page);
 
   const input = page.getByTestId('home-hero-input');
-  await expect(input).toHaveValue('');
+  await expect(input).toHaveText('');
 
   await page.locator('article.plugins-home__card[data-plugin-id="localized-plugin"]').hover();
   await page.getByTestId('plugins-home-use-localized-plugin').click({ force: true });
-  await expect(input).toHaveValue('');
+  await expect(input).toHaveText('');
 
   await input.fill('Use the selected starter as context');
   const projectRequestPromise = page.waitForRequest(isCreateProjectRequest);
@@ -827,7 +827,7 @@ test('home starters Use with query hydrates the prompt and keeps plugin context 
   await gotoEntryHome(page);
 
   const input = page.getByTestId('home-hero-input');
-  await expect(input).toHaveValue('');
+  await expect(input).toHaveText('');
   const starterCard = page.locator('[data-plugin-id="localized-plugin"]').first();
   await starterCard.scrollIntoViewIfNeeded();
   await starterCard.hover();
@@ -835,7 +835,7 @@ test('home starters Use with query hydrates the prompt and keeps plugin context 
   await page.getByTestId('plugins-home-use-menu-localized-plugin').click();
   await page.getByTestId('plugins-home-use-with-query-localized-plugin').click();
   await expect(page.getByTestId('home-hero-context-plugin-localized-plugin')).toBeVisible();
-  await expect(input).toHaveValue('Make a design systems brief.');
+  await expect(input).toHaveText('Make a design systems brief.');
 });
 
 test('home starters Use with query carries the hydrated starter prompt into the created project and first user turn', async ({ page }) => {
@@ -857,7 +857,7 @@ test('home starters Use with query carries the hydrated starter prompt into the 
   await page.getByTestId('plugins-home-use-menu-localized-plugin').click();
   await page.getByTestId('plugins-home-use-with-query-localized-plugin').click();
   await expect(page.getByTestId('home-hero-context-plugin-localized-plugin')).toBeVisible();
-  await expect(input).toHaveValue('Make a design systems brief.');
+  await expect(input).toHaveText('Make a design systems brief.');
 
   const projectRequestPromise = page.waitForRequest(isCreateProjectRequest);
   const runRequestPromise = page.waitForRequest(isCreateRunRequest);
@@ -901,7 +901,12 @@ test('home hero input keeps Shift+Enter as a newline and submits on Enter', asyn
   await input.fill('Line one');
   await input.press('Shift+Enter');
   await input.type('Line two');
-  await expect(input).toHaveValue('Line one\nLine two');
+  // Lexical renders the soft break as separate block nodes, so the editor's
+  // textContent collapses the newline; assert both lines are present rather
+  // than an exact "\n"-joined value. The newline itself is verified below
+  // against the create-project/run payloads.
+  await expect(input).toContainText('Line one');
+  await expect(input).toContainText('Line two');
   await expect(page).toHaveURL(/\/$/);
   await expect(submit).toBeEnabled();
 
@@ -941,7 +946,7 @@ test('home hero @ mention picker opens and Enter applies the highlighted plugin'
   await input.press('Enter');
 
   await expect(picker).toHaveCount(0);
-  await expect(input).toHaveValue('@Localized Plugin');
+  await expect(input).toHaveText('@Localized Plugin');
 });
 
 test('home hero attachment input stages files, enables submit, and supports removal', async ({ page }) => {
