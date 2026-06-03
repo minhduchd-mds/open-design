@@ -158,36 +158,39 @@ describe('prompt telemetry builder', () => {
     expect(first.sections[0]!.fingerprint).toBe(second.sections[0]!.fingerprint);
   });
 
-  it('redacts opt, usr-local, and var-tmp project roots before fingerprinting', () => {
+  it('redacts opt, usr-local, and macOS var-tmp project roots before fingerprinting', () => {
     const first = buildPromptStackTelemetry({
       composedPrompt:
-        'cwd /opt/project, src /usr/local/src/app, temp /var/tmp/project, route /foo/bar',
+        'cwd /opt/project, src /usr/local/src/app, temp /var/tmp/project, private temp /private/var/tmp/open-design, route /foo/bar',
       sections: [
         {
           kind: 'daemonSystemPrompt',
           content:
-            'cwd /opt/project, src /usr/local/src/app, temp /var/tmp/project, route /foo/bar',
+            'cwd /opt/project, src /usr/local/src/app, temp /var/tmp/project, private temp /private/var/tmp/open-design, route /foo/bar',
         },
       ],
     });
     const second = buildPromptStackTelemetry({
       composedPrompt:
-        'cwd /opt/other, src /usr/local/src/other, temp /var/tmp/other, route /foo/bar',
+        'cwd /opt/other, src /usr/local/src/other, temp /var/tmp/other, private temp /private/var/tmp/other, route /foo/bar',
       sections: [
         {
           kind: 'daemonSystemPrompt',
           content:
-            'cwd /opt/other, src /usr/local/src/other, temp /var/tmp/other, route /foo/bar',
+            'cwd /opt/other, src /usr/local/src/other, temp /var/tmp/other, private temp /private/var/tmp/other, route /foo/bar',
         },
       ],
     });
 
     expect(first.sections[0]!.redactedContent).toBe(
-      `cwd ${PROMPT_STACK_PATH_MARKER}, src ${PROMPT_STACK_PATH_MARKER}, temp ${PROMPT_STACK_PATH_MARKER}, route /foo/bar`,
+      `cwd ${PROMPT_STACK_PATH_MARKER}, src ${PROMPT_STACK_PATH_MARKER}, temp ${PROMPT_STACK_PATH_MARKER}, private temp ${PROMPT_STACK_PATH_MARKER}, route /foo/bar`,
     );
     expect(first.sections[0]!.redactedContent).not.toContain('/opt/project');
     expect(first.sections[0]!.redactedContent).not.toContain('/usr/local/src/app');
     expect(first.sections[0]!.redactedContent).not.toContain('/var/tmp/project');
+    expect(first.sections[0]!.redactedContent).not.toContain(
+      '/private/var/tmp/open-design',
+    );
     expect(first.sections[0]!.redactedContent).toContain('/foo/bar');
     expect(first.promptFingerprint).toBe(second.promptFingerprint);
     expect(first.sections[0]!.fingerprint).toBe(second.sections[0]!.fingerprint);
