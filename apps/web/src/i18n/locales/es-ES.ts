@@ -1627,7 +1627,7 @@ export const esES: Dict = {
   'updater.readyGeneric': 'Hay una nueva versión lista. Open Design se cerrará y abrirá el instalador.',
   'updater.readyVersion': 'Open Design {version} está listo. Open Design se cerrará y abrirá el instalador.',
   'updater.upToDate': 'Ya tienes la versión más reciente.',
-  'newsletter.title': 'Inteligencia de diseño, en tu bandeja',
+  'newsletter.title': 'El newsletter de Open Design',
   'newsletter.lead': 'Nuevas plantillas, novedades del sistema de diseño, trabajo de embajadores y actualizaciones de producto, directo a tu bandeja.',
   'newsletter.placeholder': 'you@studio.com',
   'newsletter.subscribe': 'Suscribirse',

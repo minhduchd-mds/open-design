@@ -1738,7 +1738,7 @@ export const pl: Dict = {
   'updater.readyGeneric': 'Nowa wersja jest gotowa. Open Design zamknie się i otworzy instalator.',
   'updater.readyVersion': 'Open Design {version} jest gotowy. Open Design zamknie się i otworzy instalator.',
   'updater.upToDate': 'Masz już najnowszą wersję.',
-  'newsletter.title': 'Inteligencja projektowa w Twojej skrzynce',
+  'newsletter.title': 'Newsletter Open Design',
   'newsletter.lead': 'Nowe szablony, aktualizacje systemu projektowego, działania ambasadorów i nowości produktowe — prosto na Twoją skrzynkę.',
   'newsletter.placeholder': 'you@studio.com',
   'newsletter.subscribe': 'Subskrybuj',

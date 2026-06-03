@@ -2609,7 +2609,7 @@ export const en: Dict = {
   'updater.readyVersion': 'Open Design {version} is ready. Open Design will close and open the installer.',
   'updater.upToDate': "You're already on the latest version.",
 
-  'newsletter.title': 'Design intelligence, in your inbox',
+  'newsletter.title': 'The Open Design newsletter',
   'newsletter.lead':
     'New templates, design-system drops, ambassador work, and product updates — straight to your inbox.',
   'newsletter.placeholder': 'you@studio.com',

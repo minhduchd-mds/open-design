@@ -1725,7 +1725,7 @@ export const tr: Dict = {
   'updater.readyGeneric': 'Yeni bir sürüm hazır. Open Design kapanıp yükleyiciyi açacak.',
   'updater.readyVersion': 'Open Design {version} hazır. Open Design kapanıp yükleyiciyi açacak.',
   'updater.upToDate': 'Zaten en son sürümdesiniz.',
-  'newsletter.title': 'Tasarım zekâsı, gelen kutunuzda',
+  'newsletter.title': 'Open Design bülteni',
   'newsletter.lead': 'Yeni şablonlar, tasarım sistemi güncellemeleri, elçi çalışmaları ve ürün haberleri — doğrudan gelen kutunuza.',
   'newsletter.placeholder': 'you@studio.com',
   'newsletter.subscribe': 'Abone ol',

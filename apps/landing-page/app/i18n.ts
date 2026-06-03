@@ -2473,8 +2473,8 @@ const HOME_PAGE_COPY_EN: HomePageCopy = {
     ribbon: 'OPEN DESIGN · FIN.',
   },
   newsletter: {
-    label: 'Newsletter',
-    title: 'Design intelligence, weekly',
+    label: 'Stay updated',
+    title: 'The Open Design newsletter',
     lead: 'New templates, design-system drops, ambassador work, and product updates — straight to your inbox.',
     placeholder: 'you@studio.com',
     button: 'Subscribe',
@@ -2759,8 +2759,8 @@ const HOME_PAGE_COPY: Partial<Record<LandingLocaleCode, HomePageCopy>> = {
       ribbon: 'OPEN DESIGN · 完。',
     },
     newsletter: {
-      label: '订阅周报',
-      title: '每周一封，设计智能',
+      label: '保持关注',
+      title: 'Open Design 订阅',
       lead: '新模版、设计系统更新、大使活动与产品动态，直接发到你的邮箱。',
       placeholder: 'you@studio.com',
       button: '订阅',
@@ -3043,8 +3043,8 @@ HOME_PAGE_COPY['zh-tw'] = {
     ribbon: 'OPEN DESIGN · 完。',
   },
   newsletter: {
-    label: '訂閱週報',
-    title: '每週一封，設計智能',
+    label: '保持關注',
+    title: 'Open Design 訂閱',
     lead: '新模版、設計系統更新、大使活動與產品動態，直接發到你的信箱。',
     placeholder: 'you@studio.com',
     button: '訂閱',

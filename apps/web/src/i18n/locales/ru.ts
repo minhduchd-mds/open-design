@@ -1779,7 +1779,7 @@ export const ru: Dict = {
   'updater.readyGeneric': 'Новая версия готова. Open Design закроется и откроет установщик.',
   'updater.readyVersion': 'Open Design {version} готов. Open Design закроется и откроет установщик.',
   'updater.upToDate': 'У вас уже установлена последняя версия.',
-  'newsletter.title': 'Дизайн-интеллект — на вашу почту',
+  'newsletter.title': 'Рассылка Open Design',
   'newsletter.lead': 'Новые шаблоны, обновления дизайн-системы, работа амбассадоров и новости продукта — прямо на вашу почту.',
   'newsletter.placeholder': 'you@studio.com',
   'newsletter.subscribe': 'Подписаться',

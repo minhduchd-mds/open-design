@@ -1738,7 +1738,7 @@ export const ar: Dict = {
   'updater.readyGeneric': 'إصدار جديد جاهز. سيتم إغلاق Open Design وفتح المثبت.',
   'updater.readyVersion': 'Open Design {version} جاهز. سيتم إغلاق Open Design وفتح المثبت.',
   'updater.upToDate': 'أنت تستخدم أحدث إصدار بالفعل.',
-  'newsletter.title': 'ذكاء التصميم، في بريدك',
+  'newsletter.title': 'نشرة Open Design',
   'newsletter.lead': 'قوالب جديدة وتحديثات نظام التصميم وأنشطة السفراء وأخبار المنتج — مباشرةً إلى بريدك.',
   'newsletter.placeholder': 'you@studio.com',
   'newsletter.subscribe': 'اشتراك',

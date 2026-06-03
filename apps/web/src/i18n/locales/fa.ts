@@ -1781,7 +1781,7 @@ export const fa: Dict = {
   'updater.readyGeneric': 'نسخه جدید آماده است. Open Design بسته می‌شود و نصب‌کننده را باز می‌کند.',
   'updater.readyVersion': 'Open Design {version} آماده است. Open Design بسته می‌شود و نصب‌کننده را باز می‌کند.',
   'updater.upToDate': 'شما هم‌اکنون آخرین نسخه را دارید.',
-  'newsletter.title': 'Design intelligence, in your inbox',
+  'newsletter.title': 'خبرنامه Open Design',
   'newsletter.lead': 'New templates, design-system drops, ambassador work, and product updates — straight to your inbox.',
   'newsletter.placeholder': 'you@studio.com',
   'newsletter.subscribe': 'Subscribe',

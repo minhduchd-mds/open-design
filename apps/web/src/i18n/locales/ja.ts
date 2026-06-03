@@ -1675,7 +1675,7 @@ export const ja: Dict = {
   'updater.readyGeneric': '新しいバージョンの準備ができました。Open Design を閉じてインストーラーを開きます。',
   'updater.readyVersion': 'Open Design {version} の準備ができました。Open Design を閉じてインストーラーを開きます。',
   'updater.upToDate': 'すでに最新バージョンです。',
-  'newsletter.title': 'デザインの知見を、あなたの受信箱に',
+  'newsletter.title': 'Open Design ニュースレター',
   'newsletter.lead': '新しいテンプレート、デザインシステムの更新、アンバサダーの活動、製品アップデートをメールでお届けします。',
   'newsletter.placeholder': 'you@studio.com',
   'newsletter.subscribe': '購読する',

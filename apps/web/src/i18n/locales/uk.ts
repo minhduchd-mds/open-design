@@ -1780,7 +1780,7 @@ export const uk: Dict = {
   'updater.readyGeneric': 'Нова версія готова. Open Design закриється і відкриє інсталятор.',
   'updater.readyVersion': 'Open Design {version} готовий. Open Design закриється і відкриє інсталятор.',
   'updater.upToDate': 'У вас уже встановлено найновішу версію.',
-  'newsletter.title': 'Дизайн-інтелект — на вашу пошту',
+  'newsletter.title': 'Розсилка Open Design',
   'newsletter.lead': 'Нові шаблони, оновлення дизайн-системи, робота амбасадорів і новини продукту — прямо на вашу пошту.',
   'newsletter.placeholder': 'you@studio.com',
   'newsletter.subscribe': 'Підписатися',

@@ -1748,7 +1748,7 @@ export const hu: Dict = {
   'updater.readyGeneric': 'Elkészült az új verzió. Az Open Design bezárul, és megnyitja a telepítőt.',
   'updater.readyVersion': 'Az Open Design {version} elkészült. Az Open Design bezárul, és megnyitja a telepítőt.',
   'updater.upToDate': 'Már a legújabb verziót használja.',
-  'newsletter.title': 'Design intelligence, in your inbox',
+  'newsletter.title': 'Az Open Design hírlevele',
   'newsletter.lead': 'New templates, design-system drops, ambassador work, and product updates — straight to your inbox.',
   'newsletter.placeholder': 'you@studio.com',
   'newsletter.subscribe': 'Subscribe',

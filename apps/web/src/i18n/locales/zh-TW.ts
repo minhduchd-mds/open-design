@@ -2040,7 +2040,7 @@ export const zhTW: Dict = {
   'updater.readyVersion': 'Open Design {version} 已就緒。Open Design 會關閉並開啟安裝器。',
   'updater.upToDate': '您已經是最新版本啦',
 
-  'newsletter.title': '設計智能，直達你的信箱',
+  'newsletter.title': 'Open Design 訂閱',
   'newsletter.lead': '新模版、設計系統更新、大使活動與產品動態，直接發到你的信箱。',
   'newsletter.placeholder': 'you@studio.com',
   'newsletter.subscribe': '訂閱',

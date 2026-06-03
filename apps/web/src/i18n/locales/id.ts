@@ -1857,7 +1857,7 @@ export const id: Dict = {
   'updater.readyGeneric': 'Versi baru siap. Open Design akan ditutup dan membuka installer.',
   'updater.readyVersion': 'Open Design {version} siap. Open Design akan ditutup dan membuka installer.',
   'updater.upToDate': 'Anda sudah menggunakan versi terbaru.',
-  'newsletter.title': 'Design intelligence, in your inbox',
+  'newsletter.title': 'Newsletter Open Design',
   'newsletter.lead': 'New templates, design-system drops, ambassador work, and product updates — straight to your inbox.',
   'newsletter.placeholder': 'you@studio.com',
   'newsletter.subscribe': 'Subscribe',

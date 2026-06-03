@@ -1788,7 +1788,7 @@ export const ko: Dict = {
   'updater.readyGeneric': '새 버전이 준비되었습니다. Open Design을 닫고 설치 프로그램을 엽니다.',
   'updater.readyVersion': 'Open Design {version}이 준비되었습니다. Open Design을 닫고 설치 프로그램을 엽니다.',
   'updater.upToDate': '이미 최신 버전입니다.',
-  'newsletter.title': '받은 편지함으로 받는 디자인 인텔리전스',
+  'newsletter.title': 'Open Design 뉴스레터',
   'newsletter.lead': '새 템플릿, 디자인 시스템 업데이트, 앰배서더 활동, 제품 소식을 메일로 보내드립니다.',
   'newsletter.placeholder': 'you@studio.com',
   'newsletter.subscribe': '구독',

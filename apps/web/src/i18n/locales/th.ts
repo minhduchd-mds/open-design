@@ -1631,7 +1631,7 @@ export const th: Dict = {
   'updater.readyGeneric': 'เวอร์ชันใหม่พร้อมแล้ว Open Design จะปิดและเปิดตัวติดตั้ง',
   'updater.readyVersion': 'Open Design {version} พร้อมแล้ว Open Design จะปิดและเปิดตัวติดตั้ง',
   'updater.upToDate': 'คุณใช้เวอร์ชันล่าสุดอยู่แล้ว',
-  'newsletter.title': 'Design intelligence, in your inbox',
+  'newsletter.title': 'จดหมายข่าว Open Design',
   'newsletter.lead': 'New templates, design-system drops, ambassador work, and product updates — straight to your inbox.',
   'newsletter.placeholder': 'you@studio.com',
   'newsletter.subscribe': 'Subscribe',

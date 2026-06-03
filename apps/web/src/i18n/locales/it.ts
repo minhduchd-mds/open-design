@@ -1604,7 +1604,7 @@ export const it: Dict = {
   'updater.readyGeneric': 'È pronta una nuova versione. Open Design si chiuderà e aprirà il programma di installazione.',
   'updater.readyVersion': 'Open Design {version} è pronto. Open Design si chiuderà e aprirà il programma di installazione.',
   'updater.upToDate': 'Hai già la versione più recente.',
-  'newsletter.title': 'Design intelligence, nella tua casella',
+  'newsletter.title': 'La newsletter di Open Design',
   'newsletter.lead': 'Nuovi template, aggiornamenti del design system, attività degli ambassador e novità di prodotto — direttamente nella tua casella.',
   'newsletter.placeholder': 'you@studio.com',
   'newsletter.subscribe': 'Iscriviti',
