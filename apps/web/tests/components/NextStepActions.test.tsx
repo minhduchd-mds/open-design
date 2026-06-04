@@ -78,4 +78,13 @@ describe('NextStepActions', () => {
     // Deselecting the last chip clears the composer draft.
     expect(handlers.onChip).toHaveBeenLastCalledWith('landing.html', '');
   });
+
+  it('keeps selectable chips exposed as native buttons', () => {
+    renderActions();
+
+    const chip = screen.getByRole('button', {
+      name: en['nextStep.chipBrand'],
+    });
+    expect(chip.getAttribute('aria-pressed')).toBe('false');
+  });
 });

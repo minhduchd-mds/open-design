@@ -91,7 +91,7 @@ export function NextStepActions({ fileName, onShare, onChip }: Props) {
           iteration directions; it's the only item that fires immediately
           instead of toggling into the composer, so it carries an icon + accent
           to read as an action rather than a selectable direction. */}
-      <div className={styles.row} role="list">
+      <div className={styles.row}>
         <button type="button" className={styles.share} onClick={handleShare}>
           <Icon name="share" size={14} />
           <span>{t('nextStep.share')}</span>
@@ -103,7 +103,6 @@ export function NextStepActions({ fileName, onShare, onChip }: Props) {
             <button
               key={chip.id}
               type="button"
-              role="listitem"
               aria-pressed={isSelected}
               className={isSelected ? `${styles.chip} ${styles.chipSelected}` : styles.chip}
               onClick={() => toggleChip(chip)}
