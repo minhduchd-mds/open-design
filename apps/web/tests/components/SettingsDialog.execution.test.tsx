@@ -2079,6 +2079,49 @@ describe('SettingsDialog execution settings Local CLI interactions', () => {
     });
   });
 
+  it('keeps installable diagnostics hidden until the user attempts to install', async () => {
+    const unavailable: AgentInfo = {
+      id: 'gemini',
+      name: 'Gemini CLI',
+      bin: 'gemini',
+      available: false,
+      version: null,
+      models: [],
+      installUrl: 'https://github.com/google-gemini/gemini-cli',
+      diagnostics: [
+        {
+          reason: 'not-on-path',
+          severity: 'error',
+          message: 'Gemini CLI was not found on your PATH.',
+          fixActions: [{ kind: 'rescan' }],
+        },
+      ],
+    };
+
+    renderSettingsDialog(
+      { mode: 'daemon', agentId: 'codex' },
+      { agents: [availableAgents[0]!, unavailable] },
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: /Local CLI.*1 installed/i }));
+    fireEvent.click(screen.getByText('Available to install (1)'));
+
+    // Clean by default — "not found on PATH" is obvious for a CLI that hasn't
+    // been installed, so the install list stays uncluttered.
+    expect(
+      screen.queryByText('Gemini CLI was not found on your PATH.'),
+    ).toBeNull();
+
+    // Revealed once the user actually clicks Install, so after they install and
+    // the auto-rescan still can't find it, the PATH hint is there to help.
+    fireEvent.click(
+      screen.getByRole('link', { name: en['settings.agentInstall.install'] }),
+    );
+    expect(
+      screen.getByText('Gemini CLI was not found on your PATH.'),
+    ).toBeTruthy();
+  });
+
   it('autosaves CLI config locations from the execution form', async () => {
     const { onPersist } = renderSettingsDialog(
       { mode: 'daemon', agentId: 'codex' },
@@ -2703,10 +2746,13 @@ describe('SettingsDialog execution settings Local CLI interactions', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Local CLI.*1 installed/i }));
 
     // AMR lives in the dedicated recommendation slot, not inside the collapsed
-    // "Available to install" list (which therefore only counts Gemini).
-    const amrGroup = screen.getByRole('group', { name: /^Open Design AMR\b/ });
-    const amrSlot = amrGroup.closest('.agent-amr-recommend');
+    // "Available to install" list (which therefore only counts Gemini). The
+    // slot renders the rich marketing card (benefit chips), not a plain
+    // installable card.
+    const amrButton = screen.getByRole('button', { name: /^Open Design AMR\b/ });
+    const amrSlot = amrButton.closest('.agent-amr-recommend');
     expect(amrSlot).toBeTruthy();
+    expect(amrSlot!.querySelector('.agent-card-benefit')).toBeTruthy();
     expect(screen.getByText('Available to install (1)')).toBeTruthy();
 
     // DOM order: installed grid -> AMR slot -> install collapse.
@@ -2748,9 +2794,10 @@ describe('SettingsDialog execution settings Local CLI interactions', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: /Local CLI/i }));
 
-    const amrGroup = screen.getByRole('group', { name: /^Open Design AMR\b/ });
-    const amrSlot = amrGroup.closest('.agent-amr-recommend');
+    const amrButton = screen.getByRole('button', { name: /^Open Design AMR\b/ });
+    const amrSlot = amrButton.closest('.agent-amr-recommend');
     expect(amrSlot).toBeTruthy();
+    expect(amrSlot!.querySelector('.agent-card-benefit')).toBeTruthy();
     // With nothing installed there is no "Your CLIs (0)" group at all — the AMR
     // slot leads, followed directly by the (auto-expanded) install list.
     expect(document.querySelector('.agent-group')).toBeNull();

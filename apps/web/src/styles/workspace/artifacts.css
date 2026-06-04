@@ -973,9 +973,17 @@
 .agent-amr-recommend {
   margin-top: 10px;
 }
-.agent-amr-recommend .agent-card-unavailable {
-  border-color: color-mix(in srgb, var(--accent) 32%, var(--border-soft));
-  background: color-mix(in srgb, var(--accent) 5%, var(--bg-panel));
+/* The recommendation slot renders the full AMR marketing card (chips + sign-in
+   pill). The fill stays clean white (no red wash), but a soft accent-tinted
+   border plus a gentle accent glow lift it above the neutral CLI cards so it
+   reads as the featured/recommended option that ties into the terracotta
+   benefit chips. */
+.agent-amr-recommend .agent-card-amr-recommend-card {
+  background: var(--bg-panel);
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--text) 6%, transparent),
+    0 8px 22px color-mix(in srgb, var(--accent) 13%, transparent);
 }
 .agent-install-collapse {
   margin-top: 10px;
@@ -1017,11 +1025,11 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  /* A dark heading that still sits one notch below the "Memory model"
-     title (pure --text) so the section reads as secondary without going
-     gray. */
-  color: color-mix(in srgb, var(--text) 65%, var(--text-muted));
-  font-size: 12px;
+  /* Match the sibling collapsible headers ("Memory model", "CLI config
+     location") so the three section titles read at the same weight and size
+     instead of "Available to install" looking like a smaller, secondary row. */
+  color: var(--text);
+  font-size: 13px;
   font-weight: 600;
   user-select: none;
 }
@@ -1253,6 +1261,11 @@
 .agent-card.agent-card-unavailable {
   flex-direction: column;
   align-items: stretch;
+  /* Center the stacked content in the card's min-height so a single-row card
+     (no diagnostic) doesn't sit flush against the top edge with a large gap
+     below; when a diagnostic row is present the content fills the height and
+     this is a no-op. */
+  justify-content: center;
   gap: 0;
 }
 .agent-card-unavailable-row {

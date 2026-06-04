@@ -1016,6 +1016,13 @@ export function SettingsDialog({
   const [amrCardStatusReady, setAmrCardStatusReady] = useState(false);
   const [hoveredAgentCardId, setHoveredAgentCardId] = useState<string | null>(null);
   const [showAllInstallable, setShowAllInstallable] = useState(false);
+  // Installable cards stay clean by default — "not found on PATH" is obvious for
+  // a CLI the user hasn't installed. We only reveal the diagnostic for an agent
+  // the user has actually clicked Install/Docs on, so after they install and the
+  // auto-rescan still can't find it, the PATH hint is there to help debug.
+  const [installIntentIds, setInstallIntentIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const [providerTestState, setProviderTestState] = useState<TestState>({
     status: 'idle',
   });
@@ -1025,7 +1032,11 @@ export function SettingsDialog({
   }, [amrCardStatus, onAmrLoginStatusChange]);
 
   useEffect(() => {
-    const hasAmrAgent = agents.some((agent) => agent.id === 'amr' && agent.available);
+    // AMR shows its live sign-in pill both when it's an installed CLI and in
+    // the standalone recommendation slot (where vela isn't on PATH yet), so key
+    // readiness on AMR merely being present rather than `available`. The
+    // recommendation card is the 0.9.0 marketing card, sign-in pill included.
+    const hasAmrAgent = agents.some((agent) => agent.id === 'amr');
     if (!hasAmrAgent) {
       setAmrCardStatus(null);
       setAmrCardStatusReady(false);
@@ -1058,7 +1069,7 @@ export function SettingsDialog({
   // state until Settings is closed and reopened. Refetching on focus /
   // visibility keeps the signed-in state, email, and Sign out action live.
   useEffect(() => {
-    const hasAmrAgent = agents.some((agent) => agent.id === 'amr' && agent.available);
+    const hasAmrAgent = agents.some((agent) => agent.id === 'amr');
     if (!hasAmrAgent) return;
     let cancelled = false;
     // Passive read only. Push the daemon's current status down into the card;
@@ -1336,6 +1347,17 @@ export function SettingsDialog({
     setCfg((c) => updateCurrentApiProtocolConfig(c, patch));
   const markAgentInstallIntent = () => {
     pendingAgentInstallRescanRef.current = true;
+  };
+  // Same as `markAgentInstallIntent`, but also remembers which agent the user
+  // tried to install so its detection diagnostic can surface on return.
+  const markAgentInstallIntentFor = (agentId: string) => {
+    markAgentInstallIntent();
+    setInstallIntentIds((prev) => {
+      if (prev.has(agentId)) return prev;
+      const next = new Set(prev);
+      next.add(agentId);
+      return next;
+    });
   };
   const handleRefreshAgents = async () => {
     if (agentRescanRunning) return;
@@ -2813,7 +2835,7 @@ export function SettingsDialog({
                   target="_blank"
                   rel="noopener noreferrer"
                   className="agent-card-link agent-card-link--muted agent-card-link--icon"
-                  onClick={markAgentInstallIntent}
+                  onClick={() => markAgentInstallIntentFor(a.id)}
                   data-tooltip={t('settings.agentInstall.docs')}
                   aria-label={t('settings.agentInstall.docs')}
                 >
@@ -2826,7 +2848,7 @@ export function SettingsDialog({
                   target="_blank"
                   rel="noopener noreferrer"
                   className="agent-card-link agent-card-link--ghost"
-                  onClick={markAgentInstallIntent}
+                  onClick={() => markAgentInstallIntentFor(a.id)}
                 >
                   {t('settings.agentInstall.install')}
                 </a>
@@ -2834,13 +2856,131 @@ export function SettingsDialog({
             </div>
           ) : null}
         </div>
-        {(a.diagnostics ?? []).map((diagnostic, i) => (
-          <AgentDiagnosticRow
-            key={`${diagnostic.reason}-${i}`}
-            diagnostic={diagnostic}
-            handlers={{ onRescan: () => void handleRefreshAgents() }}
-          />
-        ))}
+        {installIntentIds.has(a.id)
+          ? (a.diagnostics ?? []).map((diagnostic, i) => (
+              <AgentDiagnosticRow
+                key={`${diagnostic.reason}-${i}`}
+                diagnostic={diagnostic}
+                handlers={{ onRescan: () => void handleRefreshAgents() }}
+              />
+            ))
+          : null}
+      </div>
+    );
+  };
+
+  // The standalone AMR recommendation slot (shown when vela isn't detected
+  // yet) must NOT look like the plain "Available to install" cards below it.
+  // It mirrors the 0.9.0 marketing card: green mark, benefit chips, and the
+  // live sign-in pill — so AMR reads as the recommended hosted runtime, not as
+  // one more missing CLI. Detection diagnostics (e.g. "vela not found") still
+  // render below in the softened row style so the enable path stays visible.
+  const renderAmrRecommendCard = (a: AgentInfo) => {
+    const agentName = displayAgentName(a);
+    const active = cfg.agentId === a.id;
+    const amrBenefits = [
+      t('settings.amrBenefitOfficial'),
+      t('settings.amrBenefitLowerPrice'),
+      t('settings.amrBenefitManyModels'),
+    ];
+    const revealPendingCancelAction =
+      hoveredAgentCardId === a.id &&
+      amrCardStatus?.loggedIn !== true &&
+      amrCardStatus?.loginInFlight === true;
+    return (
+      <div
+        key={a.id}
+        ref={amrCardRef}
+        className={
+          'agent-card agent-card-installed agent-card-amr-recommend-card' +
+          (active ? ' active' : '') +
+          (amrHighlightActive ? ' agent-card--amr-highlight' : '')
+        }
+        onMouseEnter={() => setHoveredAgentCardId(a.id)}
+        onMouseLeave={() => {
+          if (hoveredAgentCardId === a.id) setHoveredAgentCardId(null);
+        }}
+      >
+        <div className="agent-card-main">
+          <button
+            type="button"
+            className="agent-card-select"
+            onClick={() => {
+              trackSettingsLocalCliClick(analytics.track, {
+                page_name: 'settings',
+                area: 'configure_execution_mode_local_cli',
+                element: 'cli_provider',
+                cli_provider_id: agentIdToTracking(a.id),
+                install_status: 'not_installed',
+              });
+              setCfg((c) => ({ ...c, agentId: a.id }));
+            }}
+            aria-pressed={active}
+          >
+            <AgentIcon id={a.id} size={32} />
+            <div className="agent-card-body">
+              <div className="agent-card-name agent-card-name--amr">
+                <span className="agent-card-title">{agentName}</span>
+                <span className="agent-card-benefits" aria-hidden="true">
+                  {amrBenefits.map((benefit) => (
+                    <span key={benefit} className="agent-card-benefit">
+                      {benefit}
+                    </span>
+                  ))}
+                </span>
+              </div>
+            </div>
+          </button>
+          {amrCardStatusReady ? (
+            <span
+              className="amr-auth-anchor"
+              onMouseEnter={() => setAmrCoachmarkDismissed(true)}
+            >
+              {amrCoachmarkArmed &&
+              amrCardStatus?.loggedIn === false &&
+              !amrCoachmarkDismissed ? (
+                <span className="amr-coachmark" aria-hidden="true">
+                  <span className="amr-coachmark__ring" />
+                  <svg
+                    className="amr-coachmark__cursor"
+                    width="22"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M9.4 13V8a1.8 1.8 0 0 1 3.6 0v4.6c.35-.55 1-.95 1.75-.95.65 0 1.25.32 1.6.85.32-.5.9-.8 1.55-.8.8 0 1.5.5 1.78 1.2.35-.3.8-.5 1.3-.5 1.1 0 2 .9 2 2v3.05a5.6 5.6 0 0 1-5.6 5.6h-2.5a5 5 0 0 1-3.75-1.7l-4.2-4.75a1.85 1.85 0 0 1 2.65-2.6L9.4 16Z"
+                      fill="#fff"
+                      stroke="#1a1a1a"
+                      strokeWidth="1.1"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+              ) : null}
+              <AmrLoginPill
+                className="agent-card-amr-auth"
+                hideSignedOutStatus
+                hideSignedInStatus
+                initialStatus={amrCardStatus}
+                skipInitialRefresh
+                signInLabel={t('settings.amrAuthorize')}
+                showConsoleAction={amrCardStatus?.loggedIn === true}
+                revealPendingCancelAction={revealPendingCancelAction}
+                onStatusChange={setAmrCardStatus}
+              />
+            </span>
+          ) : (
+            <div
+              className="agent-card-amr-auth agent-card-amr-auth--placeholder"
+              aria-hidden="true"
+            />
+          )}
+        </div>
+        {/* No detection-diagnostic region here: AMR reads as the recommended
+            hosted runtime (chips + sign-in), not as a broken CLI. Enablement is
+            driven by the Authorize pill, so the "vela not found" PATH noise is
+            intentionally omitted from the recommendation card. */}
       </div>
     );
   };
@@ -3224,7 +3364,7 @@ export function SettingsDialog({
                 <>
                   {amrRecommendation && installedAgents.length === 0 ? (
                     <div className="agent-amr-recommend">
-                      {renderInstallableCard(amrRecommendation)}
+                      {renderAmrRecommendCard(amrRecommendation)}
                     </div>
                   ) : null}
                   {/* With nothing installed, a "Your CLIs (0)" header + empty
@@ -3582,7 +3722,7 @@ export function SettingsDialog({
                   ) : null}
                   {amrRecommendation && installedAgents.length > 0 ? (
                     <div className="agent-amr-recommend">
-                      {renderInstallableCard(amrRecommendation)}
+                      {renderAmrRecommendCard(amrRecommendation)}
                     </div>
                   ) : null}
                   {unavailableAgents.length > 0 ? (
