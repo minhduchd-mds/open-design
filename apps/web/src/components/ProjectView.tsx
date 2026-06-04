@@ -5158,6 +5158,7 @@ export function ProjectView({
               newConversationDisabled={newConversationDisabled}
               conversations={conversations}
               activeConversationId={activeConversationId}
+              messagesConversationId={messagesConversationId}
               onSelectConversation={handleSelectConversation}
               onDeleteConversation={handleDeleteConversation}
               onOpenSettings={onOpenSettings}
