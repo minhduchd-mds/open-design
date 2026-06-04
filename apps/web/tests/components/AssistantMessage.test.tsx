@@ -209,6 +209,35 @@ describe('AssistantMessage feedback gate', () => {
   });
 });
 
+describe('AssistantMessage re-renders on live tool input changes', () => {
+  it('updates the streaming card when only liveToolInput changes (memo includes it)', () => {
+    // Same message object across renders — only liveToolInput differs, the way
+    // a burst of tool_input_delta arrives. The memo comparator must compare
+    // liveToolInput or the card freezes at its first frame.
+    const message = baseMessage({ content: '', runStatus: 'running', endedAt: undefined, events: [] });
+    const { container, rerender } = render(
+      <AssistantMessage
+        message={message}
+        streaming
+        projectId="proj-1"
+        liveToolInput={{ t1: { name: 'AskUserQuestion', text: '{"questions":[{"question":"Which databa","options":[]}]}', seq: 0 } }}
+      />,
+    );
+    expect(container.querySelector('.op-ask-question-prompt')?.textContent).toBe('Which databa');
+
+    rerender(
+      <AssistantMessage
+        message={message}
+        streaming
+        projectId="proj-1"
+        liveToolInput={{ t1: { name: 'AskUserQuestion', text: '{"questions":[{"question":"Which database?","options":[]}]}', seq: 0 } }}
+      />,
+    );
+    // Re-rendered to the grown prompt rather than frozen at "Which databa".
+    expect(container.querySelector('.op-ask-question-prompt')?.textContent).toBe('Which database?');
+  });
+});
+
 describe('AssistantMessage status badge updates (Bug A)', () => {
   // Regression coverage for the model-badge stale-detail bug. ACP agents
   // emit two `status: 'model'` events per turn:

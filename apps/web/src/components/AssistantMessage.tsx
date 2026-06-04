@@ -360,6 +360,11 @@ const ASSISTANT_MESSAGE_COMPARED_PROPS: Array<keyof Props> = [
   'forking',
   'suppressDirectionForms',
   'hasDesignSystemContext',
+  // Live streaming tool input changes identity on every `tool_input_delta`.
+  // ChatPane passes it only to the streaming row (undefined elsewhere), so
+  // comparing it re-renders just that row as the card grows — without it the
+  // memo swallows the deltas and the card only updates on the final tool_use.
+  'liveToolInput',
 ];
 
 function areAssistantMessagePropsEqual(prev: Props, next: Props): boolean {
