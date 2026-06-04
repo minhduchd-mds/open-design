@@ -97,7 +97,7 @@ describe('PreviewDrawOverlay', () => {
     expect(toolbar?.style.maxWidth).toContain('100% - 144px');
     expect(toolCluster?.style.flex).toBe('0 0 auto');
     expect(noteActions?.style.flex).toBe('1 1 360px');
-    expect(noteActions?.style.minWidth).toBe('300px');
+    expect(noteActions?.style.minWidth).toBe('0px');
     expect(noteActions?.style.maxWidth).toBe('412px');
     expect(input?.style.flexGrow).toBe('1');
     expect(input?.style.flexShrink).toBe('1');

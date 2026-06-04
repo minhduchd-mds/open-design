@@ -1172,7 +1172,7 @@ const drawToolbarNoteActionsStyle: CSSProperties = {
   justifyContent: 'center',
   gap: 8,
   flex: '1 1 360px',
-  minWidth: 300,
+  minWidth: 0,
   maxWidth: 412,
 };
 
