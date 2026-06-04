@@ -106,6 +106,11 @@ describe('visual validation atom runner', () => {
       expect(result.report.message).toContain('playwright launch failed');
       expect(result.signals['preview.ok']).toBe(false);
       expect(result.signals['critique.score']).toBe(1);
+
+      const reportPath = path.join(cwd, 'critique', 'visual-validation', 'report.json');
+      const saved = JSON.parse(await readFile(reportPath, 'utf8')) as { status?: string; message?: string };
+      expect(saved.status).toBe('failed');
+      expect(saved.message).toContain('playwright launch failed');
     } finally {
       await rm(cwd, { recursive: true, force: true });
     }

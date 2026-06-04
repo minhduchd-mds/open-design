@@ -3,7 +3,7 @@ import { promises as fsp } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import pixelmatch from 'pixelmatch';
 import { PNG } from 'pngjs';
-import { chromium, type Page, type ViewportSize } from 'playwright';
+import { type Page, type ViewportSize } from 'playwright';
 import { detectEntryFile } from '../../projects.js';
 import type { UntilSignals } from '../until.js';
 
@@ -69,6 +69,7 @@ export async function runVisualValidation(
 ): Promise<{ report: VisualValidationReport; signals: UntilSignals }> {
   const cwd = path.resolve(input.cwd);
   const entryFile = input.entryFile ?? await detectEntryFile(cwd);
+  let outputDir: string | null = null;
   if (!entryFile) {
     return {
       report: {
@@ -97,7 +98,7 @@ export async function runVisualValidation(
       };
     }
 
-    const outputDir = path.join(cwd, 'critique', 'visual-validation');
+    outputDir = path.join(cwd, 'critique', 'visual-validation');
     await fsp.mkdir(outputDir, { recursive: true });
     let best: VisualValidationComparison | null = null;
     for (const [index, referencePath] of referenceImages.entries()) {
@@ -129,16 +130,12 @@ export async function runVisualValidation(
     }
 
     if (!best) {
-      return {
-        report: {
-          status: 'failed',
-          entryFile,
-          message: 'visual validation failed before any comparisons completed',
-          comparedAt: new Date().toISOString(),
-          comparison: null,
-        },
-        signals: { 'preview.ok': false, 'critique.score': 1 },
-      };
+      const failure = buildFailedVisualValidationResult(
+        entryFile,
+        'visual validation failed before any comparisons completed',
+      );
+      await writeVisualValidationArtifacts(outputDir, failure.report);
+      return failure;
     }
 
     const similarity = best.similarity;
@@ -159,16 +156,14 @@ export async function runVisualValidation(
       },
     };
   } catch (error) {
-    return {
-      report: {
-        status: 'failed',
-        entryFile,
-        message: `visual validation failed: ${formatVisualValidationError(error)}`,
-        comparedAt: new Date().toISOString(),
-        comparison: null,
-      },
-      signals: { 'preview.ok': false, 'critique.score': 1 },
-    };
+    const failure = buildFailedVisualValidationResult(
+      entryFile,
+      `visual validation failed: ${formatVisualValidationError(error)}`,
+    );
+    if (outputDir) {
+      await writeVisualValidationArtifacts(outputDir, failure.report).catch(() => {});
+    }
+    return failure;
   }
 }
 
@@ -244,6 +239,7 @@ async function comparePngs(input: {
 }
 
 async function captureWithPlaywright(input: VisualValidationCaptureInput): Promise<void> {
+  const { chromium } = await import('playwright');
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: input.viewport, deviceScaleFactor: 1 });
@@ -251,7 +247,7 @@ async function captureWithPlaywright(input: VisualValidationCaptureInput): Promi
     await page.goto(input.entryUrl, { waitUntil: 'networkidle' });
     await page.screenshot({
       path: input.outputPath,
-      fullPage: true,
+      fullPage: false,
       animations: 'disabled',
       caret: 'hide',
     });
@@ -314,6 +310,22 @@ async function writeVisualValidationArtifacts(
     }
   }
   await fsp.writeFile(path.join(outputDir, 'summary.md'), lines.join('\n') + '\n', 'utf8');
+}
+
+function buildFailedVisualValidationResult(
+  entryFile: string | null,
+  message: string,
+): { report: VisualValidationReport; signals: UntilSignals } {
+  return {
+    report: {
+      status: 'failed',
+      entryFile,
+      message,
+      comparedAt: new Date().toISOString(),
+      comparison: null,
+    },
+    signals: { 'preview.ok': false, 'critique.score': 1 },
+  };
 }
 
 async function resolveReferenceImages(
