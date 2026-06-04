@@ -1,6 +1,5 @@
 import { execFile } from "node:child_process";
 import { createHmac, randomBytes } from "node:crypto";
-import { readFileSync } from "node:fs";
 import { appendFile, mkdir, realpath, stat, writeFile } from "node:fs/promises";
 import { release } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
@@ -20,6 +19,7 @@ import type { OpenDesignHostActionResult, OpenDesignHostCaptureResult, OpenDesig
 
 import { openValidatedDirectory } from "./open-path.js";
 import { createElectronPdfTarget, exportPdfFromHtml, savePrintReadyDocumentAsPdf } from "./pdf-export.js";
+import { SPLASH_VIDEO_DATA_URL } from "./splash-video.js";
 import type { PrintReadyPdfOptions } from "./pdf-export.js";
 import type { DesktopUpdater } from "./updater.js";
 
@@ -220,6 +220,12 @@ export function signDesktopImportToken(
 
 const PENDING_POLL_MS = 120;
 const RUNNING_POLL_MS = 2000;
+// Minimum time the white splash video stays on screen before we swap in the web
+// runtime. It is sized to outlast the ~1.7s clip so the brand animation always
+// plays through and the window never flips to the app mid-animation. If the web
+// runtime is not ready by then, the <video> simply holds on its final frame (it
+// does not loop) until discovery succeeds. See `createPendingHtml`.
+const MIN_SPLASH_MS = 2000;
 const MAX_CONSOLE_ENTRIES = 200;
 const DESKTOP_PET_WINDOW_WIDTH = 360;
 const DESKTOP_PET_WINDOW_HEIGHT = 300;
@@ -757,46 +763,60 @@ const MAC_WINDOW_CHROME_CSS = `
   }
 `;
 
+// White-background startup splash shown while the web runtime boots. It plays
+// the brand intro clip once (no loop) and then freezes on its final settled
+// "Open design" frame, which doubles as the hold state when the app takes longer
+// than `MIN_SPLASH_MS` to come up. The clip is embedded as a base64 data URL so
+// it renders identically in dev and in packaged builds (see `splash-video.ts`).
 function createPendingHtml(): string {
-  const logoDataUrl = getDesktopIconDataUrl();
   return `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html>
 <html>
   <head>
+    <meta charset="utf-8" />
     <title>Open Design</title>
     <style>
+      html,
+      body {
+        background: #ffffff;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+      }
       body {
         align-items: center;
-        background: #05070d;
-        color: #f7f7fb;
         display: flex;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        height: 100vh;
         justify-content: center;
-        margin: 0;
       }
-      main {
-        align-items: center;
-        display: flex;
-        flex-direction: column;
-        text-align: center;
+      video {
+        background: #ffffff;
+        height: auto;
+        max-height: 100%;
+        max-width: 100%;
+        width: auto;
       }
-      img {
-        border-radius: 34%;
-        display: block;
-        height: 72px;
-        object-fit: cover;
-        width: 72px;
-      }
-      h1 { margin: 18px 0 0; }
-      p { color: #aeb7d5; margin: 12px 0 0; }
     </style>
   </head>
   <body>
-    <main>
-      ${logoDataUrl ? `<img src="${logoDataUrl}" alt="" />` : ""}
-      <h1>Open Design</h1>
-      <p>Waiting for the web runtime URL…</p>
-    </main>
+    <video
+      id="splash"
+      autoplay
+      muted
+      playsinline
+      disablepictureinpicture
+      src="${SPLASH_VIDEO_DATA_URL}"
+    ></video>
+    <script>
+      (function () {
+        var video = document.getElementById("splash");
+        if (!video) return;
+        var play = function () {
+          var attempt = video.play();
+          if (attempt && typeof attempt.catch === "function") attempt.catch(function () {});
+        };
+        video.addEventListener("loadeddata", play);
+        play();
+      })();
+    </script>
   </body>
 </html>`)}`;
 }
@@ -810,14 +830,6 @@ function applyDockIcon(): void {
   const icon = nativeImage.createFromPath(resolveDesktopIconPath());
   if (icon.isEmpty()) return;
   app.dock.setIcon(icon);
-}
-
-function getDesktopIconDataUrl(): string | null {
-  try {
-    return `data:image/png;base64,${readFileSync(resolveDesktopIconPath()).toString("base64")}`;
-  } catch {
-    return null;
-  }
 }
 
 function normalizeScreenshotPath(filePath: string): string {
@@ -1710,6 +1722,7 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
     void persistRendererEntry(entry);
   });
 
+  const splashStartedAt = Date.now();
   await window.loadURL(createPendingHtml());
   showWindowButtons(window);
   ensureWindowVisible(window);
@@ -1726,7 +1739,14 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
 
     try {
       const url = await options.discoverUrl();
-      if (url != null && url !== currentUrl) {
+      // Keep the white splash video on screen until it has had time to play
+      // through (MIN_SPLASH_MS), so the window never flips to the web app
+      // mid-animation. Only the first swap into the runtime is gated; once we
+      // have loaded a real URL, later reloads are immediate. When the runtime is
+      // still booting past the hold window the <video> just freezes on its final
+      // frame until discovery succeeds.
+      const splashHold = currentUrl == null && Date.now() - splashStartedAt < MIN_SPLASH_MS;
+      if (url != null && url !== currentUrl && !splashHold) {
         pendingUrl = url;
         await window.loadURL(url);
         currentUrl = url;
@@ -1737,10 +1757,14 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
           await petWindow.loadURL(nextPetUrl);
           currentPetUrl = nextPetUrl;
         }
-      } else if (url == null) {
+      } else if (url != null && currentUrl == null) {
+        // URL is ready but we are still inside the splash hold — surface it as
+        // pending so the swap fires the moment the hold elapses.
+        pendingUrl = url;
+      } else {
         pendingUrl = null;
       }
-      schedule(url == null ? PENDING_POLL_MS : RUNNING_POLL_MS);
+      schedule(currentUrl == null ? PENDING_POLL_MS : RUNNING_POLL_MS);
     } catch (error) {
       pendingUrl = null;
       console.error("desktop web discovery failed", error);
