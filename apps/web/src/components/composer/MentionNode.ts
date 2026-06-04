@@ -7,7 +7,7 @@ import {
   type Spread,
 } from 'lexical';
 import type { InlineMentionEntity, InlineMentionKind } from '../../utils/inlineMentions';
-import { connectorBrandColor } from '../../utils/connectorBrandColor';
+import { connectorBrandColor, resolveBrandTheme } from '../../utils/connectorBrandColor';
 
 // The atomic @mention node. It extends TextNode so the node's *text* remains
 // the literal `@token` and serialization back to the wire format is free:
@@ -124,11 +124,16 @@ export class MentionNode extends TextNode {
   }
 
   // Connector pills get a per-connector brand color instead of the shared
-  // green `--m-hue`, so e.g. Notion reads black and Figma purple. Other kinds
-  // keep their CSS-driven hue (we clear any stale inline value).
+  // green `--m-hue`, so e.g. Notion reads black and Figma purple. The hue is
+  // resolved against the live theme so near-black brands stay readable in dark
+  // mode (see connectorBrandColor). Other kinds keep their CSS-driven hue (we
+  // clear any stale inline value).
   private applyBrandHue(dom: HTMLElement): void {
     if (this.__mentionKind === 'connector') {
-      const hue = connectorBrandColor({ id: this.__mentionId, name: this.__label });
+      const hue = connectorBrandColor(
+        { id: this.__mentionId, name: this.__label },
+        resolveBrandTheme(),
+      );
       dom.style.setProperty('--m-hue', hue);
     } else {
       dom.style.removeProperty('--m-hue');
