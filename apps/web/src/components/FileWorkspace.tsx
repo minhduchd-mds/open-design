@@ -1687,9 +1687,24 @@ export function FileWorkspace({
 
   const isActiveSketch = activeFile?.kind === 'sketch' && isSketchName(activeFile.name);
   const activeSketch = activeFile && isActiveSketch ? sketches[activeFile.name] : null;
+  // The design-files tab is the default landing tab, so while a run is in
+  // flight and no previewable artifact exists yet the progress card must take
+  // over its empty "Creations will appear here" state rather than leave an idle
+  // empty list. (Pre-#3516 the preview branch rendered before the design-files
+  // branch with no tab guard; the composer rewrite added an `activeTab !==
+  // DESIGN_FILES_TAB` clause here that hid the progress card on the default
+  // tab.) But the override is scoped to the *empty* design-files tab: a
+  // populated project keeps its file browser while generating. The condition
+  // mirrors DesignFilesPanel's own empty-state gate exactly (no files, no live
+  // artifacts, no folders), so the card only wins where the panel would have
+  // shown its empty placeholder.
+  const designFilesTabIsEmpty =
+    visibleFiles.length === 0
+    && liveArtifactEntries.length === 0
+    && projectFolders.length === 0;
   const showGenerationPreview = Boolean(generationPreview)
-    && activeTab !== DESIGN_FILES_TAB
     && activeTab !== DESIGN_SYSTEM_TAB
+    && (activeTab !== DESIGN_FILES_TAB || designFilesTabIsEmpty)
     && !isBrowserTabId(activeTab)
     && !isSideChatTabId(activeTab)
     && !isTerminalTabId(activeTab)
