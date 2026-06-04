@@ -573,6 +573,7 @@ describe("packaged smoke workflow", () => {
           AWS_ACCESS_KEY_ID: "test-access-key",
           AWS_DEFAULT_REGION: "auto",
           AWS_SECRET_ACCESS_KEY: "test-secret-key",
+          ASSET_VERSION_SUFFIX: "auto",
           BASE_VERSION: "1.2.3",
           BRANCH_NAME: "codex/release-beta-s-mac-arm64",
           CLOUDFLARE_R2_RELEASES_BUCKET: fixture.bucket,
