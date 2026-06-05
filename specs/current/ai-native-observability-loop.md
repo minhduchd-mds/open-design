@@ -5,10 +5,10 @@
 Define the target observability loop that lets Open Design improve agent
 quality, reliability, latency, and cost from production evidence.
 
-This is a planning spec. It does not implement runtime behavior. It connects the
-existing Langfuse trace forwarding, PostHog run analytics, datasets,
-experiments, annotation, and release gates into one product and engineering
-loop.
+This is a planning spec. It does not implement runtime behavior. It starts from
+the existing Langfuse trace forwarding and PostHog run analytics, then defines
+the target loop that adds datasets, experiments, annotation, and release gates
+around those signals.
 
 Issue: [#3713](https://github.com/nexu-io/open-design/issues/3713)
 
@@ -108,8 +108,10 @@ semantic task stages so humans and agents can diagnose by product intent.
 
 ### Score Model
 
-Every eligible run should receive automatic scores where the signal can be
-computed safely:
+An eligible run is a terminal, non-test agent run with enough trace metadata to
+identify trace id, task kind, agent, model, final status, and timing/token
+baselines. Each eligible run should receive automatic scores where the signal can
+be computed safely:
 
 | Score | Meaning |
 | --- | --- |
@@ -122,6 +124,26 @@ computed safely:
 | `cost_bucket` | Cost/token use relative to task kind and model baseline. |
 | `latency_bucket` | Latency relative to task kind and agent/model baseline. |
 | `user_rating` | Human end-user feedback, already reported from the UI. |
+
+Score applicability must be explicit so dashboards and datasets do not confuse
+not-applicable scores with failures or evaluator gaps. When a score does not
+apply, Open Design should not write a score value; it should record
+`score_applicability.<score> = "not_applicable"`. When a score applies but cannot
+be computed because required trace fields or evaluator inputs are missing, it
+should record `score_applicability.<score> = "insufficient_signal"` and treat the
+missing score as an observability gap, not as a failed run.
+
+| Score | Applies to |
+| --- | --- |
+| `task_success` | All eligible user-facing and scheduled agent runs with a terminal result. |
+| `artifact_valid` | Artifact-producing tasks that create, edit, export, or inspect project files with a required manifest or file contract. |
+| `preview_ok` | Artifact-producing tasks whose primary output has a supported preview renderer. |
+| `user_request_covered` | User-facing tasks with a natural-language request and terminal output to compare. |
+| `design_quality` | Visual, product, deck, prototype, image, video, audio, or document outputs with an applicable rubric. |
+| `stability_risk` | All eligible runs. |
+| `cost_bucket` | All eligible runs with model and token metadata. |
+| `latency_bucket` | All eligible runs with timing metadata. |
+| `user_rating` | Runs where the user submitted explicit feedback. |
 
 Automatic scores should start conservative. Deterministic evaluators are
 preferred before LLM-as-judge. Human feedback and annotation can later calibrate
@@ -264,6 +286,18 @@ Loop health:
   are treated as durable wins.
 - Gate releases on quality not regressing while reliability, latency, or cost
   improves.
+
+The release gate should use a fixed comparator so the same experiment result
+produces the same pass/fail decision across implementations:
+
+| Gate field | Rule |
+| --- | --- |
+| Baseline comparator | Compare the candidate against the latest approved release on the fixed dataset for each affected task kind. If no fixed dataset exists yet, compare against the last 14 days of production traces promoted into the baseline window and block shipping until a maintainer approves that provisional baseline. |
+| Blocking quality metrics | `task_success`, `user_request_covered`, and applicable `artifact_valid` / `preview_ok` / `design_quality`. Any blocking quality metric regressing by more than 1 percentage point, or producing one additional critical artifact failure in a fixed regression dataset, blocks the release. |
+| Blocking reliability metrics | Terminal failure rate, unknown failure share, retryable failure share, and retry success rate. A candidate fails if terminal or unknown failures increase by more than 1 percentage point, or if retry success drops by more than 2 percentage points. |
+| Blocking latency and cost metrics | P90 total duration and total token or calculated cost by task kind. A candidate fails if either P90 latency or cost increases by more than 5% without an explicit human-approved quality tradeoff. |
+| Advisory metrics | P50 latency, P99 latency, cache hit ratio, annotation throughput, dataset growth, and user rating volume. These must be reported with the gate result but do not block by themselves. |
+| Improvement threshold | A candidate qualifies as an improvement only when all blocking metrics pass and at least one blocking reliability, latency, or cost metric improves by 5% or more, or one documented failure category is eliminated on the fixed regression dataset. |
 
 ### Slice 6: Agent-Operated Optimization Loop
 
