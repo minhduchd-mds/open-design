@@ -470,14 +470,23 @@ function validateDaemonRefreshRequiredInput(
   issues: LiveArtifactValidationIssue[],
 ): void {
   if (effectiveTool !== 'project_files.read_json') return;
-  const hasTarget = ['path', 'file', 'name'].some(
+  // Mirror selectJsonPath (refresh.ts): the first of path/file/name names the file.
+  const selectorKey = (['path', 'file', 'name'] as const).find(
     (key) => typeof input[key] === 'string' && (input[key] as string).trim().length > 0,
   );
-  if (!hasTarget) {
+  if (selectorKey === undefined) {
     issues.push({
       path: `${path}.path`,
       message: `${path}.path is required for project_files.read_json sources (or provide ${path}.file / ${path}.name)`,
     });
+    return;
+  }
+  // path and file already pass through validateSourceInputPaths' key filter, but
+  // name does not — yet selectJsonPath feeds it to validateProjectPath all the
+  // same. Validate the resolved name selector here so a traversal/absolute target
+  // is rejected at creation instead of persisting a source that only fails on refresh.
+  if (selectorKey === 'name') {
+    validateRelativePath(input[selectorKey] as string, `${path}.${selectorKey}`, issues);
   }
 }
 

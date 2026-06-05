@@ -326,6 +326,30 @@ describe('live artifact schema validation', () => {
     }
   });
 
+  it('rejects traversal and absolute project_files.read_json name selectors', () => {
+    for (const name of ['../secrets.json', '/etc/passwd', 'C:\\secrets.json', '\\etc\\passwd']) {
+      const result = validateLiveArtifactCreateInput({
+        ...validCreateInput(),
+        document: {
+          ...validCreateInput().document,
+          sourceJson: {
+            type: 'local_file',
+            toolName: 'project_files.read_json',
+            input: { name },
+            refreshPermission: 'manual_refresh_granted_for_read_only',
+          },
+        },
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.issues).toEqual(expect.arrayContaining([
+          expect.objectContaining({ path: 'input.document.sourceJson.input.name' }),
+        ]));
+      }
+    }
+  });
+
   it('rejects oversized bounded JSON payloads', () => {
     const oversized = Object.fromEntries(Array.from({ length: 100 }, (_, index) => [`field${index}`, 'x'.repeat(3_000)]));
     const result = validateBoundedJsonObject(oversized, 'data');
