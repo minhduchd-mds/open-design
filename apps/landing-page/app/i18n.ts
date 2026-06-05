@@ -825,6 +825,7 @@ export interface LandingUiCopy {
     rss: string;
     sisterProjects: string;
     htmlAnything: string;
+    htmlVideo: string;
     nexuIo: string;
     bottomLeft: string;
     bottomRight: string;
@@ -3271,6 +3272,7 @@ const LANDING_UI_COPY: LandingUiCopy = {
     rss: 'RSS',
     sisterProjects: 'Sister projects',
     htmlAnything: 'HTML Anything',
+    htmlVideo: 'HTML Video',
     nexuIo: 'nexu.io',
     bottomLeft: '● Open Design · Apache-2.0 · 2026 / Volume 01 / Issue Nº 26',
     bottomRight: 'Berlin / Open / Earth · 52.5200° N · 13.4050° E',
@@ -3556,6 +3558,7 @@ const LANDING_UI_COPY_OVERRIDES: Partial<
       rss: 'RSS',
       sisterProjects: '姊妹项目',
       htmlAnything: 'HTML Anything',
+      htmlVideo: 'HTML Video',
       nexuIo: 'nexu.io',
       bottomLeft: '● Open Design · Apache-2.0 · 2026 / 第 01 卷 / 第 26 期',
       bottomRight: '柏林 / 开放 / 地球 · 52.5200° N · 13.4050° E',
@@ -3837,6 +3840,7 @@ const LANDING_UI_COPY_OVERRIDES: Partial<
       rss: 'RSS',
       sisterProjects: '姊妹專案',
       htmlAnything: 'HTML Anything',
+      htmlVideo: 'HTML Video',
       nexuIo: 'nexu.io',
       bottomLeft: '● Open Design · Apache-2.0 · 2026 / 第 01 卷 / 第 26 期',
       bottomRight: '柏林 / 開放 / 地球 · 52.5200° N · 13.4050° E',
@@ -4543,6 +4547,7 @@ const LOCALIZED_LANDING_FOOTER_COPY: Partial<
     xTwitter: 'X / Twitter',
     sisterProjects: '姉妹プロジェクト',
     htmlAnything: 'HTML Anything',
+    htmlVideo: 'HTML Video',
     nexuIo: 'nexu.io',
   },
   ko: {
@@ -4568,6 +4573,7 @@ const LOCALIZED_LANDING_FOOTER_COPY: Partial<
     xTwitter: 'X / Twitter',
     sisterProjects: '자매 프로젝트',
     htmlAnything: 'HTML Anything',
+    htmlVideo: 'HTML Video',
     nexuIo: 'nexu.io',
   },
   de: {
@@ -4593,6 +4599,7 @@ const LOCALIZED_LANDING_FOOTER_COPY: Partial<
     xTwitter: 'X / Twitter',
     sisterProjects: 'Schwesterprojekte',
     htmlAnything: 'HTML Anything',
+    htmlVideo: 'HTML Video',
     nexuIo: 'nexu.io',
   },
   fr: {
@@ -4618,6 +4625,7 @@ const LOCALIZED_LANDING_FOOTER_COPY: Partial<
     xTwitter: 'X / Twitter',
     sisterProjects: 'Projets sœurs',
     htmlAnything: 'HTML Anything',
+    htmlVideo: 'HTML Video',
     nexuIo: 'nexu.io',
   },
   ru: {
@@ -4643,6 +4651,7 @@ const LOCALIZED_LANDING_FOOTER_COPY: Partial<
     xTwitter: 'X / Twitter',
     sisterProjects: 'Родственные проекты',
     htmlAnything: 'HTML Anything',
+    htmlVideo: 'HTML Video',
     nexuIo: 'nexu.io',
   },
   es: {
@@ -4668,6 +4677,7 @@ const LOCALIZED_LANDING_FOOTER_COPY: Partial<
     xTwitter: 'X / Twitter',
     sisterProjects: 'Proyectos relacionados',
     htmlAnything: 'HTML Anything',
+    htmlVideo: 'HTML Video',
     nexuIo: 'nexu.io',
   },
   'pt-br': {
@@ -4693,6 +4703,7 @@ const LOCALIZED_LANDING_FOOTER_COPY: Partial<
     xTwitter: 'X / Twitter',
     sisterProjects: 'Projetos irmãos',
     htmlAnything: 'HTML Anything',
+    htmlVideo: 'HTML Video',
     nexuIo: 'nexu.io',
   },
   it: {
@@ -4718,6 +4729,7 @@ const LOCALIZED_LANDING_FOOTER_COPY: Partial<
     xTwitter: 'X / Twitter',
     sisterProjects: 'Progetti correlati',
     htmlAnything: 'HTML Anything',
+    htmlVideo: 'HTML Video',
     nexuIo: 'nexu.io',
   },
   vi: {
@@ -4743,6 +4755,7 @@ const LOCALIZED_LANDING_FOOTER_COPY: Partial<
     xTwitter: 'X / Twitter',
     sisterProjects: 'Dự án liên quan',
     htmlAnything: 'HTML Anything',
+    htmlVideo: 'HTML Video',
     nexuIo: 'nexu.io',
   },
   pl: {
@@ -4768,6 +4781,7 @@ const LOCALIZED_LANDING_FOOTER_COPY: Partial<
     xTwitter: 'X / Twitter',
     sisterProjects: 'Projekty siostrzane',
     htmlAnything: 'HTML Anything',
+    htmlVideo: 'HTML Video',
     nexuIo: 'nexu.io',
   },
   id: {
@@ -4793,6 +4807,7 @@ const LOCALIZED_LANDING_FOOTER_COPY: Partial<
     xTwitter: 'X / Twitter',
     sisterProjects: 'Proyek terkait',
     htmlAnything: 'HTML Anything',
+    htmlVideo: 'HTML Video',
     nexuIo: 'nexu.io',
   },
   nl: {
@@ -4818,6 +4833,7 @@ const LOCALIZED_LANDING_FOOTER_COPY: Partial<
     xTwitter: 'X / Twitter',
     sisterProjects: 'Zusterprojecten',
     htmlAnything: 'HTML Anything',
+    htmlVideo: 'HTML Video',
     nexuIo: 'nexu.io',
   },
   ar: {
@@ -4843,6 +4859,7 @@ const LOCALIZED_LANDING_FOOTER_COPY: Partial<
     xTwitter: 'X / Twitter',
     sisterProjects: 'المشاريع الشقيقة',
     htmlAnything: 'HTML Anything',
+    htmlVideo: 'HTML Video',
     nexuIo: 'nexu.io',
   },
   tr: {
@@ -4866,6 +4883,7 @@ const LOCALIZED_LANDING_FOOTER_COPY: Partial<
     rss: 'RSS',
     sisterProjects: 'Kardeş projeler',
     htmlAnything: 'HTML Anything',
+    htmlVideo: 'HTML Video',
     nexuIo: 'nexu.io',
     bottomLeft: '● Open Design · Apache-2.0 · 2026 / Cilt 01 / Sayı Nº 26',
     bottomRight: 'Berlin / Açık / Dünya · 52.5200° N · 13.4050° E',
@@ -4891,6 +4909,7 @@ const LOCALIZED_LANDING_FOOTER_COPY: Partial<
     rss: 'RSS',
     sisterProjects: "Пов'язані проєкти",
     htmlAnything: 'HTML Anything',
+    htmlVideo: 'HTML Video',
     nexuIo: 'nexu.io',
     bottomLeft: '● Open Design · Apache-2.0 · 2026 / Том 01 / Випуск № 26',
     bottomRight: 'Берлін / Відкрито / Земля · 52.5200° N · 13.4050° E',
