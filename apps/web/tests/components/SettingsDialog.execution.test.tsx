@@ -2122,6 +2122,81 @@ describe('SettingsDialog execution settings Local CLI interactions', () => {
     ).toBeTruthy();
   });
 
+  it('shows non-PATH installable diagnostics immediately with fix actions', async () => {
+    const docsUrl = 'https://docs.example.com/gemini-cli';
+    const installUrl = 'https://github.com/google-gemini/gemini-cli';
+    const invalidOverrideMessage =
+      'GEMINI_BIN points at /tmp/gemini, but that file is not executable.';
+    const notOnPathMessage = 'Gemini CLI was not found on your PATH.';
+    const unavailable: AgentInfo = {
+      id: 'gemini',
+      name: 'Gemini CLI',
+      bin: 'gemini',
+      available: false,
+      version: null,
+      models: [],
+      docsUrl,
+      installUrl,
+      diagnostics: [
+        {
+          reason: 'configured-bin-invalid',
+          severity: 'error',
+          message: invalidOverrideMessage,
+          fixActions: [
+            { kind: 'openDocs' },
+            { kind: 'openInstall' },
+            { kind: 'rescan' },
+          ],
+        },
+        {
+          reason: 'not-on-path',
+          severity: 'error',
+          message: notOnPathMessage,
+          fixActions: [{ kind: 'rescan' }],
+        },
+      ],
+    };
+    const onRefreshAgents = vi.fn(async () => [availableAgents[0]!, unavailable]);
+
+    renderSettingsDialog(
+      { mode: 'daemon', agentId: 'codex' },
+      { agents: [availableAgents[0]!, unavailable], onRefreshAgents },
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: /Local CLI.*1 installed/i }));
+    fireEvent.click(screen.getByText('Available to install (1)'));
+
+    expect(screen.getByText(invalidOverrideMessage)).toBeTruthy();
+    expect(screen.queryByText(notOnPathMessage)).toBeNull();
+
+    const geminiCard = screen
+      .getByText(invalidOverrideMessage)
+      .closest('.agent-card') as HTMLElement;
+    fireEvent.click(
+      within(geminiCard).getByRole('button', {
+        name: en['settings.agentInstall.docs'],
+      }),
+    );
+    expect(openExternalUrlMock).toHaveBeenCalledWith(docsUrl);
+
+    fireEvent.click(
+      within(geminiCard).getByRole('button', {
+        name: en['settings.agentInstall.install'],
+      }),
+    );
+    expect(openExternalUrlMock).toHaveBeenLastCalledWith(installUrl);
+
+    fireEvent.click(
+      within(geminiCard).getByRole('button', { name: en['settings.rescan'] }),
+    );
+    await waitFor(() => {
+      expect(onRefreshAgents).toHaveBeenCalledWith({
+        throwOnError: true,
+        agentCliEnv: {},
+      });
+    });
+  });
+
   it('autosaves CLI config locations from the execution form', async () => {
     const { onPersist } = renderSettingsDialog(
       { mode: 'daemon', agentId: 'codex' },

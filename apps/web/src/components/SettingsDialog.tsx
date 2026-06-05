@@ -1076,10 +1076,9 @@ export function SettingsDialog({
   const [amrCardStatusReady, setAmrCardStatusReady] = useState(false);
   const [hoveredAgentCardId, setHoveredAgentCardId] = useState<string | null>(null);
   const [showAllInstallable, setShowAllInstallable] = useState(false);
-  // Installable cards stay clean by default — "not found on PATH" is obvious for
-  // a CLI the user hasn't installed. We only reveal the diagnostic for an agent
-  // the user has actually clicked Install/Docs on, so after they install and the
-  // auto-rescan still can't find it, the PATH hint is there to help debug.
+  // Installable cards stay clean by default for plain missing-on-PATH agents.
+  // Other unavailable states, like broken shims or invalid binary overrides,
+  // still surface immediately because their diagnostic is the recovery path.
   const [installIntentIds, setInstallIntentIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -2873,6 +2872,11 @@ export function SettingsDialog({
     const description = AGENT_SHORT_DESCRIPTIONS[a.id];
     const agentName = displayAgentName(a);
     const cardLabel = `${agentName} · ${t('common.notInstalled')}`;
+    const hasInstallIntent = installIntentIds.has(a.id);
+    const visibleDiagnostics = (a.diagnostics ?? []).filter(
+      (diagnostic) => hasInstallIntent || diagnostic.reason !== 'not-on-path',
+    );
+    const diagnosticHandlers = diagnosticHandlersForAgent(a);
     return (
       <div
         key={a.id}
@@ -2917,15 +2921,13 @@ export function SettingsDialog({
             </div>
           ) : null}
         </div>
-        {installIntentIds.has(a.id)
-          ? (a.diagnostics ?? []).map((diagnostic, i) => (
-              <AgentDiagnosticRow
-                key={`${diagnostic.reason}-${i}`}
-                diagnostic={diagnostic}
-                handlers={{ onRescan: () => void handleRefreshAgents() }}
-              />
-            ))
-          : null}
+        {visibleDiagnostics.map((diagnostic, i) => (
+          <AgentDiagnosticRow
+            key={`${diagnostic.reason}-${i}`}
+            diagnostic={diagnostic}
+            handlers={diagnosticHandlers}
+          />
+        ))}
       </div>
     );
   };
