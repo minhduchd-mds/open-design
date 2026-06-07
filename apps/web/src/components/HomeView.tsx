@@ -1289,9 +1289,10 @@ export function HomeView({
             editableInputNames: composer.editableFieldNames,
             preserveInputFields: true,
             // Media chips are a mode switch, just like Prototype and
-            // Slide deck: keep their inline model/ratio/duration options
-            // visible, but leave the textarea alone until the user picks
-            // a concrete template/preset or types their own prompt.
+            // Slide deck: they no longer surface inline model/ratio/duration
+            // settings (the agent asks for those during the run), and they
+            // leave the textarea alone until the user picks a concrete
+            // template/preset or types their own prompt.
             suppressPromptUpdate: true,
             replaceWithoutConfirmation: true,
           });
@@ -1751,9 +1752,10 @@ function homeHeroChipLabelForId(chipId: string, t: ReturnType<typeof useI18n>['t
 // no longer promoted into the home composer footer — the agent asks for those
 // via the first-turn discovery flow, so the prototype/deck footer keeps only
 // the design-system picker. Media surfaces (image/video/audio/hyperframes)
-// still surface their generation controls (model / ratio / resolution /
-// duration / audio type) in the footer, since that footer IS their primary
-// configuration UI and has no discovery-form equivalent.
+// now defer the same way: image/video keep only the design-system picker and
+// audio/hyperframes keep nothing, with model / ratio / resolution / duration /
+// audio type collected by the agent via AskUserQuestion during the run instead
+// of inline pre-flight controls.
 const ARTIFACT_FOOTER_FIELD_NAMES = new Set([
   'fidelity',
   'slideCount',
@@ -1780,10 +1782,9 @@ function stripArtifactFooterInputs(
 
 function footerInputNamesForChip(chipId: string | null): string[] {
   if (chipId === 'prototype' || chipId === 'deck') return ['designSystem'];
-  if (chipId === 'image') return ['designSystem', 'model', 'ratio', 'resolution'];
-  if (chipId === 'video') return ['designSystem', 'model', 'ratio', 'duration', 'resolution'];
-  if (chipId === 'audio') return ['audioType', 'model', 'duration'];
-  if (chipId === 'hyperframes') return ['ratio', 'duration'];
+  if (chipId === 'image' || chipId === 'video') return ['designSystem'];
+  // hyperframes / audio surface no pre-flight settings — the agent asks for
+  // ratio / duration / model / audio kind via AskUserQuestion during the run.
   return [];
 }
 
