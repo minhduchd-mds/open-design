@@ -169,6 +169,7 @@ async function main(): Promise<void> {
       currentVersion: activeConfig.appVersion,
       downloadRoot: paths.updateRoot,
       installerObservationRoot: paths.installerObservationRoot,
+      launcherLaunchPath: launcherRuntime.installedLaunchPath,
       launcherRoot: launcherRuntime.launcherPaths.root,
       launcherPayloadExtractorPath: activeConfig.resourceRoot == null ? null : join(activeConfig.resourceRoot, "bin", "7z.exe"),
       launcherRuntimePath: launcherRuntime.launcherPaths.runtimePath,

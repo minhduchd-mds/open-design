@@ -131,6 +131,7 @@ export type DesktopMainOptions = {
     currentVersion?: string | null;
     downloadRoot?: string | null;
     installerObservationRoot?: string | null;
+    launcherLaunchPath?: string | null;
     launcherRoot?: string | null;
     launcherPayloadExtractorPath?: string | null;
     launcherRuntimePath?: string | null;
@@ -397,6 +398,7 @@ export async function runDesktopMain(
       currentVersion: options.update?.currentVersion,
       downloadRoot: options.update?.downloadRoot,
       installerObservationRoot: options.update?.installerObservationRoot,
+      launcherLaunchPath: options.update?.launcherLaunchPath,
       launcherRoot: options.update?.launcherRoot,
       launcherPayloadExtractorPath: options.update?.launcherPayloadExtractorPath,
       launcherRuntimePath: options.update?.launcherRuntimePath,

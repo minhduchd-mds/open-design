@@ -64,9 +64,8 @@ describe("desktop updater host boundary", () => {
     expect(quitEnd).toBeGreaterThan(quitStart);
     const quitHandler = runtime.slice(quitStart, quitEnd);
     expect(quitHandler).toContain("status.installResult == null");
-    expect(quitHandler).toContain('status.artifact?.type === "payload"');
-    expect(quitHandler).toContain("app.relaunch()");
     expect(quitHandler).toContain("requestQuit");
+    expect(quitHandler).not.toContain("app.relaunch()");
     expect(quitHandler).not.toContain("installUpdate()");
   });
 });

@@ -36,11 +36,20 @@ type LauncherPayloadManifest = {
 export type PackagedLauncherRuntime = {
   config: PackagedConfig;
   descriptor: LauncherRuntimeDescriptor;
+  installedLaunchPath: string | null;
   launcherPaths: LauncherPaths;
   paths: PackagedNamespacePaths;
   selection: LauncherTargetSelection;
   source: "current-package" | "payload";
   targetVersion: string | null;
+};
+
+type LauncherInstallDescriptor = {
+  channel: LauncherChannel;
+  launchPath: string;
+  namespace: string;
+  schemaVersion: typeof LAUNCHER_SCHEMA_VERSION;
+  updatedAt?: string;
 };
 
 async function pathExists(path: string): Promise<boolean> {
@@ -96,6 +105,49 @@ function parsePayloadManifest(raw: unknown, expected: {
 
 async function readJsonFile<T>(path: string): Promise<T> {
   return JSON.parse(await readFile(path, "utf8")) as T;
+}
+
+function macAppBundlePathFromExecutable(executablePath: string): string | null {
+  const marker = ".app/Contents/MacOS/";
+  const index = executablePath.indexOf(marker);
+  if (index < 0) return null;
+  return executablePath.slice(0, index + ".app".length);
+}
+
+function stableAppLaunchPathFromExecutable(executablePath: string): string {
+  if (process.platform !== "darwin") return executablePath;
+  return macAppBundlePathFromExecutable(executablePath) ?? executablePath;
+}
+
+async function readLauncherInstallDescriptor(
+  paths: LauncherPaths,
+  channel: LauncherChannel,
+  namespace: string,
+): Promise<LauncherInstallDescriptor | null> {
+  if (!(await pathExists(paths.installPath))) return null;
+  const install = await readJsonFile<LauncherInstallDescriptor>(paths.installPath);
+  if (install.schemaVersion !== LAUNCHER_SCHEMA_VERSION) return null;
+  if (normalizeLauncherChannel(install.channel) !== channel) return null;
+  if (install.namespace !== namespace) return null;
+  if (typeof install.launchPath !== "string" || install.launchPath.length === 0) return null;
+  return install;
+}
+
+async function writeLauncherInstallDescriptor(
+  paths: LauncherPaths,
+  channel: LauncherChannel,
+  namespace: string,
+  launchPath: string,
+): Promise<LauncherInstallDescriptor> {
+  const install: LauncherInstallDescriptor = {
+    channel,
+    launchPath,
+    namespace,
+    schemaVersion: LAUNCHER_SCHEMA_VERSION,
+    updatedAt: new Date().toISOString(),
+  };
+  await writeJsonFile(paths.installPath, install);
+  return install;
 }
 
 async function readLauncherAttempt(paths: LauncherPaths, channel: LauncherChannel, namespace: string): Promise<LauncherAttemptDescriptor | null> {
@@ -204,6 +256,8 @@ export async function resolvePackagedLauncherRuntime(
   const descriptor = await readOrCreateRuntimeDescriptor(config, launcherPaths, channel);
   const attempted = await readLauncherAttempt(launcherPaths, channel, config.namespace).catch(() => null);
   const selection = selectLauncherRuntimeTarget({ attempted, runtime: descriptor });
+  const persistedInstall = await readLauncherInstallDescriptor(launcherPaths, channel, config.namespace).catch(() => null);
+  const currentPackageLaunchPath = stableAppLaunchPathFromExecutable(process.execPath);
 
   if (selection.selected) {
     const versionPaths = resolveLauncherVersionPaths({
@@ -227,6 +281,7 @@ export async function resolvePackagedLauncherRuntime(
       return {
         config: payloadConfig,
         descriptor,
+        installedLaunchPath: persistedInstall?.launchPath ?? currentPackageLaunchPath,
         launcherPaths,
         paths: { ...paths, resourceRoot: payloadConfig.resourceRoot },
         selection,
@@ -239,6 +294,12 @@ export async function resolvePackagedLauncherRuntime(
   return {
     config,
     descriptor,
+    installedLaunchPath: (await writeLauncherInstallDescriptor(
+      launcherPaths,
+      channel,
+      config.namespace,
+      currentPackageLaunchPath,
+    )).launchPath,
     launcherPaths,
     paths,
     selection,

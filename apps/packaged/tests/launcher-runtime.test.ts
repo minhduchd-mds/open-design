@@ -39,9 +39,16 @@ describe("resolvePackagedLauncherRuntime", () => {
 
       expect(runtime.source).toBe("current-package");
       expect(runtime.config).toBe(config);
+      expect(runtime.installedLaunchPath).toEqual(expect.any(String));
       expect(runtime.launcherPaths.runtimePath).toBe(
         join(root, "launcher", "channels", "beta", "namespaces", "release-beta", "runtime.json"),
       );
+      expect(JSON.parse(await readFile(runtime.launcherPaths.installPath, "utf8"))).toMatchObject({
+        channel: "beta",
+        launchPath: runtime.installedLaunchPath,
+        namespace: "release-beta",
+        schemaVersion: LAUNCHER_SCHEMA_VERSION,
+      });
       expect(JSON.parse(await readFile(runtime.launcherPaths.runtimePath, "utf8"))).toMatchObject({
         active: { generation: 0, version: "1.2.3-beta.4" },
         channel: "beta",
@@ -108,10 +115,20 @@ describe("resolvePackagedLauncherRuntime", () => {
           schemaVersion: LAUNCHER_SCHEMA_VERSION,
         })}\n`,
       );
+      await writeFile(
+        join(paths.installationRoot, "launcher", "channels", "beta", "namespaces", config.namespace, "install.json"),
+        `${JSON.stringify({
+          channel: "beta",
+          launchPath: "/Applications/Open Design Beta.app",
+          namespace: config.namespace,
+          schemaVersion: LAUNCHER_SCHEMA_VERSION,
+        })}\n`,
+      );
 
       const runtime = await resolvePackagedLauncherRuntime(config, paths);
 
       expect(runtime.source).toBe("payload");
+      expect(runtime.installedLaunchPath).toBe("/Applications/Open Design Beta.app");
       expect(runtime.targetVersion).toBe("1.2.3-beta.5");
       expect(runtime.config.appVersion).toBe("1.2.3-beta.5");
       expect(runtime.config.resourceRoot).toBe(join(resourcesPath, "open-design"));

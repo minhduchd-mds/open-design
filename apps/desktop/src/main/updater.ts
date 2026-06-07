@@ -101,6 +101,7 @@ export type DesktopUpdaterConfigInput = {
   currentVersion?: string | null;
   downloadRoot?: string | null;
   env?: NodeJS.ProcessEnv;
+  launcherLaunchPath?: string | null;
   launcherRoot?: string | null;
   launcherPayloadExtractorPath?: string | null;
   installerObservationRoot?: string | null;
@@ -126,6 +127,7 @@ export type DesktopUpdaterConfig = {
   downloadRoot: string;
   enabled: boolean;
   installerObservationRoot?: string;
+  launcherLaunchPath?: string;
   launcherRoot?: string;
   launcherPayloadExtractorPath?: string;
   launcherRuntimePath?: string;
@@ -324,6 +326,7 @@ export function resolveDesktopUpdaterConfig(input: DesktopUpdaterConfigInput): D
     "0.0.0";
   const channel = normalizeChannel(env[DESKTOP_UPDATE_ENV.CHANNEL], defaultChannelForVersion(currentVersion));
   const installerObservationRoot = normalizeOptionalRoot(input.installerObservationRoot, "installer observation root");
+  const launcherLaunchPath = normalizeOptionalNonEmpty(input.launcherLaunchPath);
   const launcherRoot = normalizeOptionalRoot(input.launcherRoot, "launcher root");
   const launcherPayloadExtractorPath = normalizeOptionalRoot(input.launcherPayloadExtractorPath, "launcher payload extractor path");
   const launcherRuntimePath = normalizeOptionalRoot(input.launcherRuntimePath, "launcher runtime path");
@@ -359,6 +362,7 @@ export function resolveDesktopUpdaterConfig(input: DesktopUpdaterConfigInput): D
     downloadRoot,
     enabled,
     ...(installerObservationRoot == null ? {} : { installerObservationRoot }),
+    ...(launcherLaunchPath == null ? {} : { launcherLaunchPath }),
     ...(launcherRoot == null ? {} : { launcherRoot }),
     ...(launcherPayloadExtractorPath == null ? {} : { launcherPayloadExtractorPath }),
     ...(launcherRuntimePath == null ? {} : { launcherRuntimePath }),
@@ -2065,7 +2069,7 @@ export function createDesktopUpdater(
     if (config.platform !== "darwin" && config.platform !== "win32") return "";
     let launchPath: string;
     try {
-      launchPath = stableAppLaunchPathFromExecutable(config.platform, processExecPath);
+      launchPath = config.launcherLaunchPath ?? stableAppLaunchPathFromExecutable(config.platform, processExecPath);
     } catch (launchPathError) {
       return launchPathError instanceof Error ? launchPathError.message : String(launchPathError);
     }

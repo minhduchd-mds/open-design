@@ -56,8 +56,10 @@ type PackagedLauncherRuntime = {
     appVersion: string | null;
     resourceRoot: string;
   };
+  installedLaunchPath: string | null;
   launcherPaths: {
     attemptsPath: string;
+    installPath: string;
     runtimePath: string;
     stateRoot: string;
   };
@@ -309,9 +311,17 @@ describe("packaged launcher payload update loop", () => {
       const config = fakePackagedConfig(root, testCase.namespace);
       const paths = resolvePackagedNamespacePaths(config);
       const initialRuntime = await resolvePackagedLauncherRuntime(config, paths);
+      const launchRequests: Array<{ appPid: number; installerPath: string; root: string }> = [];
 
       expect(initialRuntime.source).toBe("current-package");
       expect(initialRuntime.targetVersion).toBeNull();
+      expect(initialRuntime.installedLaunchPath).toEqual(expect.any(String));
+      expect(JSON.parse(await readFile(initialRuntime.launcherPaths.installPath, "utf8"))).toMatchObject({
+        channel: "beta",
+        launchPath: initialRuntime.installedLaunchPath,
+        namespace: config.namespace,
+        schemaVersion: LAUNCHER_SCHEMA_VERSION,
+      });
       expect(JSON.parse(await readFile(initialRuntime.launcherPaths.runtimePath, "utf8"))).toMatchObject({
         active: { generation: 0, version: testCase.currentVersion },
         lastSuccessful: { generation: 0, version: testCase.currentVersion },
@@ -327,12 +337,21 @@ describe("packaged launcher payload update loop", () => {
           [DESKTOP_UPDATE_ENV.PLATFORM]: testCase.platform,
         },
         launcherRoot: paths.installationRoot,
+        launcherLaunchPath: initialRuntime.installedLaunchPath,
         launcherRuntimePath: initialRuntime.launcherPaths.runtimePath,
         namespace: config.namespace,
         platform: testCase.platform,
         source: PACKAGED_SOURCE,
       }, {
         extractLauncherPayloadArchive: async (input: { destinationRoot: string }) => testCase.writePayload(input.destinationRoot, config.namespace),
+        launchInstallerAfterQuit: async (input: { appPid: number; installerPath: string; root: string }) => {
+          launchRequests.push({
+            appPid: input.appPid,
+            installerPath: input.installerPath,
+            root: input.root,
+          });
+          return "";
+        },
         now: () => new Date("2026-06-06T00:00:00.000Z"),
       });
 
@@ -344,6 +363,13 @@ describe("packaged launcher payload update loop", () => {
       const installed = await updater.installUpdate();
       expect(installed.state).toBe(UPDATE_DOWNLOADED);
       expect(installed.installResult?.dryRun).toBe(false);
+      expect(launchRequests).toEqual([
+        {
+          appPid: process.pid,
+          installerPath: initialRuntime.installedLaunchPath,
+          root: paths.updateRoot,
+        },
+      ]);
 
       const runtimeAfterApply = JSON.parse(await readFile(initialRuntime.launcherPaths.runtimePath, "utf8")) as {
         active?: { generation: number; version: string };

@@ -381,30 +381,30 @@ describe("desktop updater", () => {
       artifactBody: "open design windows installer fixture",
       channel: "beta",
       platform: "win",
-      version: "1.0.0-beta.2",
+      version: "1.0.0-beta.3",
     });
     const launcherRuntimePath = join(root, "launcher", "runtime.json");
     try {
       await mkdir(join(root, "launcher"), { recursive: true });
-      await mkdir(join(root, "launcher", "channels", "beta", "namespaces", "release-beta-win", "versions", "1.0.0-beta.1"), { recursive: true });
+      await mkdir(join(root, "launcher", "channels", "beta", "namespaces", "release-beta-win", "versions", "1.0.0-beta.2"), { recursive: true });
       await mkdir(join(root, "launcher", "channels", "beta", "namespaces", "release-beta-win", "versions", "0.9.0-beta.1"), { recursive: true });
       await writeFile(
         launcherRuntimePath,
         `${JSON.stringify({
-          active: { generation: 0, version: "1.0.0-beta.1" },
+          active: { generation: 0, version: "1.0.0-beta.2" },
           channel: "beta",
-          lastSuccessful: { generation: 0, version: "1.0.0-beta.1" },
+          lastSuccessful: { generation: 0, version: "1.0.0-beta.2" },
           namespace: "release-beta-win",
           schemaVersion: LAUNCHER_SCHEMA_VERSION,
         })}\n`,
       );
       const updater = createDesktopUpdater({
         arch: "x64",
-        currentVersion: "1.0.0-beta.1",
+        currentVersion: "1.0.0-beta.2",
         downloadRoot: join(root, "updates"),
         env: {
           ...updaterEnv(fixture.metadataUrl, "win32"),
-          [DESKTOP_UPDATE_ENV.CURRENT_VERSION]: "1.0.0-beta.1",
+          [DESKTOP_UPDATE_ENV.CURRENT_VERSION]: "1.0.0-beta.2",
           [DESKTOP_UPDATE_ENV.OPEN_DRY_RUN]: "0",
         },
         launcherRoot: root,
@@ -532,7 +532,7 @@ describe("desktop updater", () => {
     }
   });
 
-  it("relaunches mac launcher payloads through the installed app bundle after quit", async () => {
+  it("relaunches mac launcher payloads through the installed app bundle from a payload-backed process", async () => {
     const root = makeRoot();
     const fixture = await createUpdaterFixture({
       artifactBody: "open design mac dmg fixture",
@@ -540,34 +540,35 @@ describe("desktop updater", () => {
       includePayload: true,
       payloadBody: "open design mac payload fixture",
       platform: "mac",
-      version: "1.0.0-beta.2",
+      version: "1.0.0-beta.3",
     });
     const launcherRuntimePath = join(root, "launcher", "runtime.json");
     const launcherRoot = root;
     const launches: Array<{ appPid: number; installerPath: string; root: string }> = [];
     try {
       await mkdir(join(root, "launcher"), { recursive: true });
-      await mkdir(join(root, "launcher", "channels", "beta", "namespaces", "release-beta", "versions", "1.0.0-beta.1"), { recursive: true });
+      await mkdir(join(root, "launcher", "channels", "beta", "namespaces", "release-beta", "versions", "1.0.0-beta.2"), { recursive: true });
       await writeFile(
         launcherRuntimePath,
         `${JSON.stringify({
-          active: { generation: 0, version: "1.0.0-beta.1" },
+          active: { generation: 0, version: "1.0.0-beta.2" },
           channel: "beta",
-          lastSuccessful: { generation: 0, version: "1.0.0-beta.1" },
+          lastSuccessful: { generation: 0, version: "1.0.0-beta.2" },
           namespace: "release-beta",
           schemaVersion: LAUNCHER_SCHEMA_VERSION,
         })}\n`,
       );
       const updater = createDesktopUpdater({
         arch: "arm64",
-        currentVersion: "1.0.0-beta.1",
+        currentVersion: "1.0.0-beta.2",
         downloadRoot: join(root, "updates"),
         env: {
           ...updaterEnv(fixture.metadataUrl, "darwin"),
-          [DESKTOP_UPDATE_ENV.CURRENT_VERSION]: "1.0.0-beta.1",
+          [DESKTOP_UPDATE_ENV.CURRENT_VERSION]: "1.0.0-beta.2",
           [DESKTOP_UPDATE_ENV.OPEN_DRY_RUN]: "0",
         },
         launcherRoot,
+        launcherLaunchPath: "/Applications/Open Design Beta.app",
         launcherRuntimePath,
         namespace: "release-beta",
         source: SIDECAR_SOURCES.PACKAGED,
@@ -587,7 +588,7 @@ describe("desktop updater", () => {
               payloadRoot: "payload",
               platform: "darwin",
               schemaVersion: LAUNCHER_SCHEMA_VERSION,
-              version: "1.0.0-beta.2",
+              version: "1.0.0-beta.3",
             })}\n`,
           );
         },
@@ -599,7 +600,7 @@ describe("desktop updater", () => {
           });
           return "";
         },
-        processExecPath: "/Applications/Open Design Beta.app/Contents/MacOS/Open Design Beta",
+        processExecPath: join(root, "launcher", "channels", "beta", "namespaces", "release-beta", "versions", "1.0.0-beta.2", "payload", "Open Design Beta.app", "Contents", "MacOS", "Open Design Beta"),
         processPid: 4243,
       });
 
@@ -624,7 +625,7 @@ describe("desktop updater", () => {
     }
   });
 
-  it("relaunches Windows launcher payloads through the installed executable after quit", async () => {
+  it("relaunches Windows launcher payloads through the installed executable from a payload-backed process", async () => {
     const root = makeRoot();
     const fixture = await createUpdaterFixture({
       artifactBody: "open design windows installer fixture",
@@ -632,34 +633,35 @@ describe("desktop updater", () => {
       includePayload: true,
       payloadBody: "open design windows payload fixture",
       platform: "win",
-      version: "1.0.0-beta.2",
+      version: "1.0.0-beta.3",
     });
     const launcherRuntimePath = join(root, "launcher", "runtime.json");
     const launcherRoot = root;
     const launches: Array<{ appPid: number; installerPath: string; root: string }> = [];
     try {
       await mkdir(join(root, "launcher"), { recursive: true });
-      await mkdir(join(root, "launcher", "channels", "beta", "namespaces", "release-beta-win", "versions", "1.0.0-beta.1"), { recursive: true });
+      await mkdir(join(root, "launcher", "channels", "beta", "namespaces", "release-beta-win", "versions", "1.0.0-beta.2"), { recursive: true });
       await writeFile(
         launcherRuntimePath,
         `${JSON.stringify({
-          active: { generation: 0, version: "1.0.0-beta.1" },
+          active: { generation: 0, version: "1.0.0-beta.2" },
           channel: "beta",
-          lastSuccessful: { generation: 0, version: "1.0.0-beta.1" },
+          lastSuccessful: { generation: 0, version: "1.0.0-beta.2" },
           namespace: "release-beta-win",
           schemaVersion: LAUNCHER_SCHEMA_VERSION,
         })}\n`,
       );
       const updater = createDesktopUpdater({
         arch: "x64",
-        currentVersion: "1.0.0-beta.1",
+        currentVersion: "1.0.0-beta.2",
         downloadRoot: join(root, "updates"),
         env: {
           ...updaterEnv(fixture.metadataUrl, "win32"),
-          [DESKTOP_UPDATE_ENV.CURRENT_VERSION]: "1.0.0-beta.1",
+          [DESKTOP_UPDATE_ENV.CURRENT_VERSION]: "1.0.0-beta.2",
           [DESKTOP_UPDATE_ENV.OPEN_DRY_RUN]: "0",
         },
         launcherRoot,
+        launcherLaunchPath: "C:\\Program Files\\Open Design Beta\\Open Design.exe",
         launcherRuntimePath,
         namespace: "release-beta-win",
         source: SIDECAR_SOURCES.PACKAGED,
@@ -679,7 +681,7 @@ describe("desktop updater", () => {
               payloadRoot: "payload",
               platform: "win32",
               schemaVersion: LAUNCHER_SCHEMA_VERSION,
-              version: "1.0.0-beta.2",
+              version: "1.0.0-beta.3",
             })}\n`,
           );
         },
@@ -691,7 +693,7 @@ describe("desktop updater", () => {
           });
           return "";
         },
-        processExecPath: "C:\\Program Files\\Open Design Beta\\Open Design.exe",
+        processExecPath: "C:\\Users\\runneradmin\\AppData\\Roaming\\Open Design Beta\\launcher\\channels\\beta\\namespaces\\release-beta-win\\versions\\1.0.0-beta.2\\payload\\Open Design.exe",
         processPid: 4244,
       });
 
