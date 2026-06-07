@@ -49,7 +49,7 @@ export function splitPipelineSnapshotByExecutionBoundary(
   }
 
   const pipelineSplit = splitPipelineByExecutionBoundary(snapshot.pipeline);
-  const keepTriggerlessInPostRun = pipelineSplit.preRun == null;
+  const preRunSurfaceOnlySnapshot = buildPreRunSurfaceOnlySnapshot(snapshot, pipelineSplit.preRun);
   return {
     preRun: pipelineSplit.preRun
       ? {
@@ -61,7 +61,7 @@ export function splitPipelineSnapshotByExecutionBoundary(
             { includeTriggerless: true },
           ),
         }
-      : null,
+      : preRunSurfaceOnlySnapshot,
     postRun: pipelineSplit.postRun
       ? {
           ...snapshot,
@@ -69,10 +69,24 @@ export function splitPipelineSnapshotByExecutionBoundary(
           genuiSurfaces: filterSurfacesForPipelineStages(
             snapshot.genuiSurfaces,
             pipelineSplit.postRun,
-            { includeTriggerless: keepTriggerlessInPostRun },
+            { includeTriggerless: false },
           ),
         }
       : null,
+  };
+}
+
+function buildPreRunSurfaceOnlySnapshot(
+  snapshot: AppliedPluginSnapshot,
+  preRunPipeline: PluginPipeline | null,
+): AppliedPluginSnapshot | null {
+  if (preRunPipeline) return null;
+  const triggerlessSurfaces = snapshot.genuiSurfaces?.filter((surface) => !surface.trigger?.stageId);
+  if (!triggerlessSurfaces?.length) return null;
+  return {
+    ...snapshot,
+    pipeline: { stages: [] },
+    genuiSurfaces: triggerlessSurfaces,
   };
 }
 

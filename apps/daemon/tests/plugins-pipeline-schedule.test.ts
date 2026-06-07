@@ -119,7 +119,7 @@ describe('splitPipelineSnapshotByExecutionBoundary', () => {
     ]);
   });
 
-  it('preserves triggerless surfaces when the entire pipeline is deferred', () => {
+  it('raises triggerless surfaces before an all-deferred pipeline starts', () => {
     const snapshot = {
       snapshotId: 'snap-2',
       pluginId: 'sample-plugin',
@@ -151,9 +151,11 @@ describe('splitPipelineSnapshotByExecutionBoundary', () => {
 
     const split = splitPipelineSnapshotByExecutionBoundary(snapshot);
 
-    expect(split.preRun).toBeNull();
-    expect(split.postRun?.genuiSurfaces?.map((surface) => surface.id)).toEqual([
+    expect(split.preRun?.pipeline?.stages).toEqual([]);
+    expect(split.preRun?.genuiSurfaces?.map((surface) => surface.id)).toEqual([
       'confirm',
+    ]);
+    expect(split.postRun?.genuiSurfaces?.map((surface) => surface.id)).toEqual([
       'critique-form',
       'handoff-form',
     ]);
