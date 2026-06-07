@@ -1639,6 +1639,9 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
     if (options.requestQuit == null) {
       return { ok: false, reason: "desktop quit is not available" };
     }
+    if (process.platform === "win32" && status.artifact?.type === "payload") {
+      app.relaunch();
+    }
     setTimeout(() => options.requestQuit?.(), 0);
     return { ok: true };
   });
