@@ -42,11 +42,14 @@ function withContext(
 ): ClaudeCliDiagnostic {
   const configDir = envValue(input.env, 'CLAUDE_CONFIG_DIR');
   const baseUrl = envValue(input.env, 'ANTHROPIC_BASE_URL');
+  const runtimeLabel = selectedClaudeCompatibleRuntime(input) === 'openclaude'
+    ? 'OpenClaude'
+    : 'Claude Code';
   const diagnosticTail = redactSecrets(body(input)).replace(/\s+/g, ' ').trim().slice(-240);
   const context: string[] = [message, detail];
   if (diagnosticTail) context.push(`Claude output: ${diagnosticTail}`);
   if (configDir) context.push(`Effective CLAUDE_CONFIG_DIR: ${configDir}.`);
-  if (baseUrl) context.push('ANTHROPIC_BASE_URL is set for this Claude Code process.');
+  if (baseUrl) context.push(`ANTHROPIC_BASE_URL is set for this ${runtimeLabel} process.`);
   return {
     message: redactSecrets(message),
     detail: redactSecrets(context.filter(Boolean).join(' ')),
@@ -75,6 +78,8 @@ export function diagnoseClaudeCliFailure(
   const hasConfigDir = envValue(input.env, 'CLAUDE_CONFIG_DIR') !== null;
   const runtime = selectedClaudeCompatibleRuntime(input);
   const isOpenClaude = runtime === 'openclaude';
+  const runtimeLabel = isOpenClaude ? 'OpenClaude' : 'Claude Code';
+  const defaultEndpointLabel = isOpenClaude ? 'its configured endpoint' : 'the Anthropic API';
 
   const customEndpointConnectionFailure =
     hasCustomBaseUrl &&
@@ -110,14 +115,17 @@ export function diagnoseClaudeCliFailure(
     /\bconnection (error|reset|closed)\b/i.test(text);
   if (connectionDropped) {
     if (hasCustomBaseUrl) {
+      const customEndpointFallback = isOpenClaude
+        ? 'check the OpenClaude endpoint configuration.'
+        : 'remove ANTHROPIC_BASE_URL to retry with standard Claude Code auth.';
       return withContext(
-        'Claude Code lost its connection to the configured custom Anthropic endpoint before the response finished.',
-        'The connection to ANTHROPIC_BASE_URL was closed mid-stream — often a proxy or relay that drops long-lived streaming requests, and most likely on large generations. Retry; if it keeps happening, raise the proxy idle/stream timeout, or remove ANTHROPIC_BASE_URL to retry with standard Claude Code auth.',
+        `${runtimeLabel} lost its connection to the configured custom Anthropic endpoint before the response finished.`,
+        `The connection to ANTHROPIC_BASE_URL was closed mid-stream — often a proxy or relay that drops long-lived streaming requests, and most likely on large generations. Retry; if it keeps happening, raise the proxy idle/stream timeout, or ${customEndpointFallback}`,
         input,
       );
     }
     return withContext(
-      'Claude Code lost its connection to the Anthropic API before the response finished.',
+      `${runtimeLabel} lost its connection to ${defaultEndpointLabel} before the response finished.`,
       'The network connection was closed mid-response — common on unstable networks, VPNs, or proxies that drop long-lived streaming requests, and most likely on large generations. Retry the request.',
       input,
     );

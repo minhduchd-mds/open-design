@@ -201,6 +201,22 @@ describe('diagnoseClaudeCliFailure', () => {
     expect(diagnostic?.retryable).toBe(true);
   });
 
+  it('uses OpenClaude copy for OpenClaude mid-stream socket drops', () => {
+    const diagnostic = diagnoseClaudeCliFailure({
+      agentId: 'claude',
+      exitCode: 1,
+      stderrTail: 'API Error: The socket connection was closed unexpectedly.',
+      env: {},
+      resolvedBin: '/usr/local/bin/openclaude',
+    });
+
+    expect(diagnostic?.message).toContain('OpenClaude lost its connection');
+    expect(diagnostic?.message).toContain('its configured endpoint');
+    expect(diagnostic?.detail).not.toContain('Claude Code');
+    expect(diagnostic?.detail).not.toContain('Anthropic API');
+    expect(diagnostic?.retryable).toBe(true);
+  });
+
   it('classifies ECONNRESET and socket hang up as connection drops', () => {
     for (const tail of ['Error: socket hang up', 'read ECONNRESET', 'TypeError: fetch failed']) {
       const diagnostic = diagnoseClaudeCliFailure({
@@ -224,5 +240,21 @@ describe('diagnoseClaudeCliFailure', () => {
     expect(diagnostic?.message).toContain('custom Anthropic endpoint');
     expect(diagnostic?.detail).toContain('ANTHROPIC_BASE_URL');
     expect(diagnostic?.detail).toContain('timeout');
+  });
+
+  it('uses OpenClaude copy for OpenClaude custom endpoint socket drops', () => {
+    const diagnostic = diagnoseClaudeCliFailure({
+      agentId: 'claude',
+      exitCode: 1,
+      stderrTail: 'API Error: The socket connection was closed unexpectedly.',
+      env: { ANTHROPIC_BASE_URL: 'https://relay.example.com' },
+      resolvedBin: '/usr/local/bin/openclaude',
+    });
+
+    expect(diagnostic?.message).toContain('OpenClaude lost its connection');
+    expect(diagnostic?.message).toContain('custom Anthropic endpoint');
+    expect(diagnostic?.detail).toContain('ANTHROPIC_BASE_URL');
+    expect(diagnostic?.detail).toContain('OpenClaude endpoint configuration');
+    expect(diagnostic?.detail).not.toContain('Claude Code');
   });
 });
