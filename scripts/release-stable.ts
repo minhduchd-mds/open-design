@@ -577,8 +577,9 @@ if (channel === "nightly") {
   releaseName = `Open Design Nightly ${releaseVersion}`;
   console.log(`[release-stable] latest nightly: ${latestNightly.nightlyVersion}`);
 } else {
+  const stableReleaseBranch = `release/v${stableBaseVersion.value}`;
   const stableNightly = await validateStableNightlyMetadata({
-    branch,
+    branch: stableReleaseBranch,
     commit,
     nightlyVersionInput: process.env.OPEN_DESIGN_STABLE_NIGHTLY_VERSION,
     packagedVersion,
