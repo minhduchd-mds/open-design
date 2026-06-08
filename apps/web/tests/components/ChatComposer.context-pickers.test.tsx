@@ -98,9 +98,7 @@ const APPLY_RESULT = {
   ok: true,
   query: 'Run plugin.',
   contextItems: [],
-  inputs: [
-    { name: 'brief', type: 'string', required: false, label: 'Brief' },
-  ],
+  inputs: [],
   assets: [],
   mcpServers: [],
   trust: 'restricted',
@@ -166,6 +164,12 @@ async function flushMounts() {
   await act(async () => {
     await new Promise((r) => setTimeout(r, 0));
   });
+}
+
+function stagedPluginChip(): Element | null {
+  return screen
+    .queryByTestId('staged-contexts')
+    ?.querySelector('.staged-chip.staged-context--plugin') ?? null;
 }
 
 // The contenteditable serializes newlines as `<br>`, which jsdom's
@@ -504,7 +508,7 @@ describe('ChatComposer context pickers', () => {
     expect(pill?.getAttribute('data-mention-kind')).toBe('plugin');
   });
 
-  it('clears the plugin context form when the inline plugin token is removed', async () => {
+  it('clears the inline plugin context when the plugin token is removed', async () => {
     renderComposer();
     await flushMounts();
 
@@ -514,12 +518,11 @@ describe('ChatComposer context pickers', () => {
     fireEvent.click(screen.getByText('My Export'));
 
     await waitFor(() => expect(composerText()).toBe('@My Export '));
-    await waitFor(() => expect(screen.getByTestId('plugin-inputs-form')).toBeTruthy());
+    await waitFor(() => expect(stagedPluginChip()?.textContent).toContain(USER_PLUGIN.id));
 
     await typeAndSettle('');
 
-    await waitFor(() => expect(screen.queryByTestId('plugin-inputs-form')).toBeNull());
-    expect(screen.queryByTestId('context-chip-strip')).toBeNull();
+    await waitFor(() => expect(stagedPluginChip()).toBeNull());
   });
 
   it('clears restored inline plugin context when the queued draft token is removed', async () => {
@@ -587,7 +590,7 @@ describe('ChatComposer context pickers', () => {
     });
   });
 
-  it('keeps the plugin context form when the inline plugin token has trailing punctuation', async () => {
+  it('keeps the inline plugin context when the plugin token has trailing punctuation', async () => {
     renderComposer();
     await flushMounts();
 
@@ -597,13 +600,12 @@ describe('ChatComposer context pickers', () => {
     fireEvent.click(screen.getByText('My Export'));
 
     await waitFor(() => expect(composerText()).toBe('@My Export '));
-    await waitFor(() => expect(screen.getByTestId('plugin-inputs-form')).toBeTruthy());
+    await waitFor(() => expect(stagedPluginChip()?.textContent).toContain(USER_PLUGIN.id));
 
     await typeAndSettle('@My Export, refine this export');
 
     await waitFor(() => expect(composerText()).toBe('@My Export, refine this export'));
-    expect(screen.getByTestId('plugin-inputs-form')).toBeTruthy();
-    expect(screen.getByTestId('context-chip-strip').textContent).toContain('My Export');
+    expect(stagedPluginChip()?.textContent).toContain(USER_PLUGIN.id);
   });
 
   it('sends the applied plugin snapshot as per-turn context', async () => {
@@ -622,10 +624,7 @@ describe('ChatComposer context pickers', () => {
     // own ContextChipStrip). It is keyed off the plugin id when no display title
     // is present in the applied snapshot.
     await waitFor(() => {
-      const chip = screen
-        .getByTestId('staged-contexts')
-        .querySelector('.staged-chip.staged-context--plugin');
-      expect(chip?.textContent).toContain(USER_PLUGIN.id);
+      expect(stagedPluginChip()?.textContent).toContain(USER_PLUGIN.id);
     });
 
     fireEvent.click(screen.getByTestId('chat-send'));
@@ -642,9 +641,7 @@ describe('ChatComposer context pickers', () => {
     });
     // After sending, the applied plugin clears, so its staged chip is gone.
     await waitFor(() => {
-      expect(
-        screen.queryByTestId('staged-contexts')?.querySelector('.staged-context--plugin') ?? null,
-      ).toBeNull();
+      expect(stagedPluginChip()).toBeNull();
     });
   });
 
