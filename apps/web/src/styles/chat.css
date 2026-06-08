@@ -1835,13 +1835,12 @@
   background: color-mix(in srgb, var(--green) 10%, var(--bg-subtle));
   color: var(--green);
 }
-/* Applied-plugin chip — accent-tinted and clickable (opens the plugin
-   details modal). Lives inline in the staged-context row next to the
-   design-system picker instead of on its own line. */
+/* Applied-plugin chip — accent-tinted, sitting inline in the staged-context
+   row next to the design-system picker. The chip itself is a plain container;
+   its two controls (open-details + remove) are real sibling buttons. */
 .staged-context--plugin {
   background: color-mix(in srgb, var(--accent) 9%, var(--bg-panel));
   border-color: color-mix(in srgb, var(--accent) 22%, var(--border));
-  cursor: pointer;
 }
 .staged-context--plugin .staged-icon {
   background: color-mix(in srgb, var(--accent) 12%, var(--bg-subtle));
@@ -1849,6 +1848,25 @@
 }
 .staged-context--plugin:hover {
   border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+/* The chip's "open details" trigger: icon + name as a real <button> so it is a
+   sibling of the remove button, not a role=button wrapper around it (nested
+   interactive controls break focus order + assistive-tech announcements).
+   Unstyled so it reads as the chip's content rather than a nested button. */
+.staged-context-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  cursor: pointer;
+  overflow: hidden;
 }
 .staged-context--workspace {
   background: color-mix(in srgb, var(--bg-subtle) 48%, var(--bg-panel));

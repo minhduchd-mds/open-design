@@ -2513,30 +2513,27 @@ function StagedRunContexts({
         </div>
       ) : null}
       {pluginChip ? (
-        <div
-          className="staged-chip staged-context staged-context--plugin"
-          role="button"
-          tabIndex={0}
-          title={pluginChip.title}
-          onClick={() => onPluginDetails?.(pluginChip.id)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              onPluginDetails?.(pluginChip.id);
-            }
-          }}
-        >
-          <span className="staged-icon" aria-hidden>
-            <Icon name="sparkles" size={12} />
-          </span>
-          <span className="staged-name">{pluginChip.title}</span>
+        <div className="staged-chip staged-context staged-context--plugin">
+          {/* Two sibling controls — a details button (icon + name) and the
+              remove button — rather than a role=button wrapper containing the
+              remove button. Nested interactive controls break focus order and
+              assistive-tech announcements. */}
+          <button
+            type="button"
+            className="staged-context-open"
+            onClick={() => onPluginDetails?.(pluginChip.id)}
+            title={pluginChip.title}
+            aria-label={pluginChip.title}
+          >
+            <span className="staged-icon" aria-hidden>
+              <Icon name="sparkles" size={12} />
+            </span>
+            <span className="staged-name">{pluginChip.title}</span>
+          </button>
           <button
             type="button"
             className="staged-remove od-tooltip"
-            onClick={(e) => {
-              e.stopPropagation();
-              onRemovePlugin?.();
-            }}
+            onClick={() => onRemovePlugin?.()}
             title={t('common.delete')}
             data-tooltip={t('common.delete')}
             aria-label={t('chat.removeAria', { name: pluginChip.title })}
