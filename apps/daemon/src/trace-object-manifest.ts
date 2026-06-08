@@ -9,7 +9,7 @@ import type {
   ObjectManifestCompleteness,
 } from './langfuse-trace.js';
 import { INPUT_MAX_BYTES } from './langfuse-trace.js';
-import { mimeFor, readProjectFile } from './projects.js';
+import { mimeFor, readProjectFile, resolveProjectFilePath } from './projects.js';
 
 const OBJECT_RELAY_MARKER_HEADER = 'X-Open-Design-Telemetry';
 const OBJECT_RELAY_MARKER_VALUE = 'object-ingestion-v1';
@@ -349,6 +349,7 @@ async function postObjects(
 
 async function collectSources(
   opts: BuildTraceObjectManifestsOptions,
+  config: ObjectRelayConfig,
 ): Promise<TraceObjectSource[]> {
   const sources: TraceObjectSource[] = [];
   const projectId = opts.projectId;
@@ -367,6 +368,25 @@ async function collectSources(
       continue;
     }
     try {
+      const fileInfo = await resolveProjectFilePath(
+        opts.projectsRoot,
+        projectId,
+        attachmentPath,
+        opts.projectMetadata ?? undefined,
+      );
+      if (fileInfo.size > config.objectMaxBytes) {
+        sources.push({
+          objectClass: 'attachment',
+          id,
+          filename: fileInfo.name,
+          mime: fileInfo.mime,
+          type: fileInfo.kind,
+          sizeBytes: fileInfo.size,
+          reason: 'object_too_large',
+          source: 'user_attachment',
+        });
+        continue;
+      }
       const file = await readProjectFile(
         opts.projectsRoot,
         projectId,
@@ -413,6 +433,25 @@ async function collectSources(
       continue;
     }
     try {
+      const fileInfo = await resolveProjectFilePath(
+        opts.projectsRoot,
+        projectId,
+        artifactPath,
+        opts.projectMetadata ?? undefined,
+      );
+      if (fileInfo.size > config.objectMaxBytes) {
+        sources.push({
+          objectClass: 'artifact',
+          id,
+          filename: fileInfo.name,
+          mime: fileInfo.mime,
+          type: artifact.type || fileInfo.kind,
+          sizeBytes: fileInfo.size,
+          reason: 'object_too_large',
+          source: 'produced_file',
+        });
+        continue;
+      }
       const file = await readProjectFile(
         opts.projectsRoot,
         projectId,
@@ -526,13 +565,14 @@ export async function buildTraceObjectManifests(
   ) {
     return undefined;
   }
+  const config = readRelayConfig(opts.env ?? process.env);
+  if (!config) return undefined;
+
   const now = opts.now ? opts.now() : new Date();
-  const sources = await collectSources(opts);
+  const sources = await collectSources(opts, config);
   if (sources.length === 0) return undefined;
 
   const manifests = sources.map((source) => manifestBase(source, opts, now));
-  const config = readRelayConfig(opts.env ?? process.env);
-  if (!config) return undefined;
 
   const relayResults = await postObjectBatch(config, opts, manifests, sources);
   const resultByRef = new Map(relayResults.map((result) => [result.storage_ref, result]));

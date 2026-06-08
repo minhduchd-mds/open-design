@@ -3,6 +3,19 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const projectFileReadTracker = vi.hoisted(() => ({ calls: 0 }));
+
+vi.mock('../src/projects.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/projects.js')>();
+  return {
+    ...actual,
+    readProjectFile: async (...args: Parameters<typeof actual.readProjectFile>) => {
+      projectFileReadTracker.calls += 1;
+      return actual.readProjectFile(...args);
+    },
+  };
+});
+
 import { buildTraceObjectManifests } from '../src/trace-object-manifest.js';
 
 describe('buildTraceObjectManifests', () => {
@@ -10,6 +23,7 @@ describe('buildTraceObjectManifests', () => {
 
   beforeEach(async () => {
     dataDir = await mkdtemp(path.join(tmpdir(), 'od-trace-objects-'));
+    projectFileReadTracker.calls = 0;
   });
 
   afterEach(async () => {
@@ -237,6 +251,44 @@ describe('buildTraceObjectManifests', () => {
     });
 
     expect(manifests).toBeUndefined();
+    expect(projectFileReadTracker.calls).toBe(0);
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('skips over-limit project files before loading their contents', async () => {
+    const projectsRoot = path.join(dataDir, 'projects');
+    const projectDir = path.join(projectsRoot, 'proj-1');
+    await mkdir(projectDir, { recursive: true });
+    await writeFile(path.join(projectDir, 'too-large.bin'), Buffer.alloc(16, 1));
+    const fetchSpy = vi.fn();
+
+    const manifests = await buildTraceObjectManifests({
+      installationId: 'install-1',
+      projectId: 'proj-1',
+      runId: 'run-1',
+      projectsRoot,
+      artifacts: [
+        { summary: { slug: 'too-large.bin', type: 'artifact', sizeBytes: 16 } },
+      ],
+      prompt: 'prompt',
+      prefs: { metrics: true, content: true, artifactManifest: true },
+      fetchImpl: fetchSpy as any,
+      env: {
+        NODE_ENV: 'test',
+        OPEN_DESIGN_OBJECT_RELAY_URL: 'https://telemetry.open-design.ai/api/objects/batch',
+        OPEN_DESIGN_OBJECT_UPLOAD_SECRET: 'object-upload-secret',
+        OPEN_DESIGN_OBJECT_MAX_BYTES: '8',
+      },
+      now: () => new Date('2026-06-08T00:00:00.000Z'),
+    });
+
+    expect(projectFileReadTracker.calls).toBe(0);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(manifests?.completeness).toBe('partial');
+    expect(manifests?.artifactManifest?.[0]).toMatchObject({
+      status: 'unavailable',
+      reason: 'object_too_large',
+      size_bytes: 16,
+    });
   });
 });
