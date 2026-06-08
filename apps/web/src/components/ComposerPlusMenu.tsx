@@ -178,6 +178,7 @@ export function ComposerPlusMenu({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const popupRef = useRef<HTMLDivElement | null>(null);
+  const submenuCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // The plugin and MCP flyouts share one `query`, but it is scoped to whichever
   // submenu is open. Reset it whenever the active submenu changes so a stale
@@ -187,7 +188,30 @@ export function ComposerPlusMenu({
     setQuery('');
   }, [submenu]);
 
+  useEffect(() => () => {
+    if (submenuCloseTimer.current) clearTimeout(submenuCloseTimer.current);
+  }, []);
+
+  // Hover intent: side flyouts have a small visual gap from the parent row, so
+  // closing immediately on row mouseleave makes diagonal cursor movement feel
+  // broken. Defer close briefly; entering the flyout cancels the pending close.
+  function cancelSubmenuClose() {
+    if (submenuCloseTimer.current) {
+      clearTimeout(submenuCloseTimer.current);
+      submenuCloseTimer.current = null;
+    }
+  }
+
+  function scheduleCloseSubmenu() {
+    cancelSubmenuClose();
+    submenuCloseTimer.current = setTimeout(() => {
+      setSubmenu(null);
+      submenuCloseTimer.current = null;
+    }, 200);
+  }
+
   function close() {
+    cancelSubmenuClose();
     setOpen(false);
     setSubmenu(null);
   }
@@ -220,6 +244,7 @@ export function ComposerPlusMenu({
     next: 'connectors' | 'plugins' | 'mcp' | 'toolbox',
     row: HTMLDivElement | null,
   ) {
+    cancelSubmenuClose();
     updateFlyoutGeometry(row);
     setSubmenu(next);
   }
@@ -338,7 +363,7 @@ export function ComposerPlusMenu({
             icon="link"
             open={submenu === 'connectors'}
             onOpen={(row) => openSubmenu('connectors', row)}
-            onClose={() => setSubmenu(null)}
+            onClose={scheduleCloseSubmenu}
           >
             <div className="plus-menu__list">
               {connectors.length === 0 ? (
@@ -387,7 +412,7 @@ export function ComposerPlusMenu({
             icon="sparkles"
             open={submenu === 'plugins'}
             onOpen={(row) => openSubmenu('plugins', row)}
-            onClose={() => setSubmenu(null)}
+            onClose={scheduleCloseSubmenu}
           >
             <div className="plus-menu__search">
               <Icon name="search" size={13} />
@@ -443,7 +468,7 @@ export function ComposerPlusMenu({
             icon="link"
             open={submenu === 'mcp'}
             onOpen={(row) => openSubmenu('mcp', row)}
-            onClose={() => setSubmenu(null)}
+            onClose={scheduleCloseSubmenu}
           >
             <div className="plus-menu__search">
               <Icon name="search" size={13} />
@@ -500,7 +525,7 @@ export function ComposerPlusMenu({
               icon="lightbulb"
               open={submenu === 'toolbox'}
               onOpen={(row) => openSubmenu('toolbox', row)}
-              onClose={() => setSubmenu(null)}
+              onClose={scheduleCloseSubmenu}
             >
               {renderToolbox(close)}
             </PlusSubmenuRow>
@@ -548,7 +573,12 @@ function PlusSubmenuRow({
         <Icon name="chevron-right" size={13} className="plus-menu__chevron" />
       </button>
       {open ? (
-        <div className="plus-menu__flyout" role="menu">
+        <div
+          className="plus-menu__flyout"
+          role="menu"
+          onMouseEnter={() => onOpen(rowRef.current)}
+          onMouseLeave={onClose}
+        >
           {children}
         </div>
       ) : null}
