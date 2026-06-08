@@ -391,7 +391,7 @@ function AskUserQuestionCard({
                     >
                       <input
                         type={q.multiSelect ? 'checkbox' : 'radio'}
-                        name={`auq-q${qi}`}
+                        name={`auq-${toolUseId}-q${qi}`}
                         checked={isOn}
                         disabled={locked}
                         aria-label={opt.label}
