@@ -1175,15 +1175,73 @@ export const HomeHero = forwardRef<HomeHeroHandle, Props>(function HomeHero(
           <div className="home-hero__foot-left">
             <ComposerPlusMenu
               triggerTestId="home-hero-plus-trigger"
+              onOpen={() =>
+                trackHomeChatComposerClick(analytics.track, {
+                  page_name: 'home',
+                  area: 'chat_composer',
+                  element: 'plus_menu_open',
+                })
+              }
               connectors={connectorOptions}
-              onPickConnector={pickConnector}
-              onAddConnector={onAddConnector}
+              onPickConnector={(connector) => {
+                trackHomeChatComposerClick(analytics.track, {
+                  page_name: 'home',
+                  area: 'chat_composer',
+                  element: 'plus_pick',
+                  resource_kind: 'connector',
+                  resource_id: connector.id,
+                });
+                pickConnector(connector);
+              }}
+              onAddConnector={() => {
+                trackHomeChatComposerClick(analytics.track, {
+                  page_name: 'home',
+                  area: 'chat_composer',
+                  element: 'plus_add',
+                  resource_kind: 'connector',
+                });
+                onAddConnector();
+              }}
               plugins={pluginOptions}
-              onPickPlugin={pickPlugin}
-              onAddPlugin={onAddPlugin}
+              onPickPlugin={(record) => {
+                trackHomeChatComposerClick(analytics.track, {
+                  page_name: 'home',
+                  area: 'chat_composer',
+                  element: 'plus_pick',
+                  resource_kind: 'plugin',
+                  resource_id: record.id,
+                });
+                pickPlugin(record);
+              }}
+              onAddPlugin={() => {
+                trackHomeChatComposerClick(analytics.track, {
+                  page_name: 'home',
+                  area: 'chat_composer',
+                  element: 'plus_add',
+                  resource_kind: 'plugin',
+                });
+                onAddPlugin();
+              }}
               mcpServers={mcpOptions}
-              onPickMcp={pickMcp}
-              onAddMcp={onAddMcp}
+              onPickMcp={(server) => {
+                trackHomeChatComposerClick(analytics.track, {
+                  page_name: 'home',
+                  area: 'chat_composer',
+                  element: 'plus_pick',
+                  resource_kind: 'mcp',
+                  resource_id: server.id,
+                });
+                pickMcp(server);
+              }}
+              onAddMcp={() => {
+                trackHomeChatComposerClick(analytics.track, {
+                  page_name: 'home',
+                  area: 'chat_composer',
+                  element: 'plus_add',
+                  resource_kind: 'mcp',
+                });
+                onAddMcp();
+              }}
               onAttachFiles={() => {
                 trackHomeChatComposerClick(analytics.track, {
                   page_name: 'home',

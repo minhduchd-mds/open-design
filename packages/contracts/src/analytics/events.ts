@@ -1056,7 +1056,17 @@ export interface HomeChatComposerClickProps {
     // is the task-type rail (原型 / 幻灯片 / HyperFrames / 视频 / …).
     | 'working_dir'
     | 'working_dir_clear'
-    | 'task_chip';
+    | 'task_chip'
+    // The "+" menu on the home composer (same control as the in-project
+    // composer's `plus_*` events): opening it, inserting a
+    // connector/plugin/mcp mention (`resource_kind` + `resource_id`), or
+    // jumping to the add-resource surface (`resource_kind`).
+    | 'plus_menu_open'
+    | 'plus_pick'
+    | 'plus_add';
+  // For `plus_pick` / `plus_add`: which kind of resource (and its id on pick).
+  resource_kind?: 'connector' | 'plugin' | 'mcp';
+  resource_id?: string;
   // For plugin / action / task chips, the specific id (e.g. `prototype`,
   // `from_figma`, `hyperframes`).
   chip_id?: string;

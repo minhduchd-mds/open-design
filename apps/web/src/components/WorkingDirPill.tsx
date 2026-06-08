@@ -82,18 +82,25 @@ export function WorkingDirPill({ projectId, resolvedDir: propResolvedDir, onRepl
     };
   }, [open]);
 
+  // Both working-dir replacement paths (browser/fallback `applyDir` and the
+  // desktop host `handlePickDir`) funnel their success through this so the
+  // event fires once per successful switch on every platform.
+  function trackWorkingDirSwitch() {
+    trackComposerBarClick(analytics.track, {
+      page_name: 'chat_panel',
+      area: 'chat_composer',
+      element: 'working_dir_switch',
+      project_id: projectId,
+    });
+  }
+
   async function applyDir(dir: string) {
     setError(null);
     setBusy(true);
     setOpen(false);
     try {
       const result = await replaceProjectWorkingDir(projectId, dir);
-      trackComposerBarClick(analytics.track, {
-        page_name: 'chat_panel',
-        area: 'chat_composer',
-        element: 'working_dir_switch',
-        project_id: projectId,
-      });
+      trackWorkingDirSwitch();
       setFetchedDir(result.baseDir);
       onReplaced?.({
         baseDir: result.baseDir,
@@ -115,6 +122,7 @@ export function WorkingDirPill({ projectId, resolvedDir: propResolvedDir, onRepl
       try {
         const result = await pickAndReplaceHostProjectWorkingDir(projectId);
         if (result.ok) {
+          trackWorkingDirSwitch();
           setFetchedDir(result.baseDir);
           onReplaced?.({
             baseDir: result.baseDir,
