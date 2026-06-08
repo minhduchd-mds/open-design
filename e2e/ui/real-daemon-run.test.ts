@@ -114,6 +114,21 @@ test('[P0] real daemon run surfaces process/parser errors in chat', async ({ pag
   await expect(page.locator('.msg.error')).toContainText('intentional fake codex failure');
 });
 
+test('[P0] real daemon run classifies a Claude mid-stream socket drop as a retryable connection error', async ({ page }) => {
+  await page.goto('/');
+  await createProject(page, 'Daemon socket-drop smoke', 'claude');
+  await expectWorkspaceReady(page);
+
+  await sendPrompt(page, 'Return a daemon socket-drop failure');
+
+  // The raw SDK error ("The socket connection was closed unexpectedly") is
+  // replaced by the daemon's classified, human-readable connection diagnostic
+  // instead of being echoed verbatim into an error bubble.
+  await expect(page.locator('.msg.error')).toContainText('lost its connection to the Anthropic API', {
+    timeout: 15_000,
+  });
+});
+
 test('[P0] real daemon run supports a follow-up turn in the same project', async ({ page }) => {
   await page.goto('/');
   await createProject(page, 'Daemon follow-up smoke');

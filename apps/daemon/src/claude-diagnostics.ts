@@ -89,6 +89,40 @@ export function diagnoseClaudeCliFailure(
     );
   }
 
+  // A connection that *was established* and then dropped mid-response. This is
+  // distinct from the `connection refused` case above (which never connects):
+  // the Anthropic SDK / undici reports a premature close as "the socket
+  // connection was closed unexpectedly", "socket hang up", ECONNRESET,
+  // "fetch failed", etc. It is transient and worth retrying, and it shows up
+  // most on long, large generations whose streaming response outlives a flaky
+  // hop (VPN, corporate proxy, or a self-hosted ANTHROPIC_BASE_URL relay that
+  // caps streaming-request duration).
+  const connectionDropped =
+    /socket connection was closed/i.test(text) ||
+    /closed unexpectedly/i.test(text) ||
+    /socket hang up/i.test(text) ||
+    /econnreset/i.test(text) ||
+    /epipe/i.test(text) ||
+    /und_err_socket/i.test(text) ||
+    /premature close/i.test(text) ||
+    /other side closed/i.test(text) ||
+    /fetch failed/i.test(text) ||
+    /\bconnection (error|reset|closed)\b/i.test(text);
+  if (connectionDropped) {
+    if (hasCustomBaseUrl) {
+      return withContext(
+        'Claude Code lost its connection to the configured custom Anthropic endpoint before the response finished.',
+        'The connection to ANTHROPIC_BASE_URL was closed mid-stream — often a proxy or relay that drops long-lived streaming requests, and most likely on large generations. Retry; if it keeps happening, raise the proxy idle/stream timeout, or remove ANTHROPIC_BASE_URL to retry with standard Claude Code auth.',
+        input,
+      );
+    }
+    return withContext(
+      'Claude Code lost its connection to the Anthropic API before the response finished.',
+      'The network connection was closed mid-response — common on unstable networks, VPNs, or proxies that drop long-lived streaming requests, and most likely on large generations. Retry the request.',
+      input,
+    );
+  }
+
   const authFailure =
     /\b401\b/.test(text) ||
     /apikeysource["'\s:]+none/i.test(text) ||

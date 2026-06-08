@@ -184,4 +184,45 @@ describe('diagnoseClaudeCliFailure', () => {
     expect(diagnostic?.detail).not.toContain('b'.repeat(80));
     expect(diagnostic?.detail).toContain('x-api-key: [REDACTED:api_key_header]');
   });
+
+  it('maps mid-stream socket drops to a retryable connection diagnostic', () => {
+    const diagnostic = diagnoseClaudeCliFailure({
+      agentId: 'claude',
+      exitCode: 1,
+      stderrTail:
+        'API Error: The socket connection was closed unexpectedly. For more information, pass `verbose: true` in the second argument to fetch()',
+      env: {},
+    });
+
+    expect(diagnostic?.message).toContain('lost its connection');
+    expect(diagnostic?.message).toContain('Anthropic API');
+    expect(diagnostic?.detail).toContain('Retry');
+    expect(diagnostic?.detail).not.toContain('/login');
+    expect(diagnostic?.retryable).toBe(true);
+  });
+
+  it('classifies ECONNRESET and socket hang up as connection drops', () => {
+    for (const tail of ['Error: socket hang up', 'read ECONNRESET', 'TypeError: fetch failed']) {
+      const diagnostic = diagnoseClaudeCliFailure({
+        agentId: 'claude',
+        exitCode: 1,
+        stderrTail: tail,
+        env: {},
+      });
+      expect(diagnostic?.message, tail).toContain('lost its connection');
+    }
+  });
+
+  it('points socket drops at the proxy when a custom endpoint is configured', () => {
+    const diagnostic = diagnoseClaudeCliFailure({
+      agentId: 'claude',
+      exitCode: 1,
+      stderrTail: 'API Error: The socket connection was closed unexpectedly.',
+      env: { ANTHROPIC_BASE_URL: 'https://relay.example.com' },
+    });
+
+    expect(diagnostic?.message).toContain('custom Anthropic endpoint');
+    expect(diagnostic?.detail).toContain('ANTHROPIC_BASE_URL');
+    expect(diagnostic?.detail).toContain('timeout');
+  });
 });
