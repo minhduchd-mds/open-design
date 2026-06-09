@@ -5,6 +5,7 @@ import {
   getLandingUiCopy,
   type LandingLocaleCode,
 } from './i18n';
+import { buildLocalizedAgentGuides } from './agent-guides.i18n';
 
 type LinkText = {
   label: string;
@@ -650,6 +651,172 @@ const INFO_PAGE_COPY: Partial<Record<LandingLocaleCode, InfoPageCopy>> = {
         tldrBody:
           'Claude Code is a strong design generator once you give it taste — a design system, an aesthetic skill, a screenshot loop. Open Design ships exactly that as a local-first, open-source layer. Point Claude Code at it with your own key and start designing.',
         toc: ['What is Claude Code', 'Designing with Claude Code', 'Resources', 'With Open Design', 'FAQ'],
+        rich: {
+          heroCtaLead:
+            'Open Design turns Claude Code into a local-first, open-source design agent — your Anthropic key or Claude subscription, your files, a curated skill and design-system library around it.',
+          heroCtaActions: [
+            { label: 'Use Claude Code inside Open Design', href: '/quickstart/', variant: 'primary' },
+            { label: 'Star on GitHub', href: 'https://github.com/nexu-io/open-design', variant: 'ghost', external: true },
+            { label: 'Download the desktop app', href: 'https://github.com/nexu-io/open-design/releases', variant: 'ghost', external: true },
+          ],
+          intro: [
+            'Claude Code is widely regarded as the coding agent with the best frontend taste — it reasons about interfaces with unusual specificity, naming exact hex values, spacing, and type scales, and it refactors UI across a large codebase without losing the thread. But out of the box it still drifts toward a generic look unless you hand it a design system, skills, and real references. This is a practical, end-to-end guide to using Claude Code for UI, frontend, and design-system work, and to wiring it into a structured workflow with Open Design.',
+            'It covers what Claude Code actually is, why it is strong at frontend, how to set it up from zero, the CLAUDE.md and Skills workflow, the official Figma round-trip, how it compares to Codex and Cursor, the pitfalls that make AI output look generic, and how Open Design closes the gap as an open, local-first design layer.',
+          ],
+          heroImage: {
+            src: '/agents/claude-code-design/claude-code-design-hero.webp',
+            alt: 'Claude Code design feedback loop: terminal agent making specific design decisions, a browser rendering the UI, and a workspace, with a feedback arrow looping back',
+            caption: 'The core loop: Claude Code reasons out specific UI decisions in the terminal, renders and verifies them in a real browser, and converges against your references.',
+          },
+          tocLabel: 'On this page',
+          toc: [
+            { id: 'what-is-claude-code', label: 'What Claude Code actually is' },
+            { id: 'why-design', label: 'Why Claude Code is good at design' },
+            { id: 'setup', label: 'Set up Claude Code for design (from zero)' },
+            { id: 'skills-workflow', label: 'The CLAUDE.md and Skills workflow' },
+            { id: 'figma', label: 'Claude Code + Figma round-trip' },
+            { id: 'vs', label: 'Claude Code vs Codex vs Cursor' },
+            { id: 'pitfalls', label: 'Pitfalls and the “AI slop” look' },
+            { id: 'open-design', label: 'Designing with Claude Code in Open Design' },
+            { id: 'faq', label: 'FAQ' },
+          ],
+          sections: [
+            {
+              id: 'what-is-claude-code',
+              heading: 'What Claude Code actually is',
+              blocks: [
+                { kind: 'p', text: 'Claude Code is Anthropic’s agentic coding tool. It reads your codebase, edits files, runs commands, and integrates with your dev tools — planning, writing, and verifying work from natural-language tasks rather than just autocompleting lines.' },
+                { kind: 'p', text: 'It ships across several surfaces that all share the same engine: a terminal CLI, IDE extensions for VS Code, Cursor, and JetBrains, a desktop app with visual diff review, and a web experience for long-running tasks. Your CLAUDE.md files, settings, and MCP servers carry across all of them.' },
+                { kind: 'steps', items: [
+                  { label: 'Instruction file', body: 'Claude Code reads a CLAUDE.md file in your project root at the start of every session — the natural place to encode your design conventions, tokens, and review checklists.' },
+                  { label: 'Skills', body: 'Agent Skills package repeatable instructions, scripts, and resources that Claude loads on demand, including Anthropic’s official Frontend Design skill for taste.' },
+                  { label: 'Plan and subagents', body: 'It can plan before acting and spawn subagents that work on different parts of a task in parallel, which keeps large UI refactors coherent.' },
+                ] },
+                { kind: 'ul', items: [
+                  'Vendor: Anthropic',
+                  'Credential: Anthropic API key (BYOK, via the Console) or a Claude subscription (Pro / Max)',
+                  'Surfaces: terminal CLI, VS Code / Cursor / JetBrains extensions, desktop app, web',
+                ] },
+              ],
+            },
+            {
+              id: 'why-design',
+              heading: 'Why Claude Code is good at design',
+              blocks: [
+                { kind: 'p', text: 'Among coding agents, Claude Code has a reputation for taste in frontend work. A few things explain it.' },
+                { kind: 'steps', items: [
+                  { label: 'Specific, not vague, decisions', body: 'Claude Code tends to commit to concrete choices — exact hex values, spacing scales, type ramps, and component hierarchy — instead of hand-waving, which is what separates a real interface from a placeholder.' },
+                  { label: 'Codebase-aware reasoning', body: 'With a large working context it refactors UI across many files at once, reusing your existing components and tokens rather than reinventing one-off styles.' },
+                  { label: 'An official frontend skill', body: 'Anthropic ships a Frontend Design skill that makes Claude write a design direction first and deliberately steers away from generic system fonts and predictable purple gradients.' },
+                ] },
+                { kind: 'image', src: '/agents/claude-code-design/claude-code-design-taste-triangle.webp', alt: 'Diagram showing design system, skill, and reference image converging into good design output', caption: 'Taste comes from three inputs you provide: a design system, a skill, and real reference images.' },
+                { kind: 'p', text: 'The lesson is the same one Anthropic makes about its own models: Claude does not have taste by default — left alone it converges on the statistical center of web design (Inter, purple gradients, soft shadows). It produces good design when you give it constraints. Open Design packages exactly those inputs, which is why the two fit together (more below).' },
+              ],
+            },
+            {
+              id: 'setup',
+              heading: 'Set up Claude Code for design work, from zero',
+              blocks: [
+                { kind: 'p', text: 'Here is the full path from a clean machine to a Claude Code that can build and verify UI.' },
+                { kind: 'code', lang: 'bash', code: '# 1. Install Claude Code (native install, recommended)\ncurl -fsSL https://claude.ai/install.sh | bash\n# or: brew install --cask claude-code\n# Windows PowerShell: irm https://claude.ai/install.ps1 | iex\n\n# 2. Start it in your project and sign in on first run\ncd your-project\nclaude            # sign in with your Claude subscription or API key\n\n# 3. Generate project context\n/init             # creates a CLAUDE.md for this project\n\n# 4. Add the official Frontend Design skill\nclaude plugin install frontend-design@claude-plugins-official\n\n# 5. Wire the Figma MCP server (optional, for design handoff)\nclaude plugin install figma@claude-plugins-official' },
+                { kind: 'image', src: '/agents/claude-code-design/claude-code-design-setup-flow.webp', alt: 'Five-step setup flow: install, authenticate, configure CLAUDE.md, add skill, verify', caption: 'The setup sequence: install → authenticate → configure CLAUDE.md → add the Frontend Design skill → enable browser verification.' },
+                { kind: 'steps', items: [
+                  { label: 'Encode your design rules', body: 'Put your tokens, primitives, and conventions in CLAUDE.md and point Claude at them, so output matches a brand instead of defaulting to a generic look.' },
+                  { label: 'Add browser verification', body: 'Wire a Playwright or Chrome MCP so Claude renders in a real browser and checks its output across breakpoints instead of only confirming the build passes.' },
+                ] },
+              ],
+            },
+            {
+              id: 'skills-workflow',
+              heading: 'The CLAUDE.md and Skills workflow',
+              blocks: [
+                { kind: 'p', text: 'The highest-leverage design loop with Claude Code is feeding it real references plus your design context, then iterating until the UI matches — with CLAUDE.md and Skills carrying the constraints so you do not re-explain them every prompt.' },
+                { kind: 'ol', items: [
+                  'Start from the clearest visual references you have — and include multiple states (desktop and mobile, hover, empty, loading), not just one hero shot.',
+                  'Be specific in the prompt; vague prompts produce generic UI even with a strong agent.',
+                  'Keep your design system and conventions in CLAUDE.md, and tell Claude where the tokens and canonical primitives live.',
+                  'Add the Frontend Design skill so Claude commits to a real aesthetic direction before writing code.',
+                  'Wire browser verification so Claude renders, resizes to breakpoints, and compares back to the references — not merely confirms it builds.',
+                ] },
+                { kind: 'p', text: 'Drop a reference image into the session and prompt with concrete constraints:' },
+                { kind: 'code', lang: 'bash', code: 'claude "Implement reference-desktop.png and reference-mobile.png in\n  React + Vite + Tailwind + TypeScript.\n  Reuse the design-system components and tokens described in CLAUDE.md.\n  Match spacing, layout, and hierarchy; make it responsive.\n  Render it in the browser, verify it matches the references across\n  breakpoints, and iterate until it does."' },
+                { kind: 'p', text: 'Run a dev server alongside, keep prompts small and focused, and commit good iterations / revert bad ones (telling Claude when you revert) so each pass builds on a clean base. Use plan mode for larger refactors so you can review the approach before any file changes.' },
+              ],
+            },
+            {
+              id: 'figma',
+              heading: 'Claude Code + Figma: design ↔ code round-trip',
+              blocks: [
+                { kind: 'p', text: 'In February 2026 Anthropic and Figma shipped a first-class, bidirectional integration via the Figma MCP server. It works in both directions.' },
+                { kind: 'steps', items: [
+                  { label: 'Design → Code', body: 'Select a frame in Figma or paste a link into Claude Code, pull the design context, and ask it to implement the design using your existing component library. Code Connect keeps output aligned with your real components.' },
+                  { label: 'Code → Design', body: 'Build and preview a feature in the browser, then say “Send this to Figma” to capture the running UI as editable Figma layers — entire screen or a selected element.' },
+                ] },
+                { kind: 'p', text: 'Install it once with claude plugin install figma@claude-plugins-official (Dev Mode MCP requires a paid Figma plan). The same Figma MCP is available to Claude Code, Codex, Cursor, and VS Code — exactly the kind of portable, multi-agent capability Open Design is built to orchestrate.' },
+              ],
+            },
+            {
+              id: 'vs',
+              heading: 'Claude Code vs Codex vs Cursor for design',
+              blocks: [
+                { kind: 'p', text: 'There is no single winner for design work — each agent has a different strength, and experienced teams stack them. A fair summary:' },
+                { kind: 'table', columns: ['Agent', 'Design strength', 'Best for'], rows: [
+                  ['Claude Code', 'Specific design decisions (hex, spacing, type) and codebase-aware UX reasoning', 'Frontend reasoning and large-context refactors'],
+                  ['Codex', 'Strong visual polish and image understanding; sandboxed async builds', 'Delegated async builds and portable AGENTS.md rules'],
+                  ['Cursor', 'Visual build-and-see loop with live preview and inline edits', 'Tight iterate-and-watch UI work inside an IDE'],
+                ] },
+                { kind: 'p', text: 'The recurring community verdict is that taste comes from humans: all three default to a generic aesthetic without skills, references, and constraints. That is the real problem to solve — and it is design-tool-shaped, not model-shaped.' },
+              ],
+            },
+            {
+              id: 'pitfalls',
+              heading: 'Pitfalls, and how to avoid the “AI slop” look',
+              blocks: [
+                { kind: 'p', text: 'Even with Claude Code’s reputation for taste, the most common complaint about AI-generated design is that it looks generic — Inter fonts, purple gradients on white, soft shadows, oversized rounded corners, an aesthetic that “screams an AI made this.” Anthropic itself attributes this to distributional convergence: safe choices dominate web training data. Other reported issues include broken mobile layouts and instructions leaking into UI copy.' },
+                { kind: 'steps', items: [
+                  { label: 'Install the Frontend Design skill', body: 'It forces Claude to commit to a real direction and explicitly avoids fonts and gradients overused by AI.' },
+                  { label: 'Enable browser verification', body: 'Make Claude render and self-check across breakpoints so layouts do not silently break on mobile.' },
+                  { label: 'Supply tokens and references', body: 'Real design tokens and reference screenshots are the single biggest lever on output quality.' },
+                  { label: 'Encode rules in CLAUDE.md', body: 'Put “no hero cards, max two typefaces, brand-first hierarchy” style rules where the agent reads them every run.' },
+                ] },
+                { kind: 'p', text: 'Notice that every mitigation is about giving the agent a curated design context. Maintaining that context by hand, per project, is the toil Open Design removes.' },
+              ],
+            },
+            {
+              id: 'open-design',
+              heading: 'Designing with Claude Code inside Open Design',
+              blocks: [
+                { kind: 'p', text: 'Open Design is the open-source design layer the workflow above keeps asking for. It treats Claude Code as a first-party adapter and wraps it in a curated skill and design-system library, a structured render pipeline, and a local desktop UI — so the design context that makes Claude Code good is there from the first run, not assembled by hand each time.' },
+                { kind: 'ol', items: [
+                  'Install Open Design and select Claude Code as your agent.',
+                  'Authenticate with your Anthropic API key (BYOK) or Claude subscription — credentials stay on your machine and are never proxied through us.',
+                  'Pick a design system and a skill, then generate decks, prototypes, and landing pages with consistent taste.',
+                  'Every artifact and DESIGN.md file lives in your own repo, not a hosted cloud.',
+                ] },
+                { kind: 'p', text: 'Same Claude Code agent, same key — plus a real, portable, open-source design workflow around it. It is local-first and Apache-2.0, so nothing about your work or your credentials leaves your machine.' },
+              ],
+            },
+          ],
+          faqTitle: 'Frequently asked questions',
+          faq: [
+            { name: 'Is Claude Code good for design work?', text: 'Yes — it is widely regarded as the coding agent with the best frontend taste, making specific, codebase-aware decisions about hex values, spacing, and type scales. With the Frontend Design skill, a design system, and real reference images in context it produces production-quality, responsive UI and can verify it in a browser. Without that context it tends to default to a generic look, which is the gap Open Design fills.' },
+            { name: 'Do I need a Claude subscription to design with Claude Code?', text: 'You can use either an Anthropic API key (BYOK, via the Console) or a Claude subscription (Pro / Max). Either way Open Design never proxies your credentials — they are used directly by your agent on your machine.' },
+            { name: 'Claude Code or Codex for frontend design?', text: 'Both are strong. Claude Code is known for specific, codebase-aware design decisions and frontend reasoning; Codex has strong visual polish and excels at delegated, sandboxed builds. Many teams use both — Open Design lets you switch agents without changing your design workflow.' },
+            { name: 'How do I connect Claude Code to Figma?', text: 'Install the official Figma plugin with claude plugin install figma@claude-plugins-official. You can then implement Figma frames in code using the design context, and push a running UI back to editable Figma frames with “Send this to Figma.” Dev Mode MCP requires a paid Figma plan.' },
+            { name: 'What are Skills and CLAUDE.md?', text: 'CLAUDE.md is a markdown file in your project root that Claude Code reads at the start of every session — the place to encode your design conventions. Skills package repeatable instructions and resources Claude loads on demand, including Anthropic’s official Frontend Design skill. Open Design ships a curated library of both so you skip the per-project setup.' },
+            { name: 'How do I avoid the generic “AI slop” aesthetic?', text: 'Install the Frontend Design skill, supply real design tokens and reference screenshots, encode brand rules in CLAUDE.md, and enable browser verification. Open Design ships these as a curated library so you skip the per-project setup.' },
+            { name: 'Is Open Design affiliated with Anthropic?', text: 'No. Claude Code is a product of Anthropic; Open Design is an independent open-source project that supports it as a first-party adapter. Claude and Claude Code are trademarks of Anthropic.' },
+            { name: 'Are my files and credentials safe?', text: 'Yes — Open Design is local-first and Apache-2.0. Your files, artifacts, and DESIGN.md stay in your own repo, and your Anthropic credentials are used directly by your agent, never routed through Open Design servers.' },
+          ],
+          ctaTitle: 'Design with Claude Code, the open way.',
+          ctaBody: 'Bring your own Anthropic key or Claude subscription, keep every file local, and get a curated design library around the agent you already use.',
+          ctaActions: [
+            { label: 'Use Claude Code inside Open Design', href: '/quickstart/', variant: 'primary' },
+            { label: 'Star on GitHub', href: 'https://github.com/nexu-io/open-design', variant: 'ghost', external: true },
+            { label: 'Download the desktop app', href: 'https://github.com/nexu-io/open-design/releases', variant: 'ghost', external: true },
+          ],
+          hubLinkLabel: 'See all supported agents',
+        },
         aboutTitle: 'What is Claude Code',
         aboutBody: [
           'Claude Code is Anthropic’s agentic command-line tool: you describe a task in natural language and it reads, writes, and runs code in your project until the task is done.',
@@ -936,6 +1103,180 @@ const INFO_PAGE_COPY: Partial<Record<LandingLocaleCode, InfoPageCopy>> = {
         tldrBody:
           'Cursor’s Design Mode lets you edit a live UI by clicking, sketching, or talking; its Figma MCP integrations bring real design context into code. Open Design adds a curated skill and design-system library on top — your provider keys, your repo.',
         toc: ['What is Cursor', 'Designing with Cursor', 'Resources', 'With Open Design', 'FAQ'],
+        rich: {
+          heroCtaLead:
+            'Open Design turns Cursor into a local-first, open-source design agent — your Cursor account or model keys, your files, a curated skill and design-system library around it.',
+          heroCtaActions: [
+            { label: 'Use Cursor inside Open Design', href: '/quickstart/', variant: 'primary' },
+            { label: 'Star on GitHub', href: 'https://github.com/nexu-io/open-design', variant: 'ghost', external: true },
+            { label: 'Download the desktop app', href: 'https://github.com/nexu-io/open-design/releases', variant: 'ghost', external: true },
+          ],
+          intro: [
+            'Cursor is the AI-first code editor that made “build it and watch it render” the default way to ship UI. With Agent mode, inline edits, an in-editor preview, and Figma over MCP, it has become a genuine design tool — once you give it the right references, rules, and a verification loop. This is a practical, end-to-end guide to using Cursor for UI, frontend, and design-system work, and to wiring it into a structured design workflow with Open Design.',
+            'It covers what Cursor actually is, why its tight iterate-and-watch loop is good for design, how to set it up from zero, the screenshot-and-preview-to-UI loop, the Figma round-trip over MCP, how it compares to Codex and Claude Code, the pitfalls that make AI output look generic, and how Open Design closes the gap as an open, local-first design layer.',
+          ],
+          heroImage: {
+            src: '/agents/cursor-design/cursor-design-hero.webp',
+            alt: 'Cursor design convergence: editor on the left, a curated skill and design-system hub in the middle with the Cursor mark at center, and a rendered UI on the right',
+            caption: 'The core idea: Cursor edits and renders UI in the editor, while a curated design hub feeds it the system, skills, and references that make output look intentional.',
+          },
+          tocLabel: 'On this page',
+          toc: [
+            { id: 'what-is-cursor', label: 'What Cursor actually is' },
+            { id: 'why-design', label: 'Why Cursor is good at design' },
+            { id: 'setup', label: 'Set up Cursor for design (from zero)' },
+            { id: 'preview-workflow', label: 'The preview-to-UI workflow' },
+            { id: 'figma', label: 'Cursor + Figma over MCP' },
+            { id: 'vs', label: 'Cursor vs Codex vs Claude Code' },
+            { id: 'pitfalls', label: 'Pitfalls and the “AI slop” look' },
+            { id: 'open-design', label: 'Designing with Cursor in Open Design' },
+            { id: 'faq', label: 'FAQ' },
+          ],
+          sections: [
+            {
+              id: 'what-is-cursor',
+              heading: 'What Cursor actually is',
+              blocks: [
+                { kind: 'p', text: 'Cursor is an AI-first code editor built by Anysphere. It is a fork of VS Code, so it keeps the familiar editor, extensions, and keybindings, but rebuilds the workflow around an AI agent that can read your whole project, edit multiple files, run commands, and iterate with you in the loop.' },
+                { kind: 'p', text: 'For design work the important surfaces are Agent mode (you describe an outcome and Cursor plans and edits across files), inline edits and Tab completions for fast tweaks, an in-editor preview / browser so you can see the running UI without leaving the window, and MCP support that lets it pull in external context like a live Figma file.' },
+                { kind: 'steps', items: [
+                  { label: 'Project rules', body: 'Cursor reads project instruction files — versioned `.mdc` rules under `.cursor/rules`, and a plain `AGENTS.md` — so you can encode your design conventions where the agent reads them every run.' },
+                  { label: 'Models', body: 'Cursor is model-flexible: it ships with frontier models through your subscription and also supports bringing your own model keys, so you choose the engine behind the same editor workflow.' },
+                  { label: 'MCP', body: 'It speaks the Model Context Protocol, so external servers — most relevantly the Figma MCP server — become first-class context for the agent.' },
+                ] },
+                { kind: 'ul', items: [
+                  'Vendor: Anysphere',
+                  'Credential: Cursor account / subscription (Hobby / Pro / Business) or your own model keys (BYOK)',
+                  'Form: AI-first code editor (VS Code fork) with an in-editor agent and preview',
+                ] },
+              ],
+            },
+            {
+              id: 'why-design',
+              heading: 'Why Cursor is good at design',
+              blocks: [
+                { kind: 'p', text: 'Cursor’s design edge is not a single feature — it is the tightness of the build-and-see loop. Three things make it feel like a design tool rather than a generic code generator.' },
+                { kind: 'steps', items: [
+                  { label: 'A tight iterate-and-watch loop', body: 'You prompt, Cursor edits across files, and the in-editor preview renders the result immediately — so you adjust spacing, hierarchy, and motion in seconds instead of round-tripping through a separate terminal and browser.' },
+                  { label: 'Direct visual editing', body: 'Beyond chat, Cursor lets you select elements in the preview and nudge styles, so small visual corrections feel like design edits rather than code archaeology.' },
+                  { label: 'Project rules and MCP context', body: 'With `.cursor/rules` (or `AGENTS.md`) and the Figma MCP server, the agent works against your tokens, components, and real design specs instead of guessing.' },
+                ] },
+                { kind: 'image', src: '/agents/cursor-design/cursor-design-taste-triangle.webp', alt: 'Diagram showing design system, skill, and reference image converging into good design output', caption: 'Taste comes from three inputs you provide: a design system, a skill, and real reference images.' },
+                { kind: 'p', text: 'The lesson is the same one every agent teaches: Cursor does not have taste by default. It produces good design when you give it constraints — a design system, an aesthetic skill, and concrete references. Open Design packages exactly those inputs, which is why the two fit together (more below).' },
+              ],
+            },
+            {
+              id: 'setup',
+              heading: 'Set up Cursor for design work, from zero',
+              blocks: [
+                { kind: 'p', text: 'Here is the full path from a clean machine to a Cursor that can build, preview, and verify UI against your design system.' },
+                { kind: 'ol', items: [
+                  'Install Cursor from cursor.com and sign in with your Cursor account, or configure your own model keys (BYOK) in Settings.',
+                  'Open your project and pick a model in the chat / Agent panel.',
+                  'Add project rules: create `.cursor/rules/*.mdc` for structured, glob-scoped conventions, or a plain `AGENTS.md` for simple, readable instructions.',
+                  'Connect the Figma MCP server (optional) so the agent can read live design context.',
+                  'Run your dev server and use the in-editor preview to see and verify the UI as you iterate.',
+                ] },
+                { kind: 'image', src: '/agents/cursor-design/cursor-design-setup-flow.webp', alt: 'Five-step setup flow: install, authenticate, configure rules, add skill, verify', caption: 'The setup sequence: install → authenticate → configure project rules → add a skill → enable preview verification.' },
+                { kind: 'p', text: 'A minimal project-rules file makes the agent design to a brand instead of defaulting to a generic look. Put it where Cursor reads it every run:' },
+                { kind: 'code', lang: 'markdown', code: '# .cursor/rules/design.mdc\n---\ndescription: Project design conventions\nalwaysApply: true\n---\n\n- Reuse existing design-system tokens and components; never hardcode hex or spacing.\n- At most two typefaces and one accent color.\n- Brand-first hierarchy; restrained motion. No hero cards, no oversized rounded corners.\n- Build responsive by default; verify desktop and mobile in the preview before finishing.' },
+                { kind: 'steps', items: [
+                  { label: 'Encode your design rules', body: 'Put your tokens, primitives, and conventions in `.cursor/rules` or `AGENTS.md` and point Cursor at them, so output matches a brand instead of defaulting to a generic look.' },
+                  { label: 'Keep prompts small', body: 'Cursor’s tight loop rewards focused asks — iterate one component or state at a time and watch the preview between passes.' },
+                ] },
+              ],
+            },
+            {
+              id: 'preview-workflow',
+              heading: 'The preview-to-UI workflow',
+              blocks: [
+                { kind: 'p', text: 'The highest-leverage design loop with Cursor is turning a reference into working, responsive UI and iterating in the editor until it matches — watching the live preview the whole time instead of guessing.' },
+                { kind: 'ol', items: [
+                  'Start from the clearest visual references you have — and include multiple states (desktop and mobile, hover, empty, loading), not just one hero shot.',
+                  'Be specific in the prompt; vague prompts produce generic UI.',
+                  'Prepare a design system and tell Cursor where the tokens and canonical primitives live.',
+                  'Keep the in-editor preview open and your dev server running so each edit renders immediately at the breakpoints you care about.',
+                  'Iterate by comparing the rendered UI back to the references — and use direct element selection in the preview for small visual corrections.',
+                ] },
+                { kind: 'p', text: 'Feed references by attaching an image to the chat, then prompt with concrete constraints:' },
+                { kind: 'code', lang: 'text', code: 'Implement this design in React + Vite + Tailwind + TypeScript.\nReuse my existing design-system components and tokens.\nMatch spacing, layout, and hierarchy; make it responsive.\nKeep the preview open — verify desktop and mobile match the\nreferences and iterate until they do.' },
+                { kind: 'p', text: 'Commit good iterations and revert bad ones (telling Cursor when you revert) so each pass builds on a clean base — the same discipline that keeps any agent loop from drifting.' },
+              ],
+            },
+            {
+              id: 'figma',
+              heading: 'Cursor + Figma: design ↔ code over MCP',
+              blocks: [
+                { kind: 'p', text: 'Cursor connects to Figma through the official Figma MCP server, which gives the agent structured access to a live Figma file instead of a flat screenshot. That removes the guesswork from handoff.' },
+                { kind: 'steps', items: [
+                  { label: 'Design → Code', body: 'Copy a frame’s link in Figma, paste it into Cursor, and ask it to implement the design. The MCP server exposes real design context — components, variables, layout data, tokens — so the generated code matches the source instead of approximating it.' },
+                  { label: 'Stay aligned', body: 'With design tokens, styles, and components used consistently in Figma (and Code Connect where available), Cursor’s output stays mapped to your real design system rather than re-inventing primitives.' },
+                ] },
+                { kind: 'p', text: 'Set the remote Figma MCP server up once and it is available to Cursor as first-class context. Because MCP is an open standard, the same server is reusable across Cursor, Claude Code, Codex, and VS Code — exactly the kind of portable, multi-agent capability Open Design is built to orchestrate.' },
+              ],
+            },
+            {
+              id: 'vs',
+              heading: 'Cursor vs Codex vs Claude Code for design',
+              blocks: [
+                { kind: 'p', text: 'There is no single winner for design work — each agent has a different strength, and experienced teams stack them. A fair summary:' },
+                { kind: 'table', columns: ['Agent', 'Design strength', 'Best for'], rows: [
+                  ['Cursor', 'Visual build-and-see loop with live in-editor preview and direct element editing', 'Tight iterate-and-watch UI work inside an IDE'],
+                  ['Codex', 'Strong visual polish with a frontend skill; image understanding and sandboxed runs', 'Delegated async builds and portable AGENTS.md rules'],
+                  ['Claude Code', 'Specific design decisions (hex, spacing, type) and codebase-aware UX', 'Frontend reasoning and large-context refactors'],
+                ] },
+                { kind: 'p', text: 'The recurring community verdict is that taste comes from humans: all three default to a generic aesthetic without skills, references, and constraints. That is the real problem to solve — and it is design-tool-shaped, not model-shaped.' },
+              ],
+            },
+            {
+              id: 'pitfalls',
+              heading: 'Pitfalls, and how to avoid the “AI slop” look',
+              blocks: [
+                { kind: 'p', text: 'The most common complaint about Cursor-generated design is that it looks generic — soft gradients, floating panels, oversized rounded corners, dramatic shadows, an Inter-and-purple vibe that “screams an AI made this.” Other reported issues include layouts that break on mobile and instructions leaking into UI copy.' },
+                { kind: 'steps', items: [
+                  { label: 'Add a design skill', body: 'A curated aesthetic skill forces Cursor to commit to a real direction instead of the default look.' },
+                  { label: 'Use the preview to verify', body: 'Render and self-check across breakpoints in the in-editor preview so layouts do not silently break on mobile.' },
+                  { label: 'Supply tokens and references', body: 'Real design tokens and reference screenshots are the single biggest lever on output quality.' },
+                  { label: 'Encode rules in `.cursor/rules`', body: 'Put “no hero cards, max two typefaces, brand-first hierarchy” style rules where the agent reads them every run.' },
+                ] },
+                { kind: 'p', text: 'Notice that every mitigation is about giving the agent a curated design context. Maintaining that context by hand, per project, is the toil Open Design removes.' },
+              ],
+            },
+            {
+              id: 'open-design',
+              heading: 'Designing with Cursor inside Open Design',
+              blocks: [
+                { kind: 'p', text: 'Open Design is the open-source design layer the workflow above keeps asking for. It treats Cursor as a first-party adapter and wraps it in a curated skill and design-system library, a structured render pipeline, and a local desktop UI — so the design context that makes Cursor good is there from the first run, not assembled by hand each time.' },
+                { kind: 'ol', items: [
+                  'Install Open Design and select Cursor as your agent.',
+                  'Authenticate with your Cursor account or your own model keys (BYOK) — credentials stay on your machine and are never proxied through us.',
+                  'Pick a design system and a skill, then generate decks, prototypes, and landing pages with consistent taste.',
+                  'Every artifact and DESIGN.md file lives in your own repo, not a hosted cloud.',
+                ] },
+                { kind: 'p', text: 'Same Cursor agent, same key — plus a real, portable, open-source design workflow around it. It is local-first and Apache-2.0, so nothing about your work or your credentials leaves your machine.' },
+              ],
+            },
+          ],
+          faqTitle: 'Frequently asked questions',
+          faq: [
+            { name: 'Can Cursor really do design work?', text: 'Yes — with a design skill, a design system, and real reference images in context, Cursor produces production-quality, responsive UI, and its in-editor preview lets you verify and refine it visually. Without that context it tends to default to a generic look, which is the gap Open Design fills.' },
+            { name: 'Is this an official Cursor product?', text: 'No. Open Design is an independent open-source project that integrates Cursor as an agent. It complements Cursor with a local-first, open skill and design-system library.' },
+            { name: 'Do I need a Cursor subscription to design with Cursor?', text: 'You can use a Cursor account / subscription or bring your own model keys (BYOK). Open Design never proxies your credentials either way — they are used directly by your agent.' },
+            { name: 'Cursor or Claude Code for frontend design?', text: 'Both are strong. Claude Code is known for specific, codebase-aware design decisions; Cursor’s edge is its tight build-and-see loop with a live preview inside the editor. Many teams use both — Open Design lets you switch agents without changing your design workflow.' },
+            { name: 'How do I connect Cursor to Figma?', text: 'Add the official Figma MCP server in Cursor, then paste a Figma frame link into the chat and ask Cursor to implement it. The server exposes real components, variables, and layout data so the generated code matches the source design.' },
+            { name: 'How do I avoid the generic “AI slop” aesthetic?', text: 'Add a design skill, supply real design tokens and reference screenshots, encode brand rules in `.cursor/rules` or `AGENTS.md`, and verify across breakpoints in the preview. Open Design ships these as a curated library so you skip the per-project setup.' },
+            { name: 'Is Open Design affiliated with Cursor or Anysphere?', text: 'No. Cursor is a product of Anysphere; Open Design is an independent open-source project that supports it as a first-party adapter. Cursor and Anysphere are trademarks of Anysphere, Inc.' },
+            { name: 'Are my files and credentials safe?', text: 'Yes — Open Design is local-first. Your files, artifacts, and DESIGN.md stay in your own repo, and your Cursor or model credentials are used directly by your agent, never routed through Open Design servers.' },
+          ],
+          ctaTitle: 'Design with Cursor, the open way.',
+          ctaBody: 'Bring your own Cursor account or model keys, keep every file local, and get a curated design library around the agent you already use.',
+          ctaActions: [
+            { label: 'Use Cursor inside Open Design', href: '/quickstart/', variant: 'primary' },
+            { label: 'Star on GitHub', href: 'https://github.com/nexu-io/open-design', variant: 'ghost', external: true },
+            { label: 'Download the desktop app', href: 'https://github.com/nexu-io/open-design/releases', variant: 'ghost', external: true },
+          ],
+          hubLinkLabel: 'See all supported agents',
+        },
         aboutTitle: 'What is Cursor',
         aboutBody: [
           'Cursor is an AI-first code editor built on VS Code, with a built-in agent that edits across your whole project.',
@@ -996,6 +1337,175 @@ const INFO_PAGE_COPY: Partial<Record<LandingLocaleCode, InfoPageCopy>> = {
         tldrBody:
           'OpenCode is a fully open-source coding agent; design is an emergent use via skills, design.md files, and Figma MCP. Open Design packages a curated design-system and skill library plus a desktop workflow around it — your keys, your repo.',
         toc: ['What is OpenCode', 'Designing with OpenCode', 'Resources', 'With Open Design', 'FAQ'],
+        rich: {
+          heroCtaLead:
+            'Open Design turns OpenCode into a local-first, open-source design agent — any model you choose with your own provider key, your files, a curated skill and design-system library around it.',
+          heroCtaActions: [
+            { label: 'Use OpenCode inside Open Design', href: '/quickstart/', variant: 'primary' },
+            { label: 'Star on GitHub', href: 'https://github.com/nexu-io/open-design', variant: 'ghost', external: true },
+            { label: 'Download the desktop app', href: 'https://github.com/nexu-io/open-design/releases', variant: 'ghost', external: true },
+          ],
+          intro: [
+            'OpenCode is an open-source, terminal-first AI coding agent that is deliberately model-agnostic: you bring your own provider key and run whatever model you want behind the same workflow. That openness makes it a natural base for design work — but like every agent, it only produces good UI when you give it the right references, skills, and a verification loop. This is a practical, end-to-end guide to using OpenCode for UI, frontend, and design-system work, and to wiring it into a structured design workflow with Open Design.',
+            'It covers what OpenCode actually is, why a model-agnostic open agent is a good fit for design, how to set it up from zero, the screenshot-to-UI loop, how AGENTS.md and MCP extend it, how it compares to Codex, Claude Code, and Cursor, the pitfalls that make AI output look generic, and how Open Design closes the gap as an open, local-first design layer — a natural pairing, since both projects are open-source and run on your own machine.',
+          ],
+          heroImage: {
+            src: '/agents/opencode-design/opencode-design-hero.webp',
+            alt: 'OpenCode design feedback loop: a terminal TUI agent, a browser rendering the UI, and a workspace, with a feedback arrow looping back',
+            caption: 'The core loop: OpenCode builds UI in the terminal, renders and verifies it in a real browser, and iterates against your references — on whatever model you choose.',
+          },
+          tocLabel: 'On this page',
+          toc: [
+            { id: 'what-is-opencode', label: 'What OpenCode actually is' },
+            { id: 'why-design', label: 'Why an open, any-model agent fits design' },
+            { id: 'setup', label: 'Set up OpenCode for design (from zero)' },
+            { id: 'screenshot-workflow', label: 'The screenshot-to-UI workflow' },
+            { id: 'extend', label: 'AGENTS.md, MCP, and shareable sessions' },
+            { id: 'vs', label: 'OpenCode vs Codex vs Claude Code vs Cursor' },
+            { id: 'pitfalls', label: 'Pitfalls and the “AI slop” look' },
+            { id: 'open-design', label: 'Designing with OpenCode in Open Design' },
+            { id: 'faq', label: 'FAQ' },
+          ],
+          sections: [
+            {
+              id: 'what-is-opencode',
+              heading: 'What OpenCode actually is',
+              blocks: [
+                { kind: 'p', text: 'OpenCode is an open-source AI coding agent built for the terminal, maintained by the team behind SST (Anomaly Innovations). It reads your repository, runs commands, edits files, and talks to a large language model — but unlike vendor-bound agents, it does not ship its own model. You point it at whatever provider and model you want and bring your own key.' },
+                { kind: 'p', text: 'It runs as a terminal UI (TUI), with a desktop app and IDE extensions on top of the same engine. Under the hood it uses a client/server architecture, so the agent that does the work is decoupled from the surface you drive it from. Two built-in agents — build and plan — toggle with the Tab key.' },
+                { kind: 'steps', items: [
+                  { label: 'Model-agnostic', body: 'Models and providers come from models.dev, an open catalog. You configure them in opencode.json with a provider/model-id string and can disable providers you do not want loaded — so the same design workflow runs on Anthropic, OpenAI, Google, OpenRouter, local models, and more.' },
+                  { label: 'Instruction file', body: 'OpenCode reads an AGENTS.md file in your project (the cross-tool standard, also compatible with CLAUDE.md) for project rules — the natural place to encode your design conventions. Run /init to generate one.' },
+                  { label: 'Extensible', body: 'It supports LSP integration, MCP servers, themes, keybinds, and custom commands, plus shareable session links for collaboration.' },
+                ] },
+                { kind: 'ul', items: [
+                  'Maintainer: SST / Anomaly Innovations (open-source project)',
+                  'Credential: your own model-provider API key(s) — BYOK, no vendor lock-in',
+                  'License: MIT, open source',
+                ] },
+              ],
+            },
+            {
+              id: 'why-design',
+              heading: 'Why an open, any-model agent fits design work',
+              blocks: [
+                { kind: 'p', text: 'OpenCode does not have a single “design model” the way a vendor agent does — and that is the point. Because it is model-agnostic and open, you can run the same design workflow on whichever model is currently best at frontend, swap it later, or fall back to a local model, all without changing your setup.' },
+                { kind: 'p', text: 'But model choice alone does not buy taste. Like every coding agent, OpenCode produces generic UI unless you give it constraints. Good design output comes from three inputs you provide.' },
+                { kind: 'steps', items: [
+                  { label: 'A design system', body: 'Real tokens, primitives, and conventions the agent reuses, so output matches a brand instead of defaulting to a generic look.' },
+                  { label: 'An aesthetic skill', body: 'A curated skill that enforces real taste — restrained motion, brand-first hierarchy, at most two typefaces and one accent color — and makes the agent commit to a direction before building.' },
+                  { label: 'Concrete references', body: 'Actual reference images and multiple states (desktop and mobile, hover, empty, loading), not a single hero shot.' },
+                ] },
+                { kind: 'image', src: '/agents/opencode-design/opencode-design-taste-triangle.webp', alt: 'Diagram showing design system, skill, and reference image converging into good design output', caption: 'Taste comes from three inputs you provide: a design system, a skill, and real reference images — independent of which model you run.' },
+                { kind: 'p', text: 'The lesson: OpenCode gives you model freedom, but taste still comes from a curated design context. Open Design packages exactly those inputs, which is why the two fit together — both are open-source and local-first (more below).' },
+              ],
+            },
+            {
+              id: 'setup',
+              heading: 'Set up OpenCode for design work, from zero',
+              blocks: [
+                { kind: 'p', text: 'Here is the full path from a clean machine to an OpenCode that can build and verify UI.' },
+                { kind: 'code', lang: 'bash', code: '# 1. Install OpenCode\ncurl -fsSL https://opencode.ai/install | bash\n# or: npm i -g opencode-ai@latest\n# or: brew install sst/tap/opencode\n\n# 2. Start the TUI in your project, then authenticate your provider\nopencode          # then run /login and pick your provider + paste your key\n\n# 3. Generate project context\nopencode          # inside your project, run /init to create AGENTS.md\n\n# 4. Pick your model (any provider, via models.dev)\n#    set "provider/model-id" in opencode.json or switch in the TUI\n\n# 5. Add an MCP server (optional, e.g. for design handoff)\n#    configure it under the "mcp" key in opencode.json' },
+                { kind: 'image', src: '/agents/opencode-design/opencode-design-setup-flow.webp', alt: 'Five-step setup flow: install, authenticate with your provider key, configure AGENTS.md, add a skill, verify', caption: 'The setup sequence: install → authenticate (your provider key) → configure AGENTS.md → add a skill → verify in a real browser.' },
+                { kind: 'steps', items: [
+                  { label: 'Encode your design rules', body: 'Put your tokens, primitives, and conventions in AGENTS.md (or a DESIGN.md referenced from it) so output matches a brand instead of defaulting to a generic look. The instructions option in opencode.json can point at additional rule files via globs.' },
+                  { label: 'Choose a capable model', body: 'Because OpenCode is model-agnostic, pick whichever provider/model is currently strongest at frontend for the design pass — and keep the rest of your workflow unchanged.' },
+                ] },
+              ],
+            },
+            {
+              id: 'screenshot-workflow',
+              heading: 'The screenshot-to-UI workflow',
+              blocks: [
+                { kind: 'p', text: 'The highest-leverage design loop with any agent is turning a reference image into working, responsive UI and iterating until it matches. The same five-step shape applies in OpenCode.' },
+                { kind: 'ol', items: [
+                  'Start from the clearest visual references you have — and include multiple states (desktop and mobile, hover, empty, loading), not just one hero shot.',
+                  'Be specific in the prompt; vague prompts produce generic UI.',
+                  'Prepare a design system and tell OpenCode where the tokens and canonical primitives live (in AGENTS.md).',
+                  'Run a dev server and have the agent render in a real browser, resizing to breakpoints to check the result.',
+                  'Iterate by having OpenCode compare its implementation back to the screenshots — not merely confirm it builds.',
+                ] },
+                { kind: 'p', text: 'Reference files with @ in the TUI for a fuzzy search of your working directory, run shell commands inline with a leading !, and drive actions with / commands. Then prompt with concrete constraints:' },
+                { kind: 'code', lang: 'bash', code: 'opencode\n# in the TUI:\n> @reference-desktop.png @reference-mobile.png\n  Implement this design in React + Vite + Tailwind + TypeScript.\n  Reuse my existing design-system components and tokens from AGENTS.md.\n  Match spacing, layout, and hierarchy; make it responsive.\n  Run the dev server, open it in a browser, and iterate until the\n  UI matches the references across breakpoints.' },
+                { kind: 'p', text: 'Keep prompts small and focused, commit good iterations and revert bad ones (telling OpenCode when you revert), so each pass builds on a clean base.' },
+              ],
+            },
+            {
+              id: 'extend',
+              heading: 'AGENTS.md, MCP, and shareable sessions',
+              blocks: [
+                { kind: 'p', text: 'Three extension points make OpenCode practical for sustained design work, and all three map cleanly onto an open design workflow.' },
+                { kind: 'steps', items: [
+                  { label: 'AGENTS.md rules', body: 'Project rules live in an AGENTS.md at the repo root (or global rules in ~/.config/opencode/AGENTS.md). It is the durable home for your design conventions, read on every run, and it is compatible with the CLAUDE.md files other agents use.' },
+                  { label: 'MCP servers', body: 'OpenCode supports both local (command) and remote (URL) MCP servers, configured under the mcp key — the portable way to bring in design context and external tools that work across agents, not just OpenCode.' },
+                  { label: 'Shareable sessions', body: 'The /share command creates a public link to a conversation for collaboration or review, and /unshare revokes it — useful for getting feedback on a design pass.' },
+                ] },
+                { kind: 'p', text: 'These are portable, multi-agent capabilities — exactly the kind of thing Open Design is built to orchestrate, rather than re-create per project.' },
+              ],
+            },
+            {
+              id: 'vs',
+              heading: 'OpenCode vs Codex vs Claude Code vs Cursor for design',
+              blocks: [
+                { kind: 'p', text: 'There is no single winner for design work — each agent has a different strength, and experienced teams stack them. A fair summary:' },
+                { kind: 'table', columns: ['Agent', 'Design strength', 'Best for'], rows: [
+                  ['OpenCode', 'Open-source and model-agnostic; run any provider behind one terminal workflow', 'BYOK freedom, model-switching, fully open and local-first setups'],
+                  ['Codex', 'Strong visual polish with a frontend skill; image understanding', 'Delegated async, sandboxed builds, portable AGENTS.md rules'],
+                  ['Claude Code', 'Specific design decisions (hex, spacing, type) and codebase-aware UX', 'Frontend reasoning and large-context refactors'],
+                  ['Cursor', 'Visual build-and-see loop with live preview and inline edits', 'Tight iterate-and-watch UI work inside an IDE'],
+                ] },
+                { kind: 'p', text: 'The recurring community verdict is that taste comes from humans: all of them default to a generic aesthetic without skills, references, and constraints. That is the real problem to solve — and it is design-tool-shaped, not model-shaped, which is precisely why an open agent like OpenCode pairs so well with an open design layer.' },
+              ],
+            },
+            {
+              id: 'pitfalls',
+              heading: 'Pitfalls, and how to avoid the “AI slop” look',
+              blocks: [
+                { kind: 'p', text: 'The most common complaint about AI-generated design is that it looks generic — soft gradients, floating panels, oversized rounded corners, dramatic shadows, an Inter-and-purple vibe that “screams an AI made this.” Other reported issues include broken mobile layouts and instructions leaking into UI copy. None of these are unique to OpenCode; they are what happens when any agent runs without a curated design context.' },
+                { kind: 'steps', items: [
+                  { label: 'Add an aesthetic skill', body: 'A curated design skill forces the agent to commit to a real direction instead of the default look.' },
+                  { label: 'Verify in a real browser', body: 'Render and self-check across breakpoints so layouts do not silently break on mobile.' },
+                  { label: 'Supply tokens and references', body: 'Real design tokens and reference screenshots are the single biggest lever on output quality.' },
+                  { label: 'Encode rules in AGENTS.md', body: 'Put “no hero cards, max two typefaces, brand-first hierarchy” style rules where the agent reads them every run.' },
+                ] },
+                { kind: 'p', text: 'Notice that every mitigation is about giving the agent a curated design context — regardless of which model you run. Maintaining that context by hand, per project, is the toil Open Design removes.' },
+              ],
+            },
+            {
+              id: 'open-design',
+              heading: 'Designing with OpenCode inside Open Design',
+              blocks: [
+                { kind: 'p', text: 'Open Design is the open-source design layer the workflow above keeps asking for. It treats OpenCode as a first-party adapter and wraps it in a curated skill and design-system library, a structured render pipeline, and a local desktop UI — so the design context that makes any agent good is there from the first run, not assembled by hand each time. Both projects are open-source and local-first, which makes the pairing a natural fit.' },
+                { kind: 'ol', items: [
+                  'Install Open Design and select OpenCode as your agent.',
+                  'Authenticate with your own model-provider API key (BYOK) — credentials stay on your machine and are never proxied through us.',
+                  'Pick any provider and model, plus a design system and a skill, then generate decks, prototypes, and landing pages with consistent taste.',
+                  'Every artifact and DESIGN.md file lives in your own repo, not a hosted cloud.',
+                ] },
+                { kind: 'p', text: 'Same OpenCode agent, same model freedom — plus a real, portable, open-source design workflow around it. It is local-first and Apache-2.0, so nothing about your work or your credentials leaves your machine.' },
+              ],
+            },
+          ],
+          faqTitle: 'Frequently asked questions',
+          faq: [
+            { name: 'Can OpenCode really do design work?', text: 'Yes — with an aesthetic skill, a design system, and real reference images in context, OpenCode produces production-quality, responsive UI and can verify it in a browser. Because it is model-agnostic, you run whichever model is currently best at frontend. Without that curated context it tends to default to a generic look, which is the gap Open Design fills.' },
+            { name: 'Which model should I use with OpenCode for design?', text: 'Whichever you like — OpenCode is provider-agnostic via models.dev, so you can run Anthropic, OpenAI, Google, OpenRouter, or local models behind the same workflow and switch at any time. The quality of the design output depends far more on your skill, design system, and references than on the model alone.' },
+            { name: 'Is Open Design made by the OpenCode (SST) team?', text: 'No. Open Design is an independent open-source project that integrates OpenCode as an agent. It complements OpenCode with a local-first, open skill and design-system library.' },
+            { name: 'Do I need a special subscription to design with OpenCode?', text: 'No — OpenCode is BYOK. You bring your own model-provider API key, and Open Design never proxies your credentials. There is no vendor lock-in.' },
+            { name: 'OpenCode or Codex or Claude Code for frontend design?', text: 'All are strong, and many teams stack them. OpenCode’s edge is being fully open-source and model-agnostic; Codex excels at delegated, sandboxed builds; Claude Code is known for specific, codebase-aware design decisions. Open Design lets you switch agents without changing your design workflow.' },
+            { name: 'How do I extend OpenCode for design context?', text: 'Encode rules in AGENTS.md, add MCP servers under the mcp key for portable tools and design context, and use shareable sessions for review. Open Design ships a curated skill and design-system library so you skip the per-project setup.' },
+            { name: 'Is Open Design affiliated with OpenCode or SST?', text: 'No. OpenCode is an open-source project maintained by SST (Anomaly Innovations); Open Design is an independent open-source project that supports it as a first-party adapter.' },
+            { name: 'Are my files and credentials safe?', text: 'Yes — Open Design is local-first. Your files, artifacts, and DESIGN.md stay in your own repo, and your model-provider credentials are used directly by your agent, never routed through Open Design servers.' },
+          ],
+          ctaTitle: 'Design with OpenCode, the open way.',
+          ctaBody: 'Bring your own model-provider key, keep every file local, and get a curated design library around the open agent you already use.',
+          ctaActions: [
+            { label: 'Use OpenCode inside Open Design', href: '/quickstart/', variant: 'primary' },
+            { label: 'Star on GitHub', href: 'https://github.com/nexu-io/open-design', variant: 'ghost', external: true },
+            { label: 'Download the desktop app', href: 'https://github.com/nexu-io/open-design/releases', variant: 'ghost', external: true },
+          ],
+          hubLinkLabel: 'See all supported agents',
+        },
         aboutTitle: 'What is OpenCode',
         aboutBody: [
           'OpenCode is an open-source (MIT) terminal AI coding agent — a TUI plus desktop and IDE surfaces — maintained by Anomaly (the SST team) at github.com/anomalyco/opencode.',
@@ -1891,6 +2401,172 @@ INFO_PAGE_COPY.zh = {
       tldrBody:
         '只要给 Claude Code「审美」—— 一套设计系统、一个风格 skill、一个截图迭代循环 —— 它就是个强力的设计生成器。Open Design 把这些做成本地优先的开源层。用你自己的密钥指向它，开始设计。',
       toc: ['什么是 Claude Code', '用 Claude Code 做设计', '资源', '配合 Open Design', '常见问题'],
+      rich: {
+        heroCtaLead:
+          'Open Design 把 Claude Code 变成一个本地优先、开源的设计 agent —— 用你自己的 Anthropic key 或 Claude 订阅、你自己的文件，外面再包一层精选的 skill 与设计系统库。',
+        heroCtaActions: [
+          { label: '在 Open Design 里使用 Claude Code', href: '/quickstart/', variant: 'primary' },
+          { label: '在 GitHub 上 Star', href: 'https://github.com/nexu-io/open-design', variant: 'ghost', external: true },
+          { label: '下载桌面应用', href: 'https://github.com/nexu-io/open-design/releases', variant: 'ghost', external: true },
+        ],
+        intro: [
+          'Claude Code 被普遍认为是前端品味最好的 coding agent —— 它对界面的推理格外具体，会给出确切的 hex 色值、间距与字号阶梯，并能在大型代码库里跨文件重构 UI 而不丢失主线。但开箱即用时，如果你不给它设计系统、skill 和真实参考，它仍会滑向一种泛泛的样子。这是一份关于如何把 Claude Code 用于 UI、前端与设计系统工作，并将它接入 Open Design 结构化工作流的端到端实战指南。',
+          '本文涵盖 Claude Code 到底是什么、它为何擅长前端、如何从零搭建、CLAUDE.md 与 Skills 工作流、官方的 Figma 往返、它与 Codex 和 Cursor 的对比、让 AI 产出显得套路化的那些坑，以及 Open Design 如何作为开源、本地优先的设计层来补上这道缺口。',
+        ],
+        heroImage: {
+          src: '/agents/claude-code-design/claude-code-design-hero.webp',
+          alt: 'Claude Code 设计反馈闭环：终端里做出具体设计决策的 agent、渲染 UI 的浏览器，以及一个工作区，由一条反馈箭头回环',
+          caption: '核心闭环：Claude Code 在终端里推理出具体的 UI 决策，在真实浏览器里渲染并验证，再对照参考不断收敛。',
+        },
+        tocLabel: '本页内容',
+        toc: [
+          { id: 'what-is-claude-code', label: 'Claude Code 究竟是什么' },
+          { id: 'why-design', label: 'Claude Code 为何擅长设计' },
+          { id: 'setup', label: '从零搭建用于设计的 Claude Code' },
+          { id: 'skills-workflow', label: 'CLAUDE.md 与 Skills 工作流' },
+          { id: 'figma', label: 'Claude Code + Figma 往返' },
+          { id: 'vs', label: 'Claude Code vs Codex vs Cursor' },
+          { id: 'pitfalls', label: '常见坑与“AI 套路感”' },
+          { id: 'open-design', label: '在 Open Design 里用 Claude Code 做设计' },
+          { id: 'faq', label: '常见问题' },
+        ],
+        sections: [
+          {
+            id: 'what-is-claude-code',
+            heading: 'Claude Code 究竟是什么',
+            blocks: [
+              { kind: 'p', text: 'Claude Code 是 Anthropic 的 agentic 编码工具。它读取你的代码库、编辑文件、运行命令、与你的开发工具集成 —— 从自然语言任务出发去规划、编写并验证，而不只是补全几行代码。' },
+              { kind: 'p', text: '它有多个共享同一引擎的形态：终端 CLI、面向 VS Code / Cursor / JetBrains 的 IDE 扩展、带可视化 diff 审阅的桌面应用，以及用于长时任务的网页端。你的 CLAUDE.md 文件、设置与 MCP server 在所有形态间通用。' },
+              { kind: 'steps', items: [
+                { label: '指令文件', body: 'Claude Code 在每次会话开始时读取项目根目录下的 CLAUDE.md —— 这正是写入你的设计规范、token 与审阅清单的天然位置。' },
+                { label: 'Skills', body: 'Agent Skills 把可复用的指令、脚本与资源打包，由 Claude 按需加载，其中就包括 Anthropic 官方的 Frontend Design skill 来注入品味。' },
+                { label: 'Plan 与 subagent', body: '它能先规划再动手，并可派生 subagent 并行处理任务的不同部分，从而让大型 UI 重构保持连贯。' },
+              ] },
+              { kind: 'ul', items: [
+                '厂商：Anthropic',
+                '凭证：Anthropic API key（BYOK，经 Console）或 Claude 订阅（Pro / Max）',
+                '形态：终端 CLI、VS Code / Cursor / JetBrains 扩展、桌面应用、网页端',
+              ] },
+            ],
+          },
+          {
+            id: 'why-design',
+            heading: 'Claude Code 为何擅长设计',
+            blocks: [
+              { kind: 'p', text: '在一众 coding agent 里，Claude Code 在前端工作上以“有品味”著称。原因有几点。' },
+              { kind: 'steps', items: [
+                { label: '决策具体，不含糊', body: 'Claude Code 倾向于落到确切的选择 —— 精确的 hex 色值、间距阶梯、字号 ramp 与组件层级，而不是泛泛而谈，而这正是真实界面与占位草稿的分水岭。' },
+                { label: '理解代码库的推理', body: '凭借较大的工作上下文，它能一次性跨多文件重构 UI，复用你已有的组件与 token，而不是另造一套一次性样式。' },
+                { label: '官方前端 skill', body: 'Anthropic 提供 Frontend Design skill，让 Claude 先写出设计方向，并刻意避开泛用系统字体与可预料的紫色渐变。' },
+              ] },
+              { kind: 'image', src: '/agents/claude-code-design/claude-code-design-taste-triangle.webp', alt: '展示设计系统、skill 与参考图三者汇聚成优质设计产出的示意图', caption: '品味来自你提供的三项输入：设计系统、skill，以及真实参考图。' },
+              { kind: 'p', text: '这和 Anthropic 对自家模型的说法一致：Claude 默认并没有品味 —— 放任不管，它会收敛到网页设计的统计中心（Inter、紫色渐变、柔和阴影）。给它约束，它才能产出好设计。Open Design 恰恰把这些输入打包好了，这也是两者天然契合之处（详见下文）。' },
+            ],
+          },
+          {
+            id: 'setup',
+            heading: '从零搭建用于设计工作的 Claude Code',
+            blocks: [
+              { kind: 'p', text: '下面是从一台干净机器到一个能构建并验证 UI 的 Claude Code 的完整路径。' },
+              { kind: 'code', lang: 'bash', code: '# 1. 安装 Claude Code（推荐原生安装）\ncurl -fsSL https://claude.ai/install.sh | bash\n# 或：brew install --cask claude-code\n# Windows PowerShell：irm https://claude.ai/install.ps1 | iex\n\n# 2. 在你的项目里启动，首次运行时登录\ncd your-project\nclaude            # 用 Claude 订阅或 API key 登录\n\n# 3. 生成项目上下文\n/init             # 为本项目创建 CLAUDE.md\n\n# 4. 添加官方 Frontend Design skill\nclaude plugin install frontend-design@claude-plugins-official\n\n# 5. 接入 Figma MCP server（可选，用于设计交付）\nclaude plugin install figma@claude-plugins-official' },
+              { kind: 'image', src: '/agents/claude-code-design/claude-code-design-setup-flow.webp', alt: '五步搭建流程：安装、认证、配置 CLAUDE.md、添加 skill、验证', caption: '搭建顺序：安装 → 认证 → 配置 CLAUDE.md → 添加 Frontend Design skill → 启用浏览器验证。' },
+              { kind: 'steps', items: [
+                { label: '把设计规则写进去', body: '把你的 token、基础原语与约定放进 CLAUDE.md 并让 Claude 指向它们，这样产出会贴合品牌，而不是退回到泛用样子。' },
+                { label: '加上浏览器验证', body: '接入 Playwright 或 Chrome MCP，让 Claude 在真实浏览器里渲染，并跨断点检查产出，而不仅仅确认构建通过。' },
+              ] },
+            ],
+          },
+          {
+            id: 'skills-workflow',
+            heading: 'CLAUDE.md 与 Skills 工作流',
+            blocks: [
+              { kind: 'p', text: '用 Claude Code 做设计、杠杆最高的闭环，是把真实参考连同你的设计上下文一起喂给它，再迭代到 UI 对得上 —— 由 CLAUDE.md 和 Skills 承载约束，免得你每次 prompt 都重新解释一遍。' },
+              { kind: 'ol', items: [
+                '从你手头最清晰的视觉参考出发 —— 而且要包含多种状态（桌面与移动、hover、空态、加载态），不要只给一张 hero 图。',
+                '在 prompt 里说具体；即便是强 agent，含糊的 prompt 也只会产出泛泛的 UI。',
+                '把你的设计系统与约定放进 CLAUDE.md，并告诉 Claude token 与标准原语在哪里。',
+                '添加 Frontend Design skill，让 Claude 在写代码前先确定一个真实的美学方向。',
+                '接好浏览器验证，让 Claude 渲染、调整到各断点，并对照参考做比对 —— 而不只是确认能构建通过。',
+              ] },
+              { kind: 'p', text: '把一张参考图丢进会话，并用具体约束去提示：' },
+              { kind: 'code', lang: 'bash', code: 'claude "把 reference-desktop.png 和 reference-mobile.png 用\n  React + Vite + Tailwind + TypeScript 实现。\n  复用 CLAUDE.md 里描述的设计系统组件与 token。\n  匹配间距、布局与层级；做成响应式。\n  在浏览器里渲染，跨断点验证它与参考一致，\n  并迭代到对得上为止。"' },
+              { kind: 'p', text: '同时跑一个 dev server，prompt 保持小而聚焦，好的迭代就 commit、坏的就 revert（revert 时告诉 Claude 一声），让每一轮都在干净的基础上推进。较大的重构用 plan 模式，这样动文件前你能先审一遍方案。' },
+            ],
+          },
+          {
+            id: 'figma',
+            heading: 'Claude Code + Figma：设计 ↔ 代码往返',
+            blocks: [
+              { kind: 'p', text: '2026 年 2 月，Anthropic 与 Figma 通过 Figma MCP server 推出了一流的双向集成。它在两个方向都能用。' },
+              { kind: 'steps', items: [
+                { label: '设计 → 代码', body: '在 Figma 里选中一个 frame，或把链接粘进 Claude Code，拉取设计上下文，让它用你已有的组件库来实现这份设计。Code Connect 会让产出与你真实的组件保持对齐。' },
+                { label: '代码 → 设计', body: '在浏览器里构建并预览一个功能，然后说一句“Send this to Figma”，把运行中的 UI 捕获为可编辑的 Figma 图层 —— 整屏或选中的某个元素皆可。' },
+              ] },
+              { kind: 'p', text: '用 claude plugin install figma@claude-plugins-official 安装一次即可（Dev Mode MCP 需要 Figma 付费方案）。同一个 Figma MCP 对 Claude Code、Codex、Cursor 与 VS Code 都可用 —— 正是 Open Design 所要编排的那类可移植、多 agent 能力。' },
+            ],
+          },
+          {
+            id: 'vs',
+            heading: 'Claude Code vs Codex vs Cursor 做设计',
+            blocks: [
+              { kind: 'p', text: '设计工作没有唯一赢家 —— 每个 agent 各有所长，有经验的团队会把它们叠着用。一个公允的概括：' },
+              { kind: 'table', columns: ['Agent', '设计强项', '最适合'], rows: [
+                ['Claude Code', '具体的设计决策（hex、间距、字号）与理解代码库的 UX 推理', '前端推理与大上下文重构'],
+                ['Codex', '强视觉打磨与图像理解；沙箱化异步构建', '委派式异步构建与可移植的 AGENTS.md 规则'],
+                ['Cursor', '带实时预览与内联编辑的“边做边看”闭环', 'IDE 内紧凑的“迭代-观察”式 UI 工作'],
+              ] },
+              { kind: 'p', text: '社区反复得出的结论是：品味来自人。三者在没有 skill、参考与约束时都会默认滑向泛用美学。这才是真正要解决的问题 —— 它是设计工具形状的，而非模型形状的。' },
+            ],
+          },
+          {
+            id: 'pitfalls',
+            heading: '常见坑，以及如何避开“AI 套路感”',
+            blocks: [
+              { kind: 'p', text: '即便 Claude Code 以有品味著称，对 AI 生成设计最常见的吐槽仍是它显得套路 —— Inter 字体、白底上的紫色渐变、柔和阴影、过大的圆角，一种“一看就是 AI 做的”的观感。Anthropic 自己把这归因于分布收敛：安全的选择在网页训练数据里占主导。其他被反映的问题还包括移动端布局错乱、以及指令文字漏进了 UI 文案。' },
+              { kind: 'steps', items: [
+                { label: '装上 Frontend Design skill', body: '它会逼 Claude 确定一个真实方向，并明确避开被 AI 滥用的字体与渐变。' },
+                { label: '启用浏览器验证', body: '让 Claude 渲染并跨断点自检，避免布局在移动端悄悄崩掉。' },
+                { label: '提供 token 与参考', body: '真实的设计 token 与参考截图，是对产出质量影响最大的单一杠杆。' },
+                { label: '把规则写进 CLAUDE.md', body: '把“不用 hero 卡片、最多两种字体、品牌优先的层级”这类规则，放在 agent 每次都会读到的地方。' },
+              ] },
+              { kind: 'p', text: '注意每一条缓解措施，本质都是在给 agent 一份精选的设计上下文。逐个项目手工维护这份上下文，正是 Open Design 替你省掉的苦差。' },
+            ],
+          },
+          {
+            id: 'open-design',
+            heading: '在 Open Design 里用 Claude Code 做设计',
+            blocks: [
+              { kind: 'p', text: 'Open Design 就是上面那套工作流一直在呼唤的开源设计层。它把 Claude Code 当作一等适配器，并在外面包上一层精选的 skill 与设计系统库、一条结构化渲染流水线，以及一个本地桌面 UI —— 让那份令 Claude Code 出彩的设计上下文，从第一次运行就在位，而不必每次手工拼装。' },
+              { kind: 'ol', items: [
+                '安装 Open Design，并选择 Claude Code 作为你的 agent。',
+                '用你的 Anthropic API key（BYOK）或 Claude 订阅认证 —— 凭证留在你自己机器上，绝不经我们中转。',
+                '挑一套设计系统与一个 skill，然后产出风格一致的 deck、原型与落地页。',
+                '每一件产物与 DESIGN.md 文件都存在你自己的仓库里，而非托管云端。',
+              ] },
+              { kind: 'p', text: '同一个 Claude Code agent、同一把 key —— 外加一套真实、可移植、开源的设计工作流。它本地优先、Apache-2.0，所以你的工作与凭证都不会离开你的机器。' },
+            ],
+          },
+        ],
+        faqTitle: '常见问题',
+        faq: [
+          { name: 'Claude Code 适合做设计吗？', text: '适合 —— 它被普遍认为是前端品味最好的 coding agent，会对 hex 色值、间距与字号阶梯做出具体且理解代码库的决策。配上 Frontend Design skill、一套设计系统与真实参考图，它能产出生产级、响应式的 UI 并在浏览器里验证。缺了这份上下文，它就容易退回泛用样子 —— 这正是 Open Design 要补的缺口。' },
+          { name: '用 Claude Code 做设计需要 Claude 订阅吗？', text: '你可以用 Anthropic API key（BYOK，经 Console）或 Claude 订阅（Pro / Max），两者皆可。无论哪种，Open Design 都不会中转你的凭证 —— 它们由你的 agent 在你机器上直接使用。' },
+          { name: '前端设计该用 Claude Code 还是 Codex？', text: '两者都很强。Claude Code 以具体、理解代码库的设计决策与前端推理著称；Codex 视觉打磨强，擅长委派式的沙箱构建。很多团队两者都用 —— Open Design 让你切换 agent 而无需改动设计工作流。' },
+          { name: '怎么把 Claude Code 接到 Figma？', text: '用 claude plugin install figma@claude-plugins-official 安装官方 Figma 插件。之后你就能借助设计上下文在代码里实现 Figma frame，并用“Send this to Figma”把运行中的 UI 推回成可编辑的 Figma 图层。Dev Mode MCP 需要 Figma 付费方案。' },
+          { name: 'Skills 和 CLAUDE.md 是什么？', text: 'CLAUDE.md 是你项目根目录里的一个 markdown 文件，Claude Code 在每次会话开始时都会读它 —— 这是写入设计规范的地方。Skills 把可复用的指令与资源打包，由 Claude 按需加载，其中包括 Anthropic 官方的 Frontend Design skill。Open Design 把两者都做成精选库，帮你免去逐项目搭建。' },
+          { name: '怎么避开泛用的“AI 套路感”？', text: '装上 Frontend Design skill，提供真实的设计 token 与参考截图，把品牌规则写进 CLAUDE.md，并启用浏览器验证。Open Design 把这些做成精选库，帮你免去逐项目搭建。' },
+          { name: 'Open Design 和 Anthropic 有从属关系吗？', text: '没有。Claude Code 是 Anthropic 的产品；Open Design 是一个独立的开源项目，把它作为一等适配器来支持。Claude 与 Claude Code 是 Anthropic 的商标。' },
+          { name: '我的文件和凭证安全吗？', text: '安全 —— Open Design 本地优先、Apache-2.0。你的文件、产物与 DESIGN.md 都留在你自己的仓库里，你的 Anthropic 凭证由你的 agent 直接使用，绝不经 Open Design 服务器中转。' },
+        ],
+        ctaTitle: '用开放的方式，和 Claude Code 一起做设计。',
+        ctaBody: '带上你自己的 Anthropic key 或 Claude 订阅，把每个文件都留在本地，再给你已在用的 agent 包上一层精选设计库。',
+        ctaActions: [
+          { label: '在 Open Design 里使用 Claude Code', href: '/quickstart/', variant: 'primary' },
+          { label: '在 GitHub 上 Star', href: 'https://github.com/nexu-io/open-design', variant: 'ghost', external: true },
+          { label: '下载桌面应用', href: 'https://github.com/nexu-io/open-design/releases', variant: 'ghost', external: true },
+        ],
+        hubLinkLabel: 'See all supported agents',
+      },
       aboutTitle: '什么是 Claude Code',
       aboutBody: [
         'Claude Code 是 Anthropic 的命令行 Agent：你用自然语言描述任务，它在你的项目里读写、运行代码，直到任务完成。',
@@ -2163,6 +2839,180 @@ INFO_PAGE_COPY.zh = {
       tldrBody:
         'Cursor 的 Design Mode 让你点击、勾画或用说话来改在线 UI；它的 Figma MCP 集成把真实设计上下文带进代码。Open Design 在上面叠一层精选 skill 与设计系统库 —— 你自己的模型密钥，你自己的 repo。',
       toc: ['什么是 Cursor', '用 Cursor 做设计', '资源', '配合 Open Design', '常见问题'],
+      rich: {
+        heroCtaLead:
+          'Open Design 把 Cursor 变成一个本地优先、开源的设计 agent——用你自己的 Cursor 账号或模型密钥、你自己的文件，外面再裹一层精选的 skill 与 design-system 库。',
+        heroCtaActions: [
+          { label: '在 Open Design 里使用 Cursor', href: '/quickstart/', variant: 'primary' },
+          { label: '在 GitHub 上 Star', href: 'https://github.com/nexu-io/open-design', variant: 'ghost', external: true },
+          { label: '下载桌面端', href: 'https://github.com/nexu-io/open-design/releases', variant: 'ghost', external: true },
+        ],
+        intro: [
+          'Cursor 是一款 AI 优先的代码编辑器，它让“边写边看渲染”成为做 UI 的默认方式。借助 Agent 模式、行内编辑、编辑器内置预览，以及通过 MCP 接入的 Figma，它已经成为一个真正能用的设计工具——前提是你给它对的参考、规则和一套验证回路。这是一份从头到尾、可落地的指南，讲如何用 Cursor 做 UI、前端和 design-system 工作，并把它接入 Open Design 的结构化设计工作流。',
+          '内容涵盖：Cursor 到底是什么、为什么它“边迭代边看”的紧凑回路适合做设计、如何从零搭起、从预览到 UI 的迭代回路、通过 MCP 与 Figma 的往返、它与 Codex 和 Claude Code 的对比、让 AI 产出显得平庸的那些坑，以及 Open Design 作为开源、本地优先的设计层如何补齐这道缺口。',
+        ],
+        heroImage: {
+          src: '/agents/cursor-design/cursor-design-hero.webp',
+          alt: 'Cursor 设计收敛示意：左侧是编辑器，中间是带 Cursor 标志的精选 skill 与 design-system hub，右侧是渲染出的 UI',
+          caption: '核心思路：Cursor 在编辑器里编辑并渲染 UI，而一个精选的设计 hub 为它喂入设计系统、skill 和参考，让产出显得是有意为之、而非随手生成。',
+        },
+        tocLabel: '本页目录',
+        toc: [
+          { id: 'what-is-cursor', label: 'Cursor 到底是什么' },
+          { id: 'why-design', label: '为什么 Cursor 擅长做设计' },
+          { id: 'setup', label: '从零配置 Cursor 做设计' },
+          { id: 'preview-workflow', label: '从预览到 UI 的工作流' },
+          { id: 'figma', label: 'Cursor + Figma（经 MCP）' },
+          { id: 'vs', label: 'Cursor vs Codex vs Claude Code' },
+          { id: 'pitfalls', label: '常见坑与“AI 味”观感' },
+          { id: 'open-design', label: '在 Open Design 里用 Cursor 做设计' },
+          { id: 'faq', label: '常见问题' },
+        ],
+        sections: [
+          {
+            id: 'what-is-cursor',
+            heading: 'Cursor 到底是什么',
+            blocks: [
+              { kind: 'p', text: 'Cursor 是 Anysphere 打造的 AI 优先代码编辑器。它是 VS Code 的一个 fork，所以保留了熟悉的编辑器、扩展和快捷键，但把整个工作流围绕一个 AI agent 重建——这个 agent 能读懂你的整个项目、跨多文件编辑、运行命令，并和你一起在回路里迭代。' },
+              { kind: 'p', text: '对设计工作而言，关键的几个能力是：Agent 模式（你描述想要的结果，Cursor 规划并跨文件编辑）、用于快速微调的行内编辑与 Tab 补全、让你不离开窗口就能看到运行中 UI 的编辑器内置预览，以及让它能拉入外部上下文（比如一个实时 Figma 文件）的 MCP 支持。' },
+              { kind: 'steps', items: [
+                { label: '项目规则', body: 'Cursor 会读取项目指令文件——`.cursor/rules` 下纳入版本管理的 `.mdc` 规则，以及一个纯文本 `AGENTS.md`——你可以把设计约定写在 agent 每次都会读到的地方。' },
+                { label: '模型', body: 'Cursor 在模型上很灵活：订阅自带前沿模型，也支持用你自己的模型密钥（BYOK），所以同一套编辑器工作流背后用哪台引擎由你定。' },
+                { label: 'MCP', body: '它支持 Model Context Protocol，外部 server——最相关的就是 Figma MCP server——可以成为 agent 的一等上下文。' },
+              ] },
+              { kind: 'ul', items: [
+                '厂商：Anysphere',
+                '凭证：Cursor 账号 / 订阅（Hobby / Pro / Business）或你自己的模型密钥（BYOK）',
+                '形态：AI 优先的代码编辑器（VS Code fork），内置 agent 与预览',
+              ] },
+            ],
+          },
+          {
+            id: 'why-design',
+            heading: '为什么 Cursor 擅长做设计',
+            blocks: [
+              { kind: 'p', text: 'Cursor 在设计上的优势不是某个单一功能，而是“边写边看”这条回路的紧凑度。有三点让它更像一个设计工具，而不是一个泛泛的代码生成器。' },
+              { kind: 'steps', items: [
+                { label: '紧凑的“边迭代边看”回路', body: '你给出提示，Cursor 跨文件编辑，编辑器内置预览立刻渲染出结果——于是你能在几秒内调整间距、层级和动效，而不必在另一个终端和浏览器之间来回切换。' },
+                { label: '直接的可视化编辑', body: '除了对话，Cursor 还允许你在预览里选中元素、直接微调样式，让小的视觉修正更像设计编辑、而非翻代码考古。' },
+                { label: '项目规则与 MCP 上下文', body: '有了 `.cursor/rules`（或 `AGENTS.md`）和 Figma MCP server，agent 是对着你的 tokens、组件和真实设计规格在工作，而不是靠猜。' },
+              ] },
+              { kind: 'image', src: '/agents/cursor-design/cursor-design-taste-triangle.webp', alt: '展示 design system、skill 与参考图三者收敛为优质设计产出的示意图', caption: '审美来自你提供的三个输入：一套设计系统、一个 skill，以及真实的参考图。' },
+              { kind: 'p', text: '结论和每个 agent 教给我们的一样：Cursor 默认并没有审美。只有当你给它约束——一套设计系统、一个审美 skill、具体的参考——它才能产出好设计。Open Design 打包的正是这些输入，这也是两者天然契合的原因（下文详述）。' },
+            ],
+          },
+          {
+            id: 'setup',
+            heading: '从零把 Cursor 配置成能做设计',
+            blocks: [
+              { kind: 'p', text: '下面是从一台干净机器，到一个能对着你的设计系统构建、预览并验证 UI 的 Cursor 的完整路径。' },
+              { kind: 'ol', items: [
+                '从 cursor.com 安装 Cursor，用 Cursor 账号登录，或在设置里配置你自己的模型密钥（BYOK）。',
+                '打开你的项目，在对话 / Agent 面板里选一个模型。',
+                '加项目规则：用 `.cursor/rules/*.mdc` 写结构化、按 glob 作用域生效的约定，或用一个纯文本 `AGENTS.md` 写简单可读的指令。',
+                '接入 Figma MCP server（可选），让 agent 能读取实时设计上下文。',
+                '启动你的 dev server，用编辑器内置预览边迭代边看、边验证 UI。',
+              ] },
+              { kind: 'image', src: '/agents/cursor-design/cursor-design-setup-flow.webp', alt: '五步配置流程：安装、认证、配置规则、添加 skill、验证', caption: '配置顺序：安装 → 认证 → 配置项目规则 → 添加 skill → 启用预览验证。' },
+              { kind: 'p', text: '一份最简的项目规则文件，就能让 agent 对着品牌做设计、而不是退回到一个泛泛的样子。把它放在 Cursor 每次都会读到的地方：' },
+              { kind: 'code', lang: 'markdown', code: '# .cursor/rules/design.mdc\n---\ndescription: Project design conventions\nalwaysApply: true\n---\n\n- 复用已有的 design-system tokens 和组件；不要写死 hex 或间距。\n- 最多两种字体、一个强调色。\n- 品牌优先的层级；克制的动效。不要 hero card，不要过大的圆角。\n- 默认做响应式；收尾前先在预览里验证桌面端和移动端。' },
+              { kind: 'steps', items: [
+                { label: '把设计规则写下来', body: '把你的 tokens、基础元件和约定放进 `.cursor/rules` 或 `AGENTS.md`，并让 Cursor 指向它们，这样产出会贴合品牌、而不是退回到泛泛的样子。' },
+                { label: '让提示保持小而聚焦', body: 'Cursor 的紧凑回路偏爱聚焦的请求——一次只迭代一个组件或一种状态，每一轮之间都盯着预览看。' },
+              ] },
+            ],
+          },
+          {
+            id: 'preview-workflow',
+            heading: '从预览到 UI 的工作流',
+            blocks: [
+              { kind: 'p', text: '用 Cursor 做设计，杠杆最高的回路就是把一张参考变成能跑、且响应式的 UI，并在编辑器里一直盯着实时预览迭代到匹配为止——而不是靠猜。' },
+              { kind: 'ol', items: [
+                '从你手上最清晰的视觉参考开始——并且要包含多种状态（桌面与移动、hover、空态、加载态），而不只是一张主视觉。',
+                '提示要具体；含糊的提示只会产出泛泛的 UI。',
+                '准备好设计系统，并告诉 Cursor tokens 和标准基础元件都在哪里。',
+                '让编辑器内置预览开着、dev server 跑着，这样每次编辑都能在你关心的断点上立刻渲染出来。',
+                '通过把渲染出的 UI 和参考反复比对来迭代——小的视觉修正就直接在预览里选中元素来调。',
+              ] },
+              { kind: 'p', text: '把图片附到对话里来喂参考，然后用具体约束给出提示：' },
+              { kind: 'code', lang: 'text', code: '用 React + Vite + Tailwind + TypeScript 实现这个设计。\n复用我已有的 design-system 组件和 tokens。\n匹配间距、布局和层级；做成响应式。\n预览一直开着——验证桌面端和移动端都和参考一致，\n迭代到一致为止。' },
+              { kind: 'p', text: '好的迭代就提交，坏的就回退（回退时告诉 Cursor 一声），让每一轮都建立在干净的基础上——这是让任何 agent 回路不跑偏的同一条纪律。' },
+            ],
+          },
+          {
+            id: 'figma',
+            heading: 'Cursor + Figma：经 MCP 的设计 ↔ 代码往返',
+            blocks: [
+              { kind: 'p', text: 'Cursor 通过官方的 Figma MCP server 连接 Figma，让 agent 对一个实时 Figma 文件有结构化访问，而不是只拿到一张扁平截图。这就把交接里的猜测成分去掉了。' },
+              { kind: 'steps', items: [
+                { label: '设计 → 代码', body: '在 Figma 里复制某个 frame 的链接，粘进 Cursor，让它去实现这个设计。MCP server 暴露的是真实的设计上下文——组件、变量、布局数据、tokens——所以生成的代码是贴合源文件的，而不是近似。' },
+                { label: '保持对齐', body: '只要在 Figma 里一致地使用设计 tokens、样式和组件（有 Code Connect 时用上），Cursor 的产出就会映射到你真实的设计系统，而不是重新发明一套基础元件。' },
+              ] },
+              { kind: 'p', text: '远程 Figma MCP server 配一次，就能作为一等上下文供 Cursor 使用。由于 MCP 是开放标准，同一个 server 可以在 Cursor、Claude Code、Codex 和 VS Code 之间复用——这正是 Open Design 生来要去编排的那种可移植、多 agent 能力。' },
+            ],
+          },
+          {
+            id: 'vs',
+            heading: 'Cursor vs Codex vs Claude Code：做设计怎么选',
+            blocks: [
+              { kind: 'p', text: '做设计没有唯一赢家——每个 agent 各有所长，有经验的团队会把它们叠着用。一个公允的总结：' },
+              { kind: 'table', columns: ['Agent', '设计强项', '最适合'], rows: [
+                ['Cursor', '“边写边看”的可视化回路，带编辑器内置实时预览与直接选中元素编辑', 'IDE 里“边迭代边看”的紧凑 UI 工作'],
+                ['Codex', '配上前端 skill 后视觉打磨强；图像理解 + 沙箱化运行', '托管式异步构建，以及可移植的 AGENTS.md 规则'],
+                ['Claude Code', '具体的设计决策（hex、间距、字体）和懂代码库的 UX', '前端推理与大上下文重构'],
+              ] },
+              { kind: 'p', text: '社区反复得出的结论是：审美来自人。三者在没有 skill、参考和约束时都会退回到一个泛泛的样子。那才是真正要解决的问题——而它是“设计工具”形状的，不是“模型”形状的。' },
+            ],
+          },
+          {
+            id: 'pitfalls',
+            heading: '常见坑，以及如何避开“AI 味”观感',
+            blocks: [
+              { kind: 'p', text: '对 Cursor 生成设计最常见的抱怨，是它看着很泛——柔和渐变、悬浮面板、过大的圆角、夸张阴影，一股“Inter 字体加紫色”的味道，“一看就是 AI 做的”。其他被反映的问题还包括移动端布局错乱、指令文字泄漏进 UI 文案里。' },
+              { kind: 'steps', items: [
+                { label: '加一个设计 skill', body: '一个精选的审美 skill 会逼 Cursor 选定一个真实方向，而不是用默认那套。' },
+                { label: '用预览来验证', body: '在编辑器内置预览里跨断点渲染并自检，这样布局就不会在移动端悄悄崩掉。' },
+                { label: '提供 tokens 和参考', body: '真实的设计 tokens 和参考截图，是对产出质量影响最大的那个杠杆。' },
+                { label: '把规则写进 `.cursor/rules`', body: '把“不要 hero card、最多两种字体、品牌优先层级”这类规则，放在 agent 每次都会读到的地方。' },
+              ] },
+              { kind: 'p', text: '注意到没有：每一条缓解措施都是在给 agent 一份精选的设计上下文。逐个项目、用手去维护这份上下文，正是 Open Design 帮你省掉的苦活。' },
+            ],
+          },
+          {
+            id: 'open-design',
+            heading: '在 Open Design 里用 Cursor 做设计',
+            blocks: [
+              { kind: 'p', text: 'Open Design 就是上面这套工作流一直在要的那一层开源设计层。它把 Cursor 当作一等适配器，外面裹上一个精选的 skill 与 design-system 库、一条结构化的渲染流水线，以及一个本地桌面端 UI——让那份让 Cursor 变好用的设计上下文，从第一次运行就在那儿，而不是每次都手工拼。' },
+              { kind: 'ol', items: [
+                '安装 Open Design，选 Cursor 作为你的 agent。',
+                '用你的 Cursor 账号或你自己的模型密钥（BYOK）认证——凭证留在你的机器上，绝不经我们代理。',
+                '挑一套设计系统和一个 skill，然后生成审美一致的演示稿、原型和落地页。',
+                '每一份产物和 DESIGN.md 都存在你自己的 repo 里，而不是某个托管云。',
+              ] },
+              { kind: 'p', text: '同一个 Cursor agent、同一把密钥——外面再加一套真实、可移植、开源的设计工作流。它本地优先、Apache-2.0 授权，所以你的工作和凭证没有任何东西会离开你的机器。' },
+            ],
+          },
+        ],
+        faqTitle: '常见问题',
+        faq: [
+          { name: 'Cursor 真的能做设计吗？', text: '能——只要上下文里有一个设计 skill、一套设计系统和真实参考图，Cursor 就能产出生产级、响应式的 UI，而它的编辑器内置预览让你能在视觉上验证并打磨。缺了这份上下文，它就容易退回到泛泛的样子，而这正是 Open Design 补齐的缺口。' },
+          { name: '这是 Cursor 官方产品吗？', text: '不是。Open Design 是一个独立的开源项目，把 Cursor 作为 agent 集成进来。它用一个本地优先、开源的 skill 与 design-system 库来补充 Cursor。' },
+          { name: '用 Cursor 做设计需要 Cursor 订阅吗？', text: '你可以用 Cursor 账号 / 订阅，也可以用自己的模型密钥（BYOK）。无论哪种方式，Open Design 都不会代理你的凭证——它们由你的 agent 直接使用。' },
+          { name: '前端设计选 Cursor 还是 Claude Code？', text: '两者都很强。Claude Code 以具体、懂代码库的设计决策著称；Cursor 的优势是编辑器里“边写边看”的紧凑回路加实时预览。很多团队两个都用——Open Design 让你切换 agent 时无需改动设计工作流。' },
+          { name: '怎么把 Cursor 连到 Figma？', text: '在 Cursor 里加上官方 Figma MCP server，然后把一个 Figma frame 链接粘进对话，让 Cursor 去实现它。该 server 暴露真实的组件、变量和布局数据，让生成的代码贴合源设计。' },
+          { name: '怎么避开泛泛的“AI 味”观感？', text: '加一个设计 skill、提供真实的设计 tokens 和参考截图、把品牌规则写进 `.cursor/rules` 或 `AGENTS.md`，并在预览里跨断点验证。Open Design 把这些做成一个精选库，让你省掉逐项目的搭建。' },
+          { name: 'Open Design 和 Cursor 或 Anysphere 有关联吗？', text: '没有。Cursor 是 Anysphere 的产品；Open Design 是一个独立的开源项目，把它作为一等适配器来支持。Cursor 和 Anysphere 是 Anysphere, Inc. 的商标。' },
+          { name: '我的文件和凭证安全吗？', text: '安全——Open Design 本地优先。你的文件、产物和 DESIGN.md 都留在你自己的 repo 里，你的 Cursor 或模型凭证由你的 agent 直接使用，绝不经 Open Design 的服务器中转。' },
+        ],
+        ctaTitle: '用开放的方式，和 Cursor 一起做设计。',
+        ctaBody: '带上你自己的 Cursor 账号或模型密钥，把每个文件都留在本地，并在你已经在用的 agent 外面，得到一个精选的设计库。',
+        ctaActions: [
+          { label: '在 Open Design 里使用 Cursor', href: '/quickstart/', variant: 'primary' },
+          { label: '在 GitHub 上 Star', href: 'https://github.com/nexu-io/open-design', variant: 'ghost', external: true },
+          { label: '下载桌面端', href: 'https://github.com/nexu-io/open-design/releases', variant: 'ghost', external: true },
+        ],
+        hubLinkLabel: '查看所有支持的 agent',
+      },
       aboutTitle: '什么是 Cursor',
       aboutBody: [
         'Cursor 是基于 VS Code 的 AI 优先代码编辑器，内置一个能在整个项目里改代码的 Agent。',
@@ -2216,6 +3066,175 @@ INFO_PAGE_COPY.zh = {
       tldrBody:
         'OpenCode 是完全开源的编码 Agent；设计是靠 skill、design.md 文件和 Figma MCP 衍生出来的用法。Open Design 在它周围打包一套精选设计系统与 skill 库，外加桌面工作流 —— 你的密钥，你的 repo。',
       toc: ['什么是 OpenCode', '用 OpenCode 做设计', '资源', '配合 Open Design', '常见问题'],
+      rich: {
+        heroCtaLead:
+          'Open Design 把 OpenCode 变成本地优先、开源的设计 agent——用你自己选的任意模型和 provider key，用你自己的文件，外加一套精选的 skill 与设计系统库。',
+        heroCtaActions: [
+          { label: '在 Open Design 中使用 OpenCode', href: '/quickstart/', variant: 'primary' },
+          { label: '在 GitHub 上 Star', href: 'https://github.com/nexu-io/open-design', variant: 'ghost', external: true },
+          { label: '下载桌面应用', href: 'https://github.com/nexu-io/open-design/releases', variant: 'ghost', external: true },
+        ],
+        intro: [
+          'OpenCode 是一个开源、以终端为先的 AI 编码 agent，刻意做成与模型无关：你自带 provider key，在同一套工作流背后运行任意你想用的模型。这种开放性让它天然适合做设计——但和所有 agent 一样，只有当你给它正确的参考、skill 和一套验证回路时，它才能产出好的 UI。本文是一份从头到尾的实用指南，讲如何用 OpenCode 做 UI、前端和设计系统工作，以及如何把它接入 Open Design 的结构化设计工作流。',
+          '内容涵盖：OpenCode 到底是什么、为什么一个与模型无关的开源 agent 适合做设计、如何从零配置、截图转 UI 的回路、AGENTS.md 与 MCP 如何扩展它、它与 Codex / Claude Code / Cursor 的对比、让 AI 产出显得套路化的那些坑，以及 Open Design 如何作为一个开源、本地优先的设计层来补上这道缺口——这是个天然的搭配，因为两个项目都是开源、都跑在你自己的机器上。',
+        ],
+        heroImage: {
+          src: '/agents/opencode-design/opencode-design-hero.webp',
+          alt: 'OpenCode 设计反馈回路：终端 TUI agent、在浏览器中渲染 UI，以及一个工作区，带一条回环反馈箭头',
+          caption: '核心回路：OpenCode 在终端里构建 UI，在真实浏览器中渲染并验证，再对照你的参考反复迭代——用的是你自己选的任意模型。',
+        },
+        tocLabel: '本页目录',
+        toc: [
+          { id: 'what-is-opencode', label: 'OpenCode 究竟是什么' },
+          { id: 'why-design', label: '为什么开放、任意模型的 agent 适合做设计' },
+          { id: 'setup', label: '从零配置 OpenCode 做设计' },
+          { id: 'screenshot-workflow', label: '截图转 UI 的工作流' },
+          { id: 'extend', label: 'AGENTS.md、MCP 与可分享会话' },
+          { id: 'vs', label: 'OpenCode vs Codex vs Claude Code vs Cursor' },
+          { id: 'pitfalls', label: '坑，以及那种“AI 味”的观感' },
+          { id: 'open-design', label: '在 Open Design 中用 OpenCode 做设计' },
+          { id: 'faq', label: '常见问题' },
+        ],
+        sections: [
+          {
+            id: 'what-is-opencode',
+            heading: 'OpenCode 究竟是什么',
+            blocks: [
+              { kind: 'p', text: 'OpenCode 是一个为终端打造的开源 AI 编码 agent，由 SST 背后的团队（Anomaly Innovations）维护。它会读取你的代码仓库、运行命令、编辑文件，并与大语言模型对话——但和被厂商绑定的 agent 不同，它本身不自带模型。你把它指向任意你想用的 provider 和模型，并自带 key。' },
+              { kind: 'p', text: '它以终端界面（TUI）运行，并在同一引擎之上提供桌面应用和 IDE 扩展。底层采用客户端/服务端架构，所以真正干活的 agent 与你驱动它的界面是解耦的。它内置 build 和 plan 两个 agent，用 Tab 键切换。' },
+              { kind: 'steps', items: [
+                { label: '与模型无关', body: '模型和 provider 来自 models.dev 这个开放目录。你在 opencode.json 里用 provider/model-id 字符串配置，并可禁用不想加载的 provider——所以同一套设计工作流可以跑在 Anthropic、OpenAI、Google、OpenRouter、本地模型等之上。' },
+                { label: '指令文件', body: 'OpenCode 会读取项目里的 AGENTS.md 文件（跨工具的通用标准，也兼容 CLAUDE.md）作为项目规则——这正是编码你设计约定的天然位置。运行 /init 即可生成一个。' },
+                { label: '可扩展', body: '它支持 LSP 集成、MCP server、主题、快捷键和自定义命令，还有可分享的会话链接用于协作。' },
+              ] },
+              { kind: 'ul', items: [
+                '维护方：SST / Anomaly Innovations（开源项目）',
+                '凭证：你自己的模型 provider API key（BYOK，无厂商锁定）',
+                '许可：MIT，开源',
+              ] },
+            ],
+          },
+          {
+            id: 'why-design',
+            heading: '为什么开放、任意模型的 agent 适合做设计',
+            blocks: [
+              { kind: 'p', text: 'OpenCode 不像厂商 agent 那样有某一个“设计模型”——而这恰恰是它的优势。因为与模型无关且开源，你可以在同一套设计工作流上运行当下前端最强的那个模型，之后随时更换，或退回到本地模型，全程不用改配置。' },
+              { kind: 'p', text: '但光选对模型并不能买来审美。和所有编码 agent 一样，除非你给它约束，否则 OpenCode 也会产出套路化的 UI。好的设计产出来自你提供的三项输入。' },
+              { kind: 'steps', items: [
+                { label: '一套设计系统', body: '真实的 tokens、基础组件和约定，让 agent 复用，从而让产出贴合某个品牌，而不是退回到通用的观感。' },
+                { label: '一个审美 skill', body: '一个精选的 skill，强制真正的审美——克制的动效、品牌优先的层级、最多两种字体一种强调色——并让 agent 在动手前先定一个方向。' },
+                { label: '具体的参考图', body: '真实的参考图，以及多种状态（桌面和移动、hover、空态、加载态），而不是只有一张主视觉。' },
+              ] },
+              { kind: 'image', src: '/agents/opencode-design/opencode-design-taste-triangle.webp', alt: '展示设计系统、skill 与参考图三者汇聚成优质设计产出的示意图', caption: '审美来自你提供的三项输入：一套设计系统、一个 skill 和真实参考图——与你跑哪个模型无关。' },
+              { kind: 'p', text: '结论：OpenCode 给了你模型自由，但审美仍来自一套精选的设计上下文。Open Design 恰好把这些输入打包好，这也是两者契合的原因——它们都是开源、都本地优先（下文详述）。' },
+            ],
+          },
+          {
+            id: 'setup',
+            heading: '从零配置 OpenCode 做设计',
+            blocks: [
+              { kind: 'p', text: '下面是从一台干净的机器到一个能构建并验证 UI 的 OpenCode 的完整路径。' },
+              { kind: 'code', lang: 'bash', code: '# 1. 安装 OpenCode\ncurl -fsSL https://opencode.ai/install | bash\n# 或：npm i -g opencode-ai@latest\n# 或：brew install sst/tap/opencode\n\n# 2. 在项目里启动 TUI，然后认证你的 provider\nopencode          # 然后运行 /login，选择 provider 并粘贴你的 key\n\n# 3. 生成项目上下文\nopencode          # 在项目里运行 /init 生成 AGENTS.md\n\n# 4. 选择你的模型（任意 provider，经 models.dev）\n#    在 opencode.json 里设置 "provider/model-id"，或在 TUI 里切换\n\n# 5. 添加 MCP server（可选，比如用于设计交付）\n#    在 opencode.json 的 "mcp" 字段下配置' },
+              { kind: 'image', src: '/agents/opencode-design/opencode-design-setup-flow.webp', alt: '五步配置流程：安装、用你的 provider key 认证、配置 AGENTS.md、添加 skill、验证', caption: '配置顺序：安装 → 认证（你的 provider key）→ 配置 AGENTS.md → 添加 skill → 在真实浏览器中验证。' },
+              { kind: 'steps', items: [
+                { label: '编码你的设计规则', body: '把你的 tokens、基础组件和约定放进 AGENTS.md（或从中引用的 DESIGN.md），让产出贴合品牌而非退回通用观感。opencode.json 里的 instructions 选项可以用 glob 指向更多规则文件。' },
+                { label: '选一个有能力的模型', body: '因为 OpenCode 与模型无关，可以为设计这一遍挑选当下前端最强的 provider/模型——而工作流的其余部分保持不变。' },
+              ] },
+            ],
+          },
+          {
+            id: 'screenshot-workflow',
+            heading: '截图转 UI 的工作流',
+            blocks: [
+              { kind: 'p', text: '用任何 agent 做设计，杠杆最高的回路都是：把一张参考图变成可用、响应式的 UI，并反复迭代直到匹配。同样的五步在 OpenCode 里也适用。' },
+              { kind: 'ol', items: [
+                '从你手头最清晰的视觉参考开始——并包含多种状态（桌面和移动、hover、空态、加载态），而不只是一张主视觉。',
+                '提示词要具体；含糊的提示会产出套路化的 UI。',
+                '准备好一套设计系统，并告诉 OpenCode tokens 和规范基础组件在哪里（写在 AGENTS.md 里）。',
+                '跑一个 dev server，让 agent 在真实浏览器中渲染，并切换到各断点检查结果。',
+                '让 OpenCode 把它的实现对照截图来迭代——而不只是确认能构建通过。',
+              ] },
+              { kind: 'p', text: '在 TUI 里用 @ 引用文件会对工作目录做模糊搜索，用开头的 ! 内联运行 shell 命令，用 / 命令驱动各种操作。然后用具体约束来提示：' },
+              { kind: 'code', lang: 'bash', code: 'opencode\n# 在 TUI 里：\n> @reference-desktop.png @reference-mobile.png\n  用 React + Vite + Tailwind + TypeScript 实现这个设计。\n  复用 AGENTS.md 里我现有的设计系统组件和 tokens。\n  匹配间距、布局和层级；做到响应式。\n  运行 dev server，在浏览器中打开，并反复迭代\n  直到 UI 在各断点上都与参考图匹配。' },
+              { kind: 'p', text: '提示词保持小而聚焦，好的迭代就提交、坏的就回退（回退时告诉 OpenCode），让每一遍都建立在一个干净的基础上。' },
+            ],
+          },
+          {
+            id: 'extend',
+            heading: 'AGENTS.md、MCP 与可分享会话',
+            blocks: [
+              { kind: 'p', text: '三个扩展点让 OpenCode 在持续的设计工作中真正好用，而且它们都能干净地映射到一套开放的设计工作流上。' },
+              { kind: 'steps', items: [
+                { label: 'AGENTS.md 规则', body: '项目规则放在仓库根目录的 AGENTS.md（或全局规则放在 ~/.config/opencode/AGENTS.md）。它是你设计约定的长期归宿，每次运行都会读取，并兼容其他 agent 使用的 CLAUDE.md 文件。' },
+                { label: 'MCP server', body: 'OpenCode 同时支持本地（命令）和远程（URL）MCP server，在 mcp 字段下配置——这是把设计上下文和外部工具引入进来的可移植方式，跨 agent 通用，而不只服务于 OpenCode。' },
+                { label: '可分享会话', body: '/share 命令会为一段会话创建公开链接，用于协作或评审，/unshare 则收回它——很适合为一遍设计获取反馈。' },
+              ] },
+              { kind: 'p', text: '这些都是可移植、跨 agent 的能力——正是 Open Design 被设计来去编排的那类东西，而不是每个项目里重造一遍。' },
+            ],
+          },
+          {
+            id: 'vs',
+            heading: 'OpenCode vs Codex vs Claude Code vs Cursor 做设计',
+            blocks: [
+              { kind: 'p', text: '设计工作没有唯一赢家——每个 agent 各有所长，有经验的团队会叠着用。一个公允的总结：' },
+              { kind: 'table', columns: ['Agent', '设计强项', '最适合'], rows: [
+                ['OpenCode', '开源且与模型无关；在一套终端工作流背后运行任意 provider', 'BYOK 自由、切换模型、完全开放且本地优先的配置'],
+                ['Codex', '配合前端 skill 的视觉打磨能力强；图像理解', '委托式异步、沙箱化构建、可移植的 AGENTS.md 规则'],
+                ['Claude Code', '具体的设计决策（hex、间距、字体）和对代码库有感知的 UX', '前端推理和大上下文重构'],
+                ['Cursor', '带实时预览和内联编辑的所见即所得回路', 'IDE 内紧凑的边改边看 UI 工作'],
+              ] },
+              { kind: 'p', text: '社区反复得出的结论是：审美来自人——所有这些 agent 在没有 skill、参考和约束时都会退回到通用观感。这才是真正要解决的问题——它是设计工具形状的，不是模型形状的，而这恰恰说明了为什么像 OpenCode 这样的开放 agent 与一个开放的设计层配合得如此之好。' },
+            ],
+          },
+          {
+            id: 'pitfalls',
+            heading: '坑，以及如何避开那种“AI 味”观感',
+            blocks: [
+              { kind: 'p', text: '对 AI 生成设计最常见的吐槽是它看起来很套路——柔和渐变、悬浮面板、过大的圆角、夸张的阴影，一种 Inter 字体加紫色的味道，“一看就是 AI 做的”。其他被报告的问题还包括移动端布局错乱、指令文字漏进了 UI 文案。这些都不是 OpenCode 独有的；它们是任何 agent 在缺少精选设计上下文时都会发生的事。' },
+              { kind: 'steps', items: [
+                { label: '加一个审美 skill', body: '一个精选的设计 skill 会强制 agent 定下一个真正的方向，而不是默认观感。' },
+                { label: '在真实浏览器中验证', body: '让它跨断点渲染并自检，这样布局就不会在移动端悄悄崩掉。' },
+                { label: '提供 tokens 和参考', body: '真实的设计 tokens 和参考截图是对产出质量影响最大的单一杠杆。' },
+                { label: '把规则写进 AGENTS.md', body: '把“不要 hero 卡片、最多两种字体、品牌优先层级”这类规则放在 agent 每次都会读到的地方。' },
+              ] },
+              { kind: 'p', text: '注意到了吗：每一项缓解措施都是关于给 agent 一套精选的设计上下文——无论你跑哪个模型。靠手工逐项目维护这套上下文，正是 Open Design 帮你免除的苦活。' },
+            ],
+          },
+          {
+            id: 'open-design',
+            heading: '在 Open Design 中用 OpenCode 做设计',
+            blocks: [
+              { kind: 'p', text: 'Open Design 正是上面那套工作流一直在呼唤的开源设计层。它把 OpenCode 当作一等适配器，并为它套上一套精选的 skill 与设计系统库、一条结构化的渲染管线，以及一个本地桌面 UI——让那些让任何 agent 变好的设计上下文从第一次运行就在那里，而不是每次都手工拼凑。两个项目都是开源、都本地优先，这让它们的搭配水到渠成。' },
+              { kind: 'ol', items: [
+                '安装 Open Design，并选择 OpenCode 作为你的 agent。',
+                '用你自己的模型 provider API key（BYOK）认证——凭证留在你的机器上，绝不经我们代理。',
+                '选择任意 provider 和模型，再加上一套设计系统和一个 skill，然后生成审美一致的 deck、原型和落地页。',
+                '每个产物和 DESIGN.md 文件都存在你自己的仓库里，而不是托管云端。',
+              ] },
+              { kind: 'p', text: '同一个 OpenCode agent、同样的模型自由——外加一套真正可移植、开源的设计工作流。它本地优先、采用 Apache-2.0 许可，所以你的工作和凭证都不会离开你的机器。' },
+            ],
+          },
+        ],
+        faqTitle: '常见问题',
+        faq: [
+          { name: 'OpenCode 真的能做设计吗？', text: '能——当上下文里有审美 skill、设计系统和真实参考图时，OpenCode 能产出生产级、响应式的 UI，并能在浏览器中验证。因为它与模型无关，你可以运行当下前端最强的那个模型。缺少这套精选上下文时，它会倾向于退回到通用观感，而这正是 Open Design 补上的缺口。' },
+          { name: '用 OpenCode 做设计该选哪个模型？', text: '你喜欢哪个都行——OpenCode 经 models.dev 与 provider 无关，所以你可以在同一套工作流背后运行 Anthropic、OpenAI、Google、OpenRouter 或本地模型，并随时切换。设计产出的质量更多取决于你的 skill、设计系统和参考，而非单看模型。' },
+          { name: 'Open Design 是 OpenCode（SST）团队做的吗？', text: '不是。Open Design 是一个独立的开源项目，把 OpenCode 集成为一个 agent。它用一套本地优先、开源的 skill 与设计系统库来补足 OpenCode。' },
+          { name: '用 OpenCode 做设计需要什么特殊订阅吗？', text: '不需要——OpenCode 是 BYOK。你自带模型 provider 的 API key，Open Design 绝不代理你的凭证，也没有厂商锁定。' },
+          { name: '前端设计选 OpenCode、Codex 还是 Claude Code？', text: '都很强，很多团队会叠着用。OpenCode 的优势在于完全开源且与模型无关；Codex 擅长委托式、沙箱化构建；Claude Code 以具体、对代码库有感知的设计决策著称。Open Design 让你切换 agent 而不改变你的设计工作流。' },
+          { name: '如何为设计上下文扩展 OpenCode？', text: '把规则写进 AGENTS.md，在 mcp 字段下添加 MCP server 以引入可移植工具和设计上下文，并用可分享会话来做评审。Open Design 直接提供一套精选的 skill 与设计系统库，让你省去逐项目的配置。' },
+          { name: 'Open Design 与 OpenCode 或 SST 有关联吗？', text: '没有。OpenCode 是由 SST（Anomaly Innovations）维护的开源项目；Open Design 是一个独立的开源项目，把它作为一等适配器来支持。' },
+          { name: '我的文件和凭证安全吗？', text: '安全——Open Design 本地优先。你的文件、产物和 DESIGN.md 都留在你自己的仓库里，你的模型 provider 凭证由你的 agent 直接使用，绝不经 Open Design 服务器中转。' },
+        ],
+        ctaTitle: '用开放的方式，借 OpenCode 做设计。',
+        ctaBody: '自带你的模型 provider key，把每个文件留在本地，并为你已经在用的这个开放 agent 套上一套精选的设计库。',
+        ctaActions: [
+          { label: '在 Open Design 中使用 OpenCode', href: '/quickstart/', variant: 'primary' },
+          { label: '在 GitHub 上 Star', href: 'https://github.com/nexu-io/open-design', variant: 'ghost', external: true },
+          { label: '下载桌面应用', href: 'https://github.com/nexu-io/open-design/releases', variant: 'ghost', external: true },
+        ],
+        hubLinkLabel: '查看所有支持的 agent',
+      },
       aboutTitle: '什么是 OpenCode',
       aboutBody: [
         'OpenCode 是开源（MIT）的终端 AI 编码 Agent —— 一个 TUI 加桌面、IDE 界面 —— 由 Anomaly（SST 团队）维护，仓库在 github.com/anomalyco/opencode。',
@@ -2614,6 +3633,12 @@ function compactCommon(locale: LandingLocaleCode, text: CompactInfoPageText): In
   };
 }
 
+// Per-locale agent-guide translations, built by spreading the English guides
+// (so non-rendered compact fields stay type-complete) and overriding with the
+// localized copy. en + zh come from INFO_PAGE_COPY directly; every other locale
+// resolves its agent pages here instead of falling back to English.
+const LOCALIZED_AGENT_GUIDES = buildLocalizedAgentGuides(INFO_PAGE_COPY.en!.agentGuides);
+
 function compactInfoPageCopy(
   locale: LandingLocaleCode,
   text: CompactInfoPageText,
@@ -2811,9 +3836,9 @@ function compactInfoPageCopy(
       ],
       ctaBody: text.reusable.ctaBody,
     },
-    // Per-agent detail pages are English-authored; compact locales inherit
-    // the English copy (the detail page resolves a missing slug against en).
-    agentGuides: INFO_PAGE_COPY.en?.agentGuides ?? {},
+    // Per-agent detail pages: prefer the locale's own translated guides, and
+    // fall back to the English copy for any locale not yet translated.
+    agentGuides: LOCALIZED_AGENT_GUIDES[locale] ?? INFO_PAGE_COPY.en?.agentGuides ?? {},
     // Localized /download copy per compact locale; English is the fallback
     // for any locale not yet in COMPACT_DOWNLOAD_COPY.
     download: COMPACT_DOWNLOAD_COPY[locale] ?? INFO_PAGE_COPY.en!.download,

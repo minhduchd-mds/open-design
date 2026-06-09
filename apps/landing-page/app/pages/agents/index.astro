@@ -5,8 +5,8 @@
  * Captures "claude code design", "codex design", "cursor agent design",
  * "gemini cli design", "opencode design", "qwen design" queries. Each
  * agent gets a short card explaining how it plugs into Open Design.
- * Per-agent detail pages (e.g. `/agents/claude-code/`) will follow as
- * P2 work — this hub is the SEO entry point.
+ * Agents with a dedicated long-form page link into `/agents/<agent>-design/`
+ * (see DETAIL_ROUTES below); this hub is the SEO entry point.
  */
 import Layout from '../../_components/sub-page-layout.astro';
 import { getInfoPageCopy } from '../../info-page-i18n';
@@ -74,10 +74,10 @@ const allAgents = tiers.flatMap((t) => t.agents);
 // to put the design keyword in the URL. Keep in lockstep with the
 // `pages/agents/<route>/index.astro` directories.
 const DETAIL_ROUTES: Record<string, string> = {
-  'claude-code': 'claude-code',
+  'claude-code': 'claude-code-design',
   codex: 'codex-design',
-  cursor: 'cursor',
-  opencode: 'opencode',
+  cursor: 'cursor-design',
+  opencode: 'opencode-design',
 };
 
 const localizedCredentialLabels: Partial<Record<LandingLocaleCode, Record<string, string>>> = {
