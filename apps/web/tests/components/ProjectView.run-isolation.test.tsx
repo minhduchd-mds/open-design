@@ -1061,6 +1061,54 @@ describe('ProjectView conversation run isolation', () => {
     expect(screen.getByTestId('streaming-state').textContent).toBe('streaming');
   });
 
+  it('runs a normal run completion even after its terminal status cleared the active refs', async () => {
+    // The daemon emits the terminal onRunStatus *before* onDone, and that
+    // terminal status clears the run's active refs. onDone must still apply the
+    // normal completion flow (file refresh, artifact/produced-file attach) — the
+    // superseded-run guard must not mistake a cleared slot for a takeover.
+    conversationAMessages = [];
+    const daemonRuns: Array<{
+      handlers: { onDone: (fullText?: string) => void };
+      onRunCreated?: (runId: string) => void;
+      onRunStatus?: (status: NonNullable<ChatMessage['runStatus']>) => void;
+    }> = [];
+    streamViaDaemon.mockImplementation(async (input: unknown) => {
+      const options = input as {
+        handlers: { onDone: (fullText?: string) => void };
+        onRunCreated?: (runId: string) => void;
+        onRunStatus?: (status: NonNullable<ChatMessage['runStatus']>) => void;
+      };
+      daemonRuns.push(options);
+      options.onRunCreated?.(`run-${daemonRuns.length}`);
+      options.onRunStatus?.('running');
+    });
+
+    renderProjectView(
+      config,
+      project,
+      [{ id: 'agent-1', name: 'OpenCode', bin: 'opencode', available: true, models: [] }],
+    );
+
+    await waitFor(() => expect(screen.getByTestId('active-conversation').textContent).toBe('conv-a'));
+    await waitFor(() => expect(screen.getByTestId('send-message')).toHaveProperty('disabled', false));
+
+    fireEvent.click(screen.getByTestId('send-message'));
+    await waitFor(() => expect(streamViaDaemon).toHaveBeenCalledTimes(1));
+
+    fetchProjectFiles.mockClear();
+
+    await act(async () => {
+      // Terminal status first (clears the active refs), then onDone.
+      daemonRuns[0]?.onRunStatus?.('succeeded');
+      daemonRuns[0]?.handlers.onDone('completed output');
+    });
+
+    // The completion flow ran: it refetches the file list to attach produced
+    // files, and the conversation's latest run reflects success.
+    await waitFor(() => expect(fetchProjectFiles).toHaveBeenCalled());
+    expect(screen.getByTestId('conversation-latest-runs').textContent).toContain('conv-a:succeeded');
+  });
+
   it('auto-starts queued sends one at a time after the active run completes', async () => {
     let finishReattach: (() => void) | null = null;
     let reattachHandlers: { onDone: () => void } | null = null;

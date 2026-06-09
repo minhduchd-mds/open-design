@@ -2637,13 +2637,12 @@ export function ProjectView({
               textBuffer.cancel();
               unregisterTextBuffer();
               // A reattached run interrupted by a "send now" still receives a
-              // late onDone from the daemon. Capture ownership before
-              // clearCurrentRunStreamingMarker clears the refs so its
-              // completion-only side effects (artifact persist, produced-file
-              // attachment) don't run over the replacement run that now owns
-              // the conversation.
-              const isCurrentRun =
-                abortRef.current === controller && cancelRef.current === cancelController;
+              // late onDone from the daemon. Skip its completion side effects
+              // (artifact persist, produced-file attachment) when a newer run
+              // owns the active slot. See the streamViaDaemon onDone for the
+              // ownership rationale.
+              const runMayFinalize =
+                abortRef.current === null || abortRef.current === controller;
               for (const ev of parser.flush()) {
                 if (ev.type === 'artifact:end') {
                   parsedArtifact = parsedArtifact
@@ -2672,7 +2671,7 @@ export function ProjectView({
               reattachControllersRef.current.delete(runId);
               reattachCancelControllersRef.current.delete(runId);
               clearCurrentRunStreamingMarker(reattachConversationId, controller, cancelController);
-              if (!isCurrentRun) return;
+              if (!runMayFinalize) return;
               void (async () => {
                 const preTurn = message.preTurnFileNames;
                 let nextFiles = await refreshProjectFiles();
@@ -2719,12 +2718,12 @@ export function ProjectView({
               const errorCode = (err as Error & { code?: string }).code;
               // A superseded reattached run must not paint a global failure
               // banner or re-finalize its message over the replacement run.
-              const isCurrentRun =
-                abortRef.current === controller && cancelRef.current === cancelController;
+              const runMayFinalize =
+                abortRef.current === null || abortRef.current === controller;
               textBuffer.flush();
               textBuffer.cancel();
               unregisterTextBuffer();
-              if (isCurrentRun) {
+              if (runMayFinalize) {
                 setError(err.message);
                 appendAssistantErrorEvent(message.id, err.message, errorCode);
                 updateMessageById(
@@ -2775,9 +2774,9 @@ export function ProjectView({
             // Skip AbortError (expected on interrupt) and any error from a run
             // that has already been superseded — only the run still holding the
             // active controllers may surface a global failure here.
-            const isCurrentRun =
-              abortRef.current === controller && cancelRef.current === cancelController;
-            if ((err as Error).name !== 'AbortError' && isCurrentRun) {
+            const runMayFinalize =
+              abortRef.current === null || abortRef.current === controller;
+            if ((err as Error).name !== 'AbortError' && runMayFinalize) {
               const msg = err instanceof Error ? err.message : String(err);
               setError(msg);
               appendAssistantErrorEvent(message.id, msg);
@@ -3328,9 +3327,17 @@ export function ProjectView({
           }));
         },
         onDone: (fullText = '') => {
-          const isCurrentRun =
-            abortRef.current === controller && cancelRef.current === cancelController;
-          if (!isCurrentRun) {
+          // The daemon delivers onDone even for a canceled run, so a run
+          // superseded by a "send now" interrupt can still land here and must
+          // not apply its completion side effects over the replacement. A run
+          // may finalize when no *newer* run owns the active slot: either this
+          // run still holds it, or the slot is null because this run's own
+          // terminal onRunStatus already cleared it (the normal success path —
+          // onRunStatus fires before onDone). A live replacement leaves abortRef
+          // pointing at a different controller.
+          const runMayFinalize =
+            abortRef.current === null || abortRef.current === controller;
+          if (!runMayFinalize) {
             textBuffer.cancel();
             cancelSendTextBuffer();
             return;
@@ -3442,15 +3449,15 @@ export function ProjectView({
           // A run superseded by a "send now" interrupt can still surface a
           // late disconnect error (e.g. a canceled stream that lost its
           // terminal SSE). It must not paint a global failure banner or
-          // re-finalize its already-canceled assistant message over the
-          // replacement run that now owns the conversation. Capture ownership
-          // before clearCurrentRunStreamingMarker clears the active refs.
-          const isCurrentRun =
-            abortRef.current === controller && cancelRef.current === cancelController;
+          // re-finalize its already-canceled assistant message when a newer run
+          // owns the active slot. See the onDone above for the ownership
+          // rationale.
+          const runMayFinalize =
+            abortRef.current === null || abortRef.current === controller;
           textBuffer.flush();
           textBuffer.cancel();
           cancelSendTextBuffer();
-          if (isCurrentRun) {
+          if (runMayFinalize) {
             setError(err.message);
             appendAssistantErrorEvent(assistantId, err.message, errorCode);
             updateAssistant((prev) => ({
@@ -3553,8 +3560,8 @@ export function ProjectView({
           },
           onRunStatus: (runStatus) => {
             const endedAt = isTerminalRunStatus(runStatus) ? Date.now() : undefined;
-            const isCurrentRun =
-              abortRef.current === controller && cancelRef.current === cancelController;
+            const runMayFinalize =
+              abortRef.current === null || abortRef.current === controller;
             updateMessageById(
               assistantId,
               (prev) => ({
@@ -3565,7 +3572,7 @@ export function ProjectView({
               true,
               runStatus === 'canceled' ? { telemetryFinalized: true } : undefined,
             );
-            if (!isCurrentRun) return;
+            if (!runMayFinalize) return;
             updateConversationLatestRun(runStatus, endedAt);
             if (isTerminalRunStatus(runStatus)) {
               clearCurrentRunStreamingMarker(runConversationId, controller, cancelController);
