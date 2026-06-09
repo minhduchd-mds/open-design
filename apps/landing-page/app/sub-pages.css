@@ -1120,7 +1120,7 @@ body.sub-page {
 .info-page {
   max-width: 920px;
 }
-.info-page .info-section + .info-section { margin-top: 64px; }
+.info-page .info-section + .info-section { margin-top: 44px; }
 .info-page h2 {
   font-family: var(--serif);
   font-weight: 600;
@@ -2358,3 +2358,143 @@ dialog.tpl-share-popover .detail-share-dialog-text {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * Agent detail — industrial long-form layout (`/agents/<slug>-design/`).
+ * Opt-in: only rendered when an agent guide carries a `rich` payload. Hero
+ * CTA strip leads with the product, deep sections carry prose + code + images.
+ * ------------------------------------------------------------------------- */
+.agent-hero-cta {
+  margin: 4px 0 8px;
+  padding: 22px 24px;
+  border: 1px solid var(--ink);
+  background: var(--paper-warm);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 20px;
+}
+.agent-hero-cta p {
+  flex: 1 1 320px;
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  max-width: 60ch;
+}
+.agent-hero-cta-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.agent-intro p {
+  font-size: 16.5px;
+  color: var(--ink-soft);
+}
+.agent-section-img {
+  margin: 22px 0 6px;
+}
+.agent-section-img img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line, rgba(20, 18, 11, 0.12));
+  border-radius: 8px;
+  background: var(--paper-warm);
+}
+.agent-section-img figcaption {
+  margin-top: 8px;
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-faint);
+}
+.agent-code {
+  margin: 0 0 18px;
+  padding: 16px 18px;
+  border: 1px solid var(--line, rgba(20, 18, 11, 0.12));
+  border-radius: 8px;
+  background: #14120b;
+  overflow-x: auto;
+}
+.agent-code code {
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.65;
+  color: #f0ede4;
+  white-space: pre;
+  background: none;
+  padding: 0;
+}
+.agent-steps {
+  list-style: none;
+  margin: 0 0 18px;
+  padding: 0;
+}
+.agent-steps li {
+  position: relative;
+  padding-left: 1.4em;
+  margin-bottom: 10px;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--ink-soft);
+}
+.agent-steps li::before {
+  content: "—";
+  position: absolute;
+  left: 0;
+  color: var(--coral);
+}
+.agent-steps li strong { color: var(--ink); }
+@media (max-width: 600px) {
+  .agent-hero-cta { padding: 18px; }
+  .agent-hero-cta-actions .btn { flex: 1 1 auto; text-align: center; }
+}
+
+/* Unify list styling inside agent long-form sections: bare <ul>/<ol> share the
+ * same rhythm and coral marker as `.agent-steps`, so a section that mixes both
+ * (steps + facts list) reads as one consistent list family rather than two. */
+.solution-page .info-section ul,
+.solution-page .info-section ol {
+  list-style: none;
+  margin: 0 0 18px;
+  padding-left: 0;
+  max-width: 70ch;
+}
+.solution-page .info-section ul li,
+.solution-page .info-section ol li {
+  position: relative;
+  padding-left: 1.4em;
+  margin-bottom: 10px;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--ink-soft);
+}
+.solution-page .info-section ul li::before {
+  content: "—";
+  position: absolute;
+  left: 0;
+  color: var(--coral);
+}
+/* Ordered lists keep their number, coral, in a monospace marker. */
+.solution-page .info-section ol {
+  counter-reset: agent-ol;
+}
+.solution-page .info-section ol li {
+  padding-left: 1.9em;
+  counter-increment: agent-ol;
+}
+.solution-page .info-section ol li::before {
+  content: counter(agent-ol) ".";
+  position: absolute;
+  left: 0;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--coral);
+}
+/* steps and the unified lists now share one look; keep steps' bottom margin
+ * tight when it directly precedes a fact list in the same section. */
+.solution-page .info-section .agent-steps + ul,
+.solution-page .info-section .agent-steps + ol { margin-top: 2px; }

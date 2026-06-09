@@ -51,6 +51,57 @@ type AgentResourceLink = {
   source: string; // short attribution shown in the UI, e.g. "YouTube · Steve Schoger"
 };
 
+// A single block inside a rich (long-form) agent guide section. Blocks
+// render in order: prose paragraphs, ordered/unordered lists, a fenced
+// code block, an image with alt text, or a comparison table.
+type AgentRichBlock =
+  | { kind: 'p'; text: string }
+  | { kind: 'ol'; items: string[] }
+  | { kind: 'ul'; items: string[] }
+  | { kind: 'steps'; items: LinkText[] } // bolded label + body
+  | { kind: 'code'; lang: string; code: string }
+  | { kind: 'image'; src: string; alt: string; caption?: string }
+  | {
+      kind: 'table';
+      columns: string[];
+      rows: string[][];
+    };
+
+type AgentRichSection = {
+  // Stable anchor id used by the on-this-page TOC and deep links.
+  id: string;
+  heading: string;
+  blocks: AgentRichBlock[];
+};
+
+// One head CTA action. `variant: 'primary'` is the highlighted button.
+type AgentCtaAction = {
+  label: string;
+  href: string;
+  variant: 'primary' | 'ghost';
+  external?: boolean;
+};
+
+// Optional long-form payload. When present, the detail page renders the
+// industrial how-to layout (hero CTA + deep sections) instead of the
+// short default layout. Only pages that opt in carry this; the rest keep
+// the compact shape below untouched.
+type AgentRichCopy = {
+  heroCtaLead: string;
+  heroCtaActions: AgentCtaAction[];
+  intro: string[];
+  heroImage?: { src: string; alt: string; caption?: string };
+  tocLabel: string;
+  toc: { id: string; label: string }[];
+  sections: AgentRichSection[];
+  faqTitle: string;
+  faq: NamedText[];
+  ctaTitle: string;
+  ctaBody: string;
+  ctaActions: AgentCtaAction[];
+  hubLinkLabel: string;
+};
+
 type AgentGuideCopy = {
   title: string;
   description: string;
@@ -61,6 +112,8 @@ type AgentGuideCopy = {
   tldrTitle: string;
   tldrBody: string;
   toc: string[];
+  // Optional industrial long-form content. Present only on upgraded pages.
+  rich?: AgentRichCopy;
   // "What is <agent>"
   aboutTitle: string;
   aboutBody: string[];
@@ -657,6 +710,172 @@ const INFO_PAGE_COPY: Partial<Record<LandingLocaleCode, InfoPageCopy>> = {
         tldrBody:
           'Codex turns screenshots and user stories into responsive UI, and round-trips designs to Figma. Open Design gives it a curated design-system and skill library plus a desktop workflow — bring your own key and keep everything local.',
         toc: ['What is Codex', 'Designing with Codex', 'Resources', 'With Open Design', 'FAQ'],
+        rich: {
+          heroCtaLead:
+            'Open Design turns Codex into a local-first, open-source design agent — your OpenAI key, your files, a curated skill and design-system library around it.',
+          heroCtaActions: [
+            { label: 'Use Codex inside Open Design', href: '/quickstart/', variant: 'primary' },
+            { label: 'Star on GitHub', href: 'https://github.com/nexu-io/open-design', variant: 'ghost', external: true },
+            { label: 'Download the desktop app', href: 'https://github.com/nexu-io/open-design/releases', variant: 'ghost', external: true },
+          ],
+          intro: [
+            'OpenAI Codex started as a code generator, but in 2026 it became a credible tool for designing real interfaces — once you give it the right references, skills, and verification loop. This is a practical, end-to-end guide to using Codex for UI, frontend, and design-system work, and to wiring it into a structured design workflow with Open Design.',
+            'It covers what Codex is today, why it is suddenly good at frontend, how to set it up from zero, the screenshot-to-UI loop, the official Figma round-trip, how it compares to Cursor and Claude Code, the pitfalls that make AI output look generic, and how Open Design closes the gap as an open, local-first design layer.',
+          ],
+          heroImage: {
+            src: '/agents/codex-design/codex-design-workflow-loop.webp',
+            alt: 'Codex design feedback loop: terminal agent, browser rendering the UI, and a workspace, with a feedback arrow looping back',
+            caption: 'The core loop: Codex builds UI in the terminal, renders and verifies it in a real browser, and iterates against your references.',
+          },
+          tocLabel: 'On this page',
+          toc: [
+            { id: 'what-is-codex', label: 'What OpenAI Codex actually is' },
+            { id: 'why-design', label: 'Why Codex is good at design now' },
+            { id: 'setup', label: 'Set up Codex for design (from zero)' },
+            { id: 'screenshot-workflow', label: 'The screenshot-to-UI workflow' },
+            { id: 'figma', label: 'Codex + Figma round-trip' },
+            { id: 'vs', label: 'Codex vs Cursor vs Claude Code' },
+            { id: 'pitfalls', label: 'Pitfalls and the “AI slop” look' },
+            { id: 'open-design', label: 'Designing with Codex in Open Design' },
+            { id: 'faq', label: 'FAQ' },
+          ],
+          sections: [
+            {
+              id: 'what-is-codex',
+              heading: 'What OpenAI Codex actually is (and what it isn’t)',
+              blocks: [
+                { kind: 'p', text: 'First, a disambiguation that trips up almost everyone searching for “Codex.” The original OpenAI Codex was a 2021 code-completion model that powered early GitHub Copilot and was deprecated in 2023. That is not what this page is about. Today’s Codex is OpenAI’s agentic coding tool — it plans, writes, runs, and verifies code from natural-language tasks.' },
+                { kind: 'p', text: 'Modern Codex ships across four surfaces: a terminal CLI (rewritten in Rust, Apache-2.0 licensed), an IDE extension for VS Code, Cursor, and Windsurf, a cloud/web experience for delegated async tasks, and a desktop app with an in-app browser and Computer Use.' },
+                { kind: 'steps', items: [
+                  { label: 'Default model', body: 'As of mid-2026 the recommended model is gpt-5.5, with gpt-5.4 being the model OpenAI explicitly trained for frontend and computer use.' },
+                  { label: 'Instruction file', body: 'Codex reads an AGENTS.md file in your project (a cross-tool standard) for project rules — the natural place to encode your design conventions.' },
+                  { label: 'Sandbox', body: 'It runs in a kernel-level sandbox (workspace-write by default), so an agent editing your UI cannot wander outside the project.' },
+                ] },
+                { kind: 'ul', items: [
+                  'Vendor: OpenAI',
+                  'Credential: OpenAI API key (BYOK) or ChatGPT subscription (Free / Go / Plus / Pro / Business / Enterprise)',
+                  'License of the CLI: Apache-2.0, open source',
+                ] },
+              ],
+            },
+            {
+              id: 'why-design',
+              heading: 'Why Codex is good at design now',
+              blocks: [
+                { kind: 'p', text: 'Three things converged in early 2026 to make Codex a real design tool rather than a generic code generator.' },
+                { kind: 'steps', items: [
+                  { label: 'A frontend-trained model', body: 'OpenAI shipped GPT-5.4, its first mainline model trained for frontend and computer use, with much better image understanding across the design workflow and stronger self-verification. It can even generate mood boards and visual options before committing to final assets.' },
+                  { label: 'An official frontend skill', body: 'The openai/skills catalog ships a curated frontend-skill that enforces real taste: cardless layouts, full-bleed heroes, brand-first hierarchy, restrained motion, at most two typefaces and one accent color — and makes Codex write a visual thesis before building.' },
+                  { label: 'Browser verification', body: 'With the Playwright skill Codex opens a real browser, resizes to breakpoints, and compares its output back to the reference instead of just checking that the build passes.' },
+                ] },
+                { kind: 'image', src: '/agents/codex-design/codex-design-taste-triangle.webp', alt: 'Diagram showing design system, skill, and reference image converging into good design output', caption: 'Taste comes from three inputs you provide: a design system, a skill, and real reference images.' },
+                { kind: 'p', text: 'The lesson behind all three: Codex does not have taste by default. It produces good design when you give it constraints — a design system, an aesthetic skill, and concrete references. Open Design packages exactly those inputs, which is why the two fit together (more below).' },
+              ],
+            },
+            {
+              id: 'setup',
+              heading: 'Set up Codex for design work, from zero',
+              blocks: [
+                { kind: 'p', text: 'Here is the full path from a clean machine to a Codex that can build and verify UI.' },
+                { kind: 'code', lang: 'bash', code: '# 1. Install the Codex CLI\nnpm install -g @openai/codex\n# or: brew install --cask codex\n# or: curl -fsSL https://chatgpt.com/codex/install.sh | sh\n\n# 2. Authenticate (ChatGPT sign-in recommended for higher limits)\ncodex            # then choose “Sign in with ChatGPT”\n\n# 3. Generate project context\ncodex            # inside your project, run /init to create AGENTS.md\n\n# 4. Add the official frontend skill, then restart Codex\n# (in the Codex app) $skill-installer frontend-skill\n\n# 5. Wire the Figma MCP server (optional, for design handoff)\ncodex mcp add figma --url https://mcp.figma.com/mcp' },
+                { kind: 'image', src: '/agents/codex-design/codex-design-setup-flow.webp', alt: 'Five-step setup flow: install, authenticate, configure, install skill, verify', caption: 'The setup sequence: install → authenticate → configure AGENTS.md → install the frontend skill → enable browser verification.' },
+                { kind: 'steps', items: [
+                  { label: 'Encode your design rules', body: 'Put your tokens, primitives, and conventions in AGENTS.md or a DESIGN.md and point Codex at them, so output matches a brand instead of defaulting to a generic look.' },
+                  { label: 'Choose the right reasoning level', body: 'OpenAI notes that low-to-medium reasoning levels often produce stronger frontend results than the highest setting.' },
+                ] },
+              ],
+            },
+            {
+              id: 'screenshot-workflow',
+              heading: 'The screenshot-to-UI workflow',
+              blocks: [
+                { kind: 'p', text: 'The highest-leverage design loop with Codex is turning a reference image into working, responsive UI and iterating until it matches. OpenAI’s own guidance distills to five steps.' },
+                { kind: 'ol', items: [
+                  'Start from the clearest visual references you have — and include multiple states (desktop and mobile, hover, empty, loading), not just one hero shot.',
+                  'Be specific in the prompt; vague prompts produce generic UI.',
+                  'Prepare a design system and tell Codex where the tokens and canonical primitives live.',
+                  'Enable the Playwright interactive skill so Codex renders in a real browser and resizes to breakpoints.',
+                  'Iterate by having Codex compare its implementation back to the screenshots — not merely confirm it builds.',
+                ] },
+                { kind: 'p', text: 'Feed images by dragging a screenshot into the terminal or with the image flag, then prompt with concrete constraints:' },
+                { kind: 'code', lang: 'bash', code: 'codex -i reference-desktop.png -i reference-mobile.png \\\n  "Implement this design in React + Vite + Tailwind + TypeScript.\n   Reuse my existing design-system components and tokens.\n   Match spacing, layout, and hierarchy; make it responsive.\n   Use the Playwright skill to verify the UI matches the\n   references and iterate until it does."' },
+                { kind: 'p', text: 'Run a dev server in a second terminal, keep prompts small and focused, and commit good iterations / revert bad ones (telling Codex when you revert) so each pass builds on a clean base.' },
+              ],
+            },
+            {
+              id: 'figma',
+              heading: 'Codex + Figma: design ↔ code round-trip',
+              blocks: [
+                { kind: 'p', text: 'In February 2026 OpenAI and Figma announced an official partnership, turning the earlier Figma MCP beta into a first-class, bidirectional integration. It works in both directions.' },
+                { kind: 'steps', items: [
+                  { label: 'Design → Code', body: 'Copy a frame’s “link to selection” in Figma, paste it into Codex with get_design_context, and ask it to implement the design using your existing component library.' },
+                  { label: 'Code → Design', body: 'The generate_figma_design tool (“Code to Canvas”) turns a live, running UI back into editable Figma frames — entire screen, a selected element, or a whole file.' },
+                ] },
+                { kind: 'p', text: 'The Figma MCP runs as a remote server and is exempt from rate limits. Add it once and it is available to Codex, Claude Code, Cursor, VS Code, and more — which is exactly the kind of portable, multi-agent capability Open Design is built to orchestrate.' },
+              ],
+            },
+            {
+              id: 'vs',
+              heading: 'Codex vs Cursor vs Claude Code for design',
+              blocks: [
+                { kind: 'p', text: 'There is no single winner for design work — each agent has a different strength, and experienced teams stack them. A fair summary:' },
+                { kind: 'table', columns: ['Agent', 'Design strength', 'Best for'], rows: [
+                  ['Codex', 'Strong visual polish after GPT-5.4 + frontend-skill; image understanding', 'Delegated async builds, sandboxed runs, portable AGENTS.md rules'],
+                  ['Cursor', 'Visual build-and-see loop with live preview and inline edits', 'Tight iterate-and-watch UI work inside an IDE'],
+                  ['Claude Code', 'Specific design decisions (hex, spacing, type) and codebase-aware UX', 'Frontend reasoning and large-context refactors'],
+                ] },
+                { kind: 'p', text: 'The recurring community verdict is that taste comes from humans: all three default to a generic aesthetic without skills, references, and constraints. That is the real problem to solve — and it is design-tool-shaped, not model-shaped.' },
+              ],
+            },
+            {
+              id: 'pitfalls',
+              heading: 'Pitfalls, and how to avoid the “AI slop” look',
+              blocks: [
+                { kind: 'p', text: 'The most common complaint about Codex-generated design is that it looks generic — soft gradients, floating panels, oversized rounded corners, dramatic shadows, an Inter-and-purple vibe that “screams an AI made this.” Other reported issues include broken mobile layouts, instructions leaking into UI copy, and hitting usage limits quickly.' },
+                { kind: 'steps', items: [
+                  { label: 'Install a frontend skill', body: 'A curated aesthetic skill forces Codex to commit to a real direction instead of the default look.' },
+                  { label: 'Enable Playwright verification', body: 'Make Codex render and self-check across breakpoints so layouts do not silently break on mobile.' },
+                  { label: 'Supply tokens and references', body: 'Real design tokens and reference screenshots are the single biggest lever on output quality.' },
+                  { label: 'Encode rules in AGENTS.md', body: 'Put “no hero cards, max two typefaces, brand-first hierarchy” style rules where the agent reads them every run.' },
+                ] },
+                { kind: 'p', text: 'Notice that every mitigation is about giving the agent a curated design context. Maintaining that context by hand, per project, is the toil Open Design removes.' },
+              ],
+            },
+            {
+              id: 'open-design',
+              heading: 'Designing with Codex inside Open Design',
+              blocks: [
+                { kind: 'p', text: 'Open Design is the open-source design layer the workflow above keeps asking for. It treats Codex as a first-party adapter and wraps it in a curated skill and design-system library, a structured render pipeline, and a local desktop UI — so the design context that makes Codex good is there from the first run, not assembled by hand each time.' },
+                { kind: 'ol', items: [
+                  'Install Open Design and select Codex as your agent.',
+                  'Authenticate with your OpenAI API key (BYOK) or ChatGPT subscription — credentials stay on your machine and are never proxied through us.',
+                  'Pick a design system and a skill, then generate decks, prototypes, and landing pages with consistent taste.',
+                  'Every artifact and DESIGN.md file lives in your own repo, not a hosted cloud.',
+                ] },
+                { kind: 'p', text: 'Same Codex agent, same key — plus a real, portable, open-source design workflow around it. It is local-first and Apache-2.0, so nothing about your work or your credentials leaves your machine.' },
+              ],
+            },
+          ],
+          faqTitle: 'Frequently asked questions',
+          faq: [
+            { name: 'Can OpenAI Codex really do design work?', text: 'Yes — with a frontend skill, a design system, and real reference images in context, Codex (especially on GPT-5.4) produces production-quality, responsive UI and can verify it in a browser. Without that context it tends to default to a generic look, which is the gap Open Design fills.' },
+            { name: 'Is this the OpenAI Codex Product Design plugin?', text: 'No. Open Design is an independent open-source project that integrates Codex as an agent. It complements OpenAI’s own tooling with a local-first, open skill and design-system library.' },
+            { name: 'Do I need a ChatGPT subscription to design with Codex?', text: 'You can use either an OpenAI API key (BYOK) or your ChatGPT subscription. ChatGPT sign-in generally gives more generous limits; Open Design never proxies your credentials either way.' },
+            { name: 'Codex or Claude Code for frontend design?', text: 'Both are strong. Claude Code is known for specific, codebase-aware design decisions; Codex has strong visual polish after GPT-5.4 and excels at delegated, sandboxed builds. Many teams use both — Open Design lets you switch agents without changing your design workflow.' },
+            { name: 'How do I connect Codex to Figma?', text: 'Add the official Figma MCP server (codex mcp add figma --url https://mcp.figma.com/mcp). You can then implement Figma frames in code with get_design_context and push a running UI back to editable Figma frames with generate_figma_design.' },
+            { name: 'How do I avoid the generic “AI slop” aesthetic?', text: 'Install a frontend skill, supply real design tokens and reference screenshots, encode brand rules in AGENTS.md, and enable Playwright verification. Open Design ships these as a curated library so you skip the per-project setup.' },
+            { name: 'Is Open Design affiliated with OpenAI?', text: 'No. Codex is a product of OpenAI; Open Design is an independent open-source project that supports it as a first-party adapter. OpenAI and Codex are trademarks of OpenAI.' },
+            { name: 'Are my files and credentials safe?', text: 'Yes — Open Design is local-first. Your files, artifacts, and DESIGN.md stay in your own repo, and your OpenAI credentials are used directly by your agent, never routed through Open Design servers.' },
+          ],
+          ctaTitle: 'Design with Codex, the open way.',
+          ctaBody: 'Bring your own OpenAI key, keep every file local, and get a curated design library around the agent you already use.',
+          ctaActions: [
+            { label: 'Use Codex inside Open Design', href: '/quickstart/', variant: 'primary' },
+            { label: 'Star on GitHub', href: 'https://github.com/nexu-io/open-design', variant: 'ghost', external: true },
+            { label: 'Download the desktop app', href: 'https://github.com/nexu-io/open-design/releases', variant: 'ghost', external: true },
+          ],
+          hubLinkLabel: 'See all supported agents',
+        },
         aboutTitle: 'What is Codex',
         aboutBody: [
           'Codex is OpenAI’s agentic coding system — a CLI and ChatGPT-integrated agent that plans, writes, and runs code from natural-language tasks.',
@@ -1725,6 +1944,172 @@ INFO_PAGE_COPY.zh = {
       tldrBody:
         'Codex 能把截图和用户故事变成响应式 UI，还能把设计往返同步到 Figma。Open Design 给它配上精选的设计系统与 skill 库，外加桌面工作流 —— 自带密钥，所有东西留在本地。',
       toc: ['什么是 Codex', '用 Codex 做设计', '资源', '配合 Open Design', '常见问题'],
+      rich: {
+        heroCtaLead:
+          'Open Design 把 Codex 变成本地优先的开源设计 Agent —— 你自己的 OpenAI 密钥、你自己的文件，外加一套围绕它的精选 skill 与设计系统库。',
+        heroCtaActions: [
+          { label: '在 Open Design 里用 Codex', href: '/quickstart/', variant: 'primary' },
+          { label: '给 GitHub 点 Star', href: 'https://github.com/nexu-io/open-design', variant: 'ghost', external: true },
+          { label: '下载桌面客户端', href: 'https://github.com/nexu-io/open-design/releases', variant: 'ghost', external: true },
+        ],
+        intro: [
+          'Codex 最初只是个代码生成器，但到 2026 年，只要你给对参考、skill 和验证回路，它已经能设计出真正可用的界面。这是一篇端到端的实操指南：怎么用 Codex 做 UI、前端和设计系统，以及怎么用 Open Design 把它接进结构化的设计工作流。',
+          '内容覆盖：Codex 现在到底是什么、为什么它突然擅长前端、怎么从零配好、截图转 UI 的回路、官方的 Figma 双向打通、它跟 Cursor 与 Claude Code 的差异、让 AI 输出显得千篇一律的那些坑，以及 Open Design 作为开源、本地优先的设计层怎么补上缺口。',
+        ],
+        heroImage: {
+          src: '/agents/codex-design/codex-design-workflow-loop.webp',
+          alt: 'Codex 设计反馈回路：终端 Agent、浏览器渲染 UI、工作区，带一条回流箭头',
+          caption: '核心回路：Codex 在终端里构建 UI，在真实浏览器里渲染并验证，再对着你的参考图迭代。',
+        },
+        tocLabel: '本页内容',
+        toc: [
+          { id: 'what-is-codex', label: 'Codex 到底是什么' },
+          { id: 'why-design', label: '为什么 Codex 现在能做设计' },
+          { id: 'setup', label: '从零配好 Codex 做设计' },
+          { id: 'screenshot-workflow', label: '截图转 UI 的工作流' },
+          { id: 'figma', label: 'Codex + Figma 双向打通' },
+          { id: 'vs', label: 'Codex vs Cursor vs Claude Code' },
+          { id: 'pitfalls', label: '常见坑与「AI 味」' },
+          { id: 'open-design', label: '在 Open Design 里用 Codex' },
+          { id: 'faq', label: '常见问题' },
+        ],
+        sections: [
+          {
+            id: 'what-is-codex',
+            heading: 'Codex 到底是什么（以及不是什么）',
+            blocks: [
+              { kind: 'p', text: '先消歧，几乎每个搜「Codex」的人都会被绊一下。最早的 OpenAI Codex 是 2021 年的代码补全模型，驱动过早期 GitHub Copilot，2023 年已弃用。本文讲的不是它。今天的 Codex 是 OpenAI 的 Agent 式编码工具 —— 从自然语言任务出发，规划、编写、运行并验证代码。' },
+              { kind: 'p', text: '现代 Codex 有四种形态：终端 CLI（用 Rust 重写、Apache-2.0 开源）、面向 VS Code / Cursor / Windsurf 的 IDE 扩展、用于异步委派任务的云端/网页版，以及带内置浏览器和 Computer Use 的桌面 App。' },
+              { kind: 'steps', items: [
+                { label: '默认模型', body: '截至 2026 年中，推荐模型是 gpt-5.5；而 gpt-5.4 是 OpenAI 明确为前端和 Computer Use 训练的那个模型。' },
+                { label: '指令文件', body: 'Codex 读取项目里的 AGENTS.md（跨工具通用标准）作为项目规则 —— 也就是写你设计约定最自然的地方。' },
+                { label: '沙箱', body: '它跑在内核级沙箱里（默认 workspace-write），改你 UI 的 Agent 不会跑到项目之外乱动。' },
+              ] },
+              { kind: 'ul', items: [
+                '厂商：OpenAI',
+                '凭据：OpenAI API key（BYOK）或 ChatGPT 订阅（Free / Go / Plus / Pro / Business / Enterprise）',
+                'CLI 许可：Apache-2.0，开源',
+              ] },
+            ],
+          },
+          {
+            id: 'why-design',
+            heading: '为什么 Codex 现在能做设计',
+            blocks: [
+              { kind: 'p', text: '2026 年初有三件事凑到一起，才让 Codex 从通用代码生成器变成真正的设计工具。' },
+              { kind: 'steps', items: [
+                { label: '一个为前端训练的模型', body: 'OpenAI 发布了 GPT-5.4 —— 它第一个主线版为前端和 Computer Use 训练的模型，对设计流程里的图像理解大幅提升，自我验证也更强，甚至能在定稿前先生成情绪板和多个视觉方案。' },
+                { label: '一个官方前端 skill', body: 'openai/skills 目录里有一个精选 frontend-skill，强制真审美：无卡片布局、整屏 hero、品牌优先的层级、克制的动效、最多两种字体加一个强调色 —— 还逼 Codex 先写「视觉论点」再动手。' },
+                { label: '浏览器验证', body: '配上 Playwright skill，Codex 会真开浏览器、按断点缩放，并把输出跟参考图比对，而不只是「构建通过」就完事。' },
+              ] },
+              { kind: 'image', src: '/agents/codex-design/codex-design-taste-triangle.webp', alt: '设计系统、skill、参考图三者汇聚成优质设计输出的示意图', caption: '审美来自你提供的三种输入：设计系统、skill 和真实参考图。' },
+              { kind: 'p', text: '三件事背后的道理是一样的：Codex 默认没有审美。只有当你给它约束 —— 设计系统、审美 skill、具体参考 —— 它才能产出好设计。Open Design 打包的正是这三种输入，这也是两者契合的原因（下文详述）。' },
+            ],
+          },
+          {
+            id: 'setup',
+            heading: '从零配好 Codex 做设计',
+            blocks: [
+              { kind: 'p', text: '从一台干净的机器，到一个能构建并验证 UI 的 Codex，完整路径如下。' },
+              { kind: 'code', lang: 'bash', code: '# 1. 安装 Codex CLI\nnpm install -g @openai/codex\n# 或：brew install --cask codex\n# 或：curl -fsSL https://chatgpt.com/codex/install.sh | sh\n\n# 2. 鉴权（推荐用 ChatGPT 登录，额度更高）\ncodex            # 然后选 “Sign in with ChatGPT”\n\n# 3. 生成项目上下文\ncodex            # 在项目里运行 /init 生成 AGENTS.md\n\n# 4. 装官方前端 skill，然后重启 Codex\n# （在 Codex App 里）$skill-installer frontend-skill\n\n# 5. 接 Figma MCP server（可选，做设计交付）\ncodex mcp add figma --url https://mcp.figma.com/mcp' },
+              { kind: 'image', src: '/agents/codex-design/codex-design-setup-flow.webp', alt: '五步配置流程：安装、鉴权、配置、装 skill、验证', caption: '配置顺序：安装 → 鉴权 → 配 AGENTS.md → 装前端 skill → 开浏览器验证。' },
+              { kind: 'steps', items: [
+                { label: '把设计规则写进去', body: '把 token、基础组件、约定写进 AGENTS.md 或 DESIGN.md 并让 Codex 指向它们，输出就会贴合品牌，而不是退回那套通用样子。' },
+                { label: '选对推理档位', body: 'OpenAI 提到：低到中等推理档位的前端效果，往往比最高档更好。' },
+              ] },
+            ],
+          },
+          {
+            id: 'screenshot-workflow',
+            heading: '截图转 UI 的工作流',
+            blocks: [
+              { kind: 'p', text: 'Codex 做设计最高杠杆的回路，是把参考图变成可用的响应式 UI，再迭代到对齐为止。OpenAI 官方指引归纳为五步。' },
+              { kind: 'ol', items: [
+                '从你手头最清晰的视觉参考出发 —— 而且要包含多个状态（桌面和移动、hover、空态、加载态），不只是一张 hero 图。',
+                'prompt 要具体；含糊的 prompt 只会产出通用 UI。',
+                '准备好设计系统，并告诉 Codex token 和基础组件在哪。',
+                '开启 Playwright 交互 skill，让 Codex 真在浏览器里渲染并按断点缩放。',
+                '迭代时让 Codex 把实现跟截图比对 —— 而不只是确认「能构建」。',
+              ] },
+              { kind: 'p', text: '喂图可以把截图拖进终端，或用 image 参数，然后用具体约束来 prompt：' },
+              { kind: 'code', lang: 'bash', code: 'codex -i reference-desktop.png -i reference-mobile.png \\\n  "用 React + Vite + Tailwind + TypeScript 实现这个设计。\n   尽量复用我现有的设计系统组件和 token。\n   对齐间距、布局和层级；做成响应式。\n   用 Playwright skill 验证 UI 跟参考图一致，\n   不一致就一直迭代。"' },
+              { kind: 'p', text: '在第二个终端里跑 dev server，prompt 保持小而聚焦，好的迭代就 commit、坏的就 revert（并告诉 Codex 你回退了），这样每一轮都在干净的基础上推进。' },
+            ],
+          },
+          {
+            id: 'figma',
+            heading: 'Codex + Figma：设计 ↔ 代码双向打通',
+            blocks: [
+              { kind: 'p', text: '2026 年 2 月 OpenAI 和 Figma 宣布官方合作，把早先的 Figma MCP beta 升级成一等公民级的双向集成。两个方向都能走。' },
+              { kind: 'steps', items: [
+                { label: '设计 → 代码', body: '在 Figma 里复制某个 frame 的「link to selection」，粘进 Codex 配合 get_design_context，让它用你现有的组件库实现这个设计。' },
+                { label: '代码 → 设计', body: 'generate_figma_design 工具（「Code to Canvas」）能把跑起来的 UI 变回可编辑的 Figma frame —— 整屏、选中元素或整个文件都行。' },
+              ] },
+              { kind: 'p', text: 'Figma MCP 以远程 server 形式运行且免限流。接一次，Codex、Claude Code、Cursor、VS Code 等都能用 —— 这种可移植的多 Agent 能力，正是 Open Design 要编排的东西。' },
+            ],
+          },
+          {
+            id: 'vs',
+            heading: 'Codex vs Cursor vs Claude Code 做设计',
+            blocks: [
+              { kind: 'p', text: '做设计没有唯一赢家 —— 每个 Agent 强在不同地方，老手会叠着用。公允的总结：' },
+              { kind: 'table', columns: ['Agent', '设计强项', '最适合'], rows: [
+                ['Codex', 'GPT-5.4 + 前端 skill 之后视觉打磨很强；图像理解好', '异步委派构建、沙箱化运行、可移植的 AGENTS.md 规则'],
+                ['Cursor', '边改边看的视觉回路，带实时预览和行内编辑', 'IDE 里贴身迭代、即时观察的 UI 工作'],
+                ['Claude Code', '具体的设计决策（hex、间距、字体）和懂代码库的 UX', '前端推理和大上下文重构'],
+              ] },
+              { kind: 'p', text: '社区反复得出的结论是：审美来自人。三者在没有 skill、参考和约束时，都会退回通用样子。这才是要解决的真问题 —— 而它是「设计工具」形状的，不是「模型」形状的。' },
+            ],
+          },
+          {
+            id: 'pitfalls',
+            heading: '常见坑，以及怎么避开「AI 味」',
+            blocks: [
+              { kind: 'p', text: '对 Codex 生成设计最常见的吐槽是「显得通用」—— 柔和渐变、漂浮面板、超大圆角、夸张阴影，那种 Inter 字体加紫色的味道，「一看就是 AI 做的」。其他常见问题还有移动端布局崩、指令文案泄漏进 UI、以及很快撞到用量上限。' },
+              { kind: 'steps', items: [
+                { label: '装一个前端 skill', body: '精选的审美 skill 逼 Codex 选定一个真方向，而不是默认那套样子。' },
+                { label: '开启 Playwright 验证', body: '让 Codex 跨断点渲染并自检，布局就不会在移动端悄悄崩。' },
+                { label: '喂 token 和参考', body: '真实的设计 token 和参考截图，是对输出质量影响最大的那个杠杆。' },
+                { label: '把规则写进 AGENTS.md', body: '把「不要 hero 卡片、最多两种字体、品牌优先层级」这类规则放在 Agent 每次都会读到的地方。' },
+              ] },
+              { kind: 'p', text: '注意：每条缓解措施，本质都是给 Agent 一套精选的设计上下文。而逐个项目手工维护这套上下文，正是 Open Design 帮你省掉的苦活。' },
+            ],
+          },
+          {
+            id: 'open-design',
+            heading: '在 Open Design 里用 Codex',
+            blocks: [
+              { kind: 'p', text: 'Open Design 就是上面这套工作流一直在呼唤的那个开源设计层。它把 Codex 当作一方适配器，外面包上精选的 skill 与设计系统库、结构化渲染流水线、本地桌面 UI —— 让那些让 Codex 变好的设计上下文从第一次运行就在，而不是每次手工拼。' },
+              { kind: 'ol', items: [
+                '安装 Open Design，选 Codex 作为你的 Agent。',
+                '用 OpenAI API key（BYOK）或 ChatGPT 订阅鉴权 —— 凭据留在你机器上，绝不经我们中转。',
+                '选一套设计系统和一个 skill，生成审美一致的 deck、原型和落地页。',
+                '每个产物和 DESIGN.md 都在你自己的 repo 里，不在托管云端。',
+              ] },
+              { kind: 'p', text: '同一个 Codex Agent、同一把密钥 —— 外加一套真正可移植的开源设计工作流。它本地优先、Apache-2.0，你的工作和凭据都不离开你的机器。' },
+            ],
+          },
+        ],
+        faqTitle: '常见问题',
+        faq: [
+          { name: 'OpenAI Codex 真的能做设计吗？', text: '能 —— 只要上下文里有前端 skill、设计系统和真实参考图，Codex（尤其在 GPT-5.4 上）能产出生产级、响应式的 UI，还能在浏览器里自检。没有这套上下文它就会退回通用样子，而这正是 Open Design 补的缺口。' },
+          { name: '这是 OpenAI 的 Codex Product Design 插件吗？', text: '不是。Open Design 是独立开源项目，把 Codex 作为 Agent 集成，用本地优先的开源 skill 与设计系统库补充官方工具。' },
+          { name: '用 Codex 做设计需要 ChatGPT 订阅吗？', text: 'OpenAI API key（BYOK）或 ChatGPT 订阅都行。ChatGPT 登录通常额度更高；无论哪种，Open Design 都不中转你的凭据。' },
+          { name: '前端设计该用 Codex 还是 Claude Code？', text: '两个都强。Claude Code 以具体、懂代码库的设计决策见长；Codex 在 GPT-5.4 之后视觉打磨很强，且擅长沙箱化的异步委派构建。很多团队两个都用 —— Open Design 让你换 Agent 时不用换设计工作流。' },
+          { name: '怎么把 Codex 接到 Figma？', text: '加上官方 Figma MCP server（codex mcp add figma --url https://mcp.figma.com/mcp）。之后用 get_design_context 把 Figma frame 实现成代码，用 generate_figma_design 把跑起来的 UI 推回可编辑的 Figma frame。' },
+          { name: '怎么避免那种通用的「AI 味」审美？', text: '装一个前端 skill、喂真实的设计 token 和参考截图、把品牌规则写进 AGENTS.md、并开启 Playwright 验证。Open Design 把这些做成精选库，你就省掉了逐项目的配置。' },
+          { name: 'Open Design 跟 OpenAI 有关联吗？', text: '没有。Codex 是 OpenAI 的产品；Open Design 是独立开源项目，以一方适配器的方式支持它。OpenAI 和 Codex 是 OpenAI 的商标。' },
+          { name: '我的文件和凭据安全吗？', text: '安全 —— Open Design 本地优先。你的文件、产物和 DESIGN.md 都留在自己的 repo，OpenAI 凭据由你的 Agent 直接使用，绝不经 Open Design 服务器中转。' },
+        ],
+        ctaTitle: '用开源的方式，跟 Codex 一起设计。',
+        ctaBody: '自带 OpenAI 密钥、所有文件留在本地，给你已经在用的 Agent 配上一套精选设计库。',
+        ctaActions: [
+          { label: '在 Open Design 里用 Codex', href: '/quickstart/', variant: 'primary' },
+          { label: '给 GitHub 点 Star', href: 'https://github.com/nexu-io/open-design', variant: 'ghost', external: true },
+          { label: '下载桌面客户端', href: 'https://github.com/nexu-io/open-design/releases', variant: 'ghost', external: true },
+        ],
+        hubLinkLabel: '查看全部支持的 Agent',
+      },
       aboutTitle: '什么是 Codex',
       aboutBody: [
         'Codex 是 OpenAI 的 Agent 式编码系统 —— 一个 CLI 加 ChatGPT 集成的 Agent，从自然语言任务规划、写、跑代码。',

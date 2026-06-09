@@ -69,10 +69,16 @@ const tiers = [
 
 const allAgents = tiers.flatMap((t) => t.agents);
 
-// Agents that have a dedicated `/agents/<slug>/` detail page. Their hub
-// card heading links into it; the rest stay plain text until their page
-// ships. Keep in lockstep with `pages/agents/<slug>/index.astro`.
-const DETAILED = new Set(['claude-code', 'codex', 'cursor', 'opencode']);
+// Agents with a dedicated detail page, mapped slug -> route segment.
+// The route can differ from the slug (e.g. `codex` -> `codex-design`)
+// to put the design keyword in the URL. Keep in lockstep with the
+// `pages/agents/<route>/index.astro` directories.
+const DETAIL_ROUTES: Record<string, string> = {
+  'claude-code': 'claude-code',
+  codex: 'codex-design',
+  cursor: 'cursor',
+  opencode: 'opencode',
+};
 
 const localizedCredentialLabels: Partial<Record<LandingLocaleCode, Record<string, string>>> = {
   zh: {
@@ -189,7 +195,7 @@ const jsonLd = [
         <ul class="agent-grid">
           {tier.agents.map((a) => (
             <li class="agent-card" id={a.slug}>
-              <h3>{DETAILED.has(a.slug) ? <a href={href(`/agents/${a.slug}/`)}>{a.name}</a> : a.name}</h3>
+              <h3>{DETAIL_ROUTES[a.slug] ? <a href={href(`/agents/${DETAIL_ROUTES[a.slug]}/`)}>{a.name}</a> : a.name}</h3>
               <p><strong>{page.vendor}:</strong> {a.vendor}</p>
               <p><strong>{page.credential}:</strong> {credentialLabel(a)}</p>
             </li>
