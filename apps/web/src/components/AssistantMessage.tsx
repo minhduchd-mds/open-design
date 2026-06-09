@@ -41,7 +41,8 @@ import {
 } from "./design-files/pluginFolders";
 import type { PluginFolderAgentAction } from "./design-files/pluginFolderActions";
 import { Icon } from "./Icon";
-import { NextStepActions } from "./NextStepActions";
+import { NextStepActions, type NextStepSkillOption } from "./NextStepActions";
+import type { DesignToolboxActionId } from "../runtime/design-toolbox";
 import { copyToClipboard } from "../lib/copy-to-clipboard";
 import { useT } from "../i18n";
 import { deriveFileOps, type FileOpEntry } from "../runtime/file-ops";
@@ -302,7 +303,14 @@ interface Props {
   // assistant message. Omitting them hides the affordance entirely (e.g. in
   // tests that don't wire chat send).
   onArtifactShare?: (fileName: string) => void;
-  onArtifactChip?: (fileName: string | null, prompt: string) => void;
+  // Featured design-toolbox follow-up rows on the "next step" card. Seeding the
+  // composer with an action / opening the full toolbox both route through the
+  // composer; see ChatPane's composer ref wiring.
+  onToolboxAction?: (id: DesignToolboxActionId) => void;
+  onPickSkill?: (skillId: string) => void;
+  onArtifactDownload?: (fileName: string) => void;
+  nextStepSkills?: NextStepSkillOption[];
+  toolboxSkillNames?: Partial<Record<DesignToolboxActionId, string | null>>;
 }
 
 // Props compared by reference to decide whether a memoized AssistantMessage can
@@ -335,6 +343,11 @@ const ASSISTANT_MESSAGE_COMPARED_PROPS: Array<keyof Props> = [
   'shareToOpenDesignBusy',
   'suppressDirectionForms',
   'hasDesignSystemContext',
+  // Memoized + stable from ChatPane; compared so a late skill-list load
+  // refreshes the featured next-step rows' `@skill` hover detail and the full
+  // More → Design toolbox skill list.
+  'toolboxSkillNames',
+  'nextStepSkills',
   // Live streaming tool input changes identity on every `tool_input_delta`.
   // ChatPane passes it only to the streaming row (undefined elsewhere), so
   // comparing it re-renders just that row as the card grows — without it the
@@ -392,7 +405,11 @@ function AssistantMessageImpl({
   suppressDirectionForms = false,
   hasDesignSystemContext = false,
   onArtifactShare,
-  onArtifactChip,
+  onToolboxAction,
+  onPickSkill,
+  onArtifactDownload,
+  nextStepSkills,
+  toolboxSkillNames,
 }: Props) {
   const t = useT();
   const events = message.events ?? [];
@@ -470,11 +487,13 @@ function AssistantMessageImpl({
     [blocks, fileOps, message, produced, projectFiles, streaming],
   );
   // The single artifact the "next step" affordance anchors to: prefer the
-  // first HTML produced file (decks/prototypes are HTML and are the ones the
-  // Share/Export menu + visual-polish loop apply to).
+  // first HTML produced by THIS turn, but fall back to a previewable HTML
+  // anywhere in the project so Share / Download stay available when the final
+  // turn (e.g. a summary, or a "continue") emitted no new HTML even though a
+  // deliverable page already exists.
   const nextStepArtifactName = useMemo(
-    () => pickPreviewableArtifact(displayedProduced),
-    [displayedProduced],
+    () => pickPreviewableArtifact(displayedProduced) ?? pickPreviewableArtifact(projectFiles),
+    [displayedProduced, projectFiles],
   );
   const pluginActionFolders = useMemo(
     () =>
@@ -586,7 +605,7 @@ function AssistantMessageImpl({
     !streaming &&
     !!projectId &&
     runSucceeded &&
-    ((!!isLast && !!onArtifactChip) || showOpenDesignSubmission);
+    ((!!isLast && !!onToolboxAction) || showOpenDesignSubmission);
   // Pre-output vs working: before any real content (text / thinking / tools /
   // files) the footer shimmers "Preparing…"; the moment content lands it
   // flips to "Working". The elapsed clock stays anchored to the persisted run
@@ -808,7 +827,11 @@ function AssistantMessageImpl({
           <NextStepActions
             fileName={isLast ? nextStepArtifactName : null}
             onShare={isLast && nextStepArtifactName ? onArtifactShare : undefined}
-            onChip={isLast ? onArtifactChip : undefined}
+            onToolboxAction={isLast ? onToolboxAction : undefined}
+            onPickSkill={isLast ? onPickSkill : undefined}
+            onDownload={isLast && nextStepArtifactName ? onArtifactDownload : undefined}
+            skills={isLast ? nextStepSkills : undefined}
+            toolboxSkillNames={isLast ? toolboxSkillNames : undefined}
             onShareToOpenDesign={showOpenDesignSubmission ? onShareToOpenDesign : undefined}
             shareToOpenDesignBusy={shareToOpenDesignBusy}
           />

@@ -117,6 +117,9 @@ interface Props {
   // Open the named file AND surface its Share/Export menu. Drives the chat-side
   // "Share" next-step action without a dedicated share backend.
   shareRequest?: { name: string; nonce: number } | null;
+  // Open the named file AND surface its Download/Export menu. Drives the
+  // chat-side "Download" next-step action.
+  downloadRequest?: { name: string; nonce: number } | null;
   // Flip a deck preview to a given slide when a queued chat send starts. Mirrors
   // `shareRequest`: the named file is activated (if open) and the matching
   // FileViewer consumes the nonce to navigate.
@@ -370,6 +373,7 @@ export function FileWorkspace({
   commentSendDisabled = false,
   openRequest,
   shareRequest,
+  downloadRequest,
   slideNavRequest,
   liveArtifactEvents = [],
   designSystemActivityEvents = [],
@@ -2362,6 +2366,11 @@ export function FileWorkspace({
             shareRequest={
               shareRequest && shareRequest.name === activeFile.name
                 ? { nonce: shareRequest.nonce }
+                : null
+            }
+            downloadRequest={
+              downloadRequest && downloadRequest.name === activeFile.name
+                ? { nonce: downloadRequest.nonce }
                 : null
             }
             slideNavRequest={deliverableSlideNavForActiveFile(
