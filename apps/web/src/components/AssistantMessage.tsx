@@ -41,7 +41,7 @@ import {
 } from "./design-files/pluginFolders";
 import type { PluginFolderAgentAction } from "./design-files/pluginFolderActions";
 import { Icon } from "./Icon";
-import { NextStepActions, type NextStepSkillOption } from "./NextStepActions";
+import { NextStepActions } from "./NextStepActions";
 import type { DesignToolboxActionId } from "../runtime/design-toolbox";
 import { copyToClipboard } from "../lib/copy-to-clipboard";
 import { useT } from "../i18n";
@@ -62,6 +62,7 @@ import type {
   ChatMessageFeedbackRating,
   ChatMessageFeedbackReasonCode,
   ProjectFile,
+  SkillSummary,
 } from "../types";
 
 type TranslateFn = (
@@ -309,7 +310,7 @@ interface Props {
   onToolboxAction?: (id: DesignToolboxActionId) => void;
   onPickSkill?: (skillId: string) => void;
   onArtifactDownload?: (fileName: string) => void;
-  nextStepSkills?: NextStepSkillOption[];
+  nextStepSkills?: SkillSummary[];
   toolboxSkillNames?: Partial<Record<DesignToolboxActionId, string | null>>;
 }
 

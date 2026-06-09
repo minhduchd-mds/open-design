@@ -24,7 +24,6 @@ import {
   getDesignToolboxAction,
   type DesignToolboxActionId,
 } from '../runtime/design-toolbox';
-import type { NextStepSkillOption } from './NextStepActions';
 import type { Dict } from '../i18n/types';
 import { copyToClipboard } from '../lib/copy-to-clipboard';
 import { projectRawUrl } from '../providers/registry';
@@ -824,18 +823,6 @@ export function ChatPane({
     }
     return map;
   }, [skills]);
-  // The full skill catalogue surfaced under the next-step card's More → Design
-  // toolbox flyout, pre-localized so the card stays free of i18n/content plumbing.
-  const nextStepSkills = useMemo<NextStepSkillOption[]>(
-    () =>
-      skills.map((skill) => ({
-        id: skill.id,
-        // Raw name — matches the @<skill> token the composer inlines on pick.
-        name: skill.name,
-        description: skill.description,
-      })),
-    [skills],
-  );
   const [tab, setTab] = useState<Tab>('chat');
   const [showConvList, setShowConvList] = useState(false);
   const [conversationSearch, setConversationSearch] = useState('');
@@ -2015,7 +2002,7 @@ export function ChatPane({
                 onToolboxAction={handleToolboxAction}
                 onPickSkill={handlePickSkill}
                 onArtifactDownload={onArtifactDownload}
-                nextStepSkills={nextStepSkills}
+                nextStepSkills={skills}
                 toolboxSkillNames={featuredToolboxSkillNames}
                 onForkFromMessage={onForkFromMessage}
                 onAssistantFeedback={onAssistantFeedback}
@@ -2344,7 +2331,7 @@ function ChatRows({
   onToolboxAction?: (id: DesignToolboxActionId) => void;
   onPickSkill?: (skillId: string) => void;
   onArtifactDownload?: (fileName: string) => void;
-  nextStepSkills?: NextStepSkillOption[];
+  nextStepSkills?: SkillSummary[];
   toolboxSkillNames?: Partial<Record<DesignToolboxActionId, string | null>>;
   onForkFromMessage?: (message: ChatMessage) => void;
   onAssistantFeedback?: (message: ChatMessage, change: ChatMessageFeedbackChange) => void;

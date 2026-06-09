@@ -5,11 +5,30 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { NextStepActions } from '../../src/components/NextStepActions';
 import { en } from '../../src/i18n/locales/en';
+import type { SkillSummary } from '../../src/types';
 
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
 });
+
+function skill(id: string, name: string): SkillSummary {
+  return {
+    id,
+    name,
+    description: `${name} skill`,
+    triggers: [],
+    mode: 'prototype',
+    surface: 'web',
+    previewType: 'html',
+    designSystemRequired: false,
+    defaultFor: [],
+    upstream: '',
+    hasBody: true,
+    examplePrompt: '',
+    aggregatesExamples: false,
+  } as SkillSummary;
+}
 
 const AUTO_MATCH_TITLE = en['chat.designToolbox.action.auto-match.title'];
 const VISUAL_POLISH_TITLE = en['chat.designToolbox.action.visual-polish.title'];
@@ -30,10 +49,7 @@ function renderActions(overrides: Partial<Parameters<typeof NextStepActions>[0]>
       onToolboxAction={handlers.onToolboxAction}
       onPickSkill={handlers.onPickSkill}
       onShareToOpenDesign={handlers.onShareToOpenDesign}
-      skills={[
-        { id: 'creative-director', name: 'Creative Director' },
-        { id: 'gsap-performance', name: 'GSAP Performance' },
-      ]}
+      skills={[skill('creative-director', 'Creative Director'), skill('gsap-performance', 'GSAP Performance')]}
       toolboxSkillNames={{ 'auto-match': 'creative-director', 'visual-polish': 'impeccable-design-polish' }}
       {...overrides}
     />,

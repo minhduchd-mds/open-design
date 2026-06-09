@@ -10,17 +10,11 @@ import {
   designToolboxActionDescription,
   designToolboxActionTitle,
   getDesignToolboxAction,
+  skillMatchesQuery,
   type DesignToolboxActionId,
 } from '../runtime/design-toolbox';
+import type { SkillSummary } from '../types';
 import styles from './NextStepActions.module.css';
-
-// A skill the user can apply from the "More → Design toolbox" flyout. Pre-localized
-// by the parent so this component stays free of locale/content plumbing.
-export interface NextStepSkillOption {
-  id: string;
-  name: string;
-  description?: string;
-}
 
 interface Props {
   // The previewable artifact this affordance is anchored to. Passed back to
@@ -36,7 +30,8 @@ interface Props {
   // Seed the composer with a specific skill picked from the full list.
   onPickSkill?: (skillId: string) => void;
   // The full design-toolbox skill catalogue, surfaced under More → Design toolbox.
-  skills?: NextStepSkillOption[];
+  // Filtered with the canonical skillMatchesQuery (triggers/mode/surface aware).
+  skills?: SkillSummary[];
   // Resolved `@skill` names per featured action, shown in the hover detail.
   toolboxSkillNames?: Partial<Record<DesignToolboxActionId, string | null>>;
   // Contribute the artifact to the Open Design community gallery.
@@ -45,17 +40,34 @@ interface Props {
 }
 
 const FLYOUT_GAP = 8;
+const VIEWPORT_MARGIN = 8;
 const DETAIL_WIDTH = 240;
 const MENU_WIDTH = 200;
 const SKILLS_WIDTH = 260;
+// Conservative heights used to keep a flyout on-screen vertically (over-estimating
+// only shifts it further up, which is always safe). The skills flyout caps at the
+// CSS max-height (360) plus its search row.
+const DETAIL_HEIGHT = 180;
+const MENU_HEIGHT = 150;
+const SKILLS_HEIGHT = 400;
 
-// Place a flyout to the right of an anchor rect, flipping left when the right
-// edge would overflow the viewport. Returns viewport-fixed coordinates.
-function placeRight(anchor: DOMRect, width: number): { left: number; top: number } {
+// Place a flyout next to an anchor rect: flip to the left when the right edge
+// would overflow, and clamp vertically so a tall flyout under a row near the
+// bottom of the viewport keeps its bottom edge on-screen. Returns viewport-fixed
+// coordinates.
+function place(
+  anchor: DOMRect,
+  width: number,
+  height: number,
+): { left: number; top: number } {
   const toRight = anchor.right + FLYOUT_GAP;
   const left =
-    toRight + width > window.innerWidth - 8 ? anchor.left - FLYOUT_GAP - width : toRight;
-  return { left: Math.max(8, left), top: anchor.top };
+    toRight + width > window.innerWidth - VIEWPORT_MARGIN
+      ? anchor.left - FLYOUT_GAP - width
+      : toRight;
+  const maxTop = window.innerHeight - VIEWPORT_MARGIN - height;
+  const top = Math.max(VIEWPORT_MARGIN, Math.min(anchor.top, maxTop));
+  return { left: Math.max(VIEWPORT_MARGIN, left), top };
 }
 
 type Anchor = { left: number; top: number };
@@ -124,7 +136,7 @@ export function NextStepActions({
       cancelClose();
       setMore(null);
       setSub(null);
-      setDetail({ id, ...placeRight(rect, DETAIL_WIDTH) });
+      setDetail({ id, ...place(rect, DETAIL_WIDTH, DETAIL_HEIGHT) });
     },
     [cancelClose],
   );
@@ -133,7 +145,7 @@ export function NextStepActions({
       cancelClose();
       setDetail(null);
       setSub(null);
-      setMore(placeRight(rect, MENU_WIDTH));
+      setMore(place(rect, MENU_WIDTH, MENU_HEIGHT));
     },
     [cancelClose],
   );
@@ -141,7 +153,12 @@ export function NextStepActions({
     (kind: SubKind, rect: DOMRect) => {
       cancelClose();
       if (kind === 'skills') setSkillQuery('');
-      setSub({ kind, ...placeRight(rect, kind === 'skills' ? SKILLS_WIDTH : MENU_WIDTH) });
+      setSub({
+        kind,
+        ...(kind === 'skills'
+          ? place(rect, SKILLS_WIDTH, SKILLS_HEIGHT)
+          : place(rect, MENU_WIDTH, MENU_HEIGHT)),
+      });
     },
     [cancelClose],
   );
@@ -197,17 +214,13 @@ export function NextStepActions({
     [closeAll, onPickSkill, track],
   );
 
-  const filteredSkills = useMemo(() => {
-    const list = skills ?? [];
-    const q = skillQuery.trim().toLowerCase();
-    if (!q) return list;
-    return list.filter(
-      (s) =>
-        s.name.toLowerCase().includes(q) ||
-        s.id.toLowerCase().includes(q) ||
-        (s.description ?? '').toLowerCase().includes(q),
-    );
-  }, [skills, skillQuery]);
+  const filteredSkills = useMemo(
+    // Use the canonical toolbox matcher so More → Design toolbox surfaces the
+    // same skills the composer's toolbox panel does (it also matches trigger
+    // terms, mode, and surface metadata — not just name/id/description).
+    () => (skills ?? []).filter((s) => skillMatchesQuery(s, skillQuery)),
+    [skills, skillQuery],
+  );
 
   // Share group is available whenever any of its three actions can fire.
   const canShare = !!(fileName && onShare);
