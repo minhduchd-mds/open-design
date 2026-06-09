@@ -8,6 +8,7 @@ type CliOptions = {
   host?: string;
   json?: boolean;
   platform?: "mac" | "win";
+  payloadPath?: string;
   port?: string;
   version?: string;
 };
@@ -37,6 +38,7 @@ async function start(service: string, options: CliOptions): Promise<void> {
     artifactPath: options.artifactPath,
     channel: options.channel,
     host: options.host,
+    payloadPath: options.payloadPath,
     platform: parsePlatform(options.platform),
     port: parsePort(options.port),
     version: options.version,
@@ -72,6 +74,7 @@ cli
   .option("--host <host>", "Host to bind", { default: "127.0.0.1" })
   .option("--json", "Print JSON")
   .option("--platform <platform>", "Updater platform: mac|win", { default: "mac" })
+  .option("--payload-path <path>", "Serve a local launcher payload artifact file")
   .option("--port <port>", "Port to bind, 0 for dynamic", { default: "0" })
   .option("--version <version>", "Fixture update version", { default: "99.0.0" })
   .action((service: string, options: CliOptions) => {

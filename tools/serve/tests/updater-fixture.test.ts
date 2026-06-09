@@ -140,6 +140,49 @@ describe("updater fixture server", () => {
     }
   });
 
+  it("serves a local launcher payload artifact file", async () => {
+    const root = await mkdtemp(join(tmpdir(), "open-design-updater-payload-fixture-"));
+    const payloadPath = join(root, "Open Design-release-beta-win-payload.7z");
+    await writeFile(payloadPath, "real local payload bytes");
+    const server = await startUpdaterFixtureServer({
+      artifactBody: "fixture installer",
+      channel: "beta",
+      payloadPath,
+      platform: "win",
+      version: "2.0.0-beta.2",
+    });
+    try {
+      const metadataResponse = await fetch(server.info.metadataUrl);
+      expect(metadataResponse.ok).toBe(true);
+      const metadata = await metadataResponse.json() as {
+        platforms?: {
+          win?: {
+            artifacts?: {
+              installer?: { url?: string };
+              payload?: { contentType?: string; sha256Url?: string; size?: number; url?: string };
+            };
+          };
+        };
+      };
+      expect(server.info.payloadPath).toBe(payloadPath);
+      expect(metadata.platforms?.win?.artifacts?.installer?.url).toBe(server.info.artifactUrl);
+      expect(metadata.platforms?.win?.artifacts?.payload?.url).toBe(server.info.payloadUrl);
+      expect(metadata.platforms?.win?.artifacts?.payload?.sha256Url).toBe(server.info.payloadChecksumUrl);
+      expect(metadata.platforms?.win?.artifacts?.payload?.contentType).toBe("application/x-7z-compressed");
+      expect(metadata.platforms?.win?.artifacts?.payload?.size).toBe(24);
+
+      const payload = await fetch(server.info.payloadUrl ?? "");
+      expect(await payload.text()).toBe("real local payload bytes");
+
+      const checksum = await fetch(server.info.payloadChecksumUrl ?? "");
+      expect(checksum.ok).toBe(true);
+      expect(await checksum.text()).toContain(server.info.payloadSha256);
+    } finally {
+      await server.close();
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
   it("serves artifact byte ranges for resumable download validation", async () => {
     const server = await startUpdaterFixtureServer({
       artifactBody: "fixture artifact",

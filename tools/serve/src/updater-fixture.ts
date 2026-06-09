@@ -14,6 +14,7 @@ export type UpdaterFixtureOptions = {
   includePayload?: boolean;
   platform?: "mac" | "win";
   payloadBody?: Buffer | string;
+  payloadPath?: string;
   port?: number;
   version?: string;
 };
@@ -26,6 +27,7 @@ export type UpdaterFixtureInfo = {
   metadataUrl: string;
   origin: string;
   payloadChecksumUrl: string | null;
+  payloadPath: string | null;
   payloadSha256: string | null;
   payloadUrl: string | null;
   platform: "mac" | "win";
@@ -223,8 +225,10 @@ export async function startUpdaterFixtureServer(options: UpdaterFixtureOptions =
     : `open-design-${version}-mac-arm64-payload.zip`;
   const artifactPathSegment = encodeURIComponent(artifactName);
   const payloadPathSegment = encodeURIComponent(payloadName);
-  const includePayload = options.includePayload === true;
-  const payloadBody = Buffer.isBuffer(options.payloadBody)
+  const includePayload = options.includePayload === true || options.payloadPath != null;
+  const payloadBody = options.payloadPath != null
+    ? await readFile(options.payloadPath)
+    : Buffer.isBuffer(options.payloadBody)
     ? options.payloadBody
     : Buffer.from(options.payloadBody ?? `Open Design launcher payload fixture ${version}\n`, "utf8");
   const payloadSha256 = createHash("sha256").update(payloadBody).digest("hex");
@@ -313,6 +317,7 @@ export async function startUpdaterFixtureServer(options: UpdaterFixtureOptions =
     metadataUrl: `${origin}/${channel}/latest/metadata.json`,
     origin,
     payloadChecksumUrl: payloadUrl == null ? null : `${payloadUrl}.sha256`,
+    payloadPath: options.payloadPath ?? null,
     payloadSha256: includePayload ? payloadSha256 : null,
     payloadUrl,
     platform,
