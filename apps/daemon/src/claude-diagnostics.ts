@@ -94,19 +94,27 @@ export function diagnoseClaudeCliFailure(
     );
   }
 
-  // A connection that *was established* and then dropped mid-response. This is
-  // distinct from the `connection refused` case above (which never connects):
-  // the Anthropic SDK / undici reports a premature close as "the socket
-  // connection was closed unexpectedly", "socket hang up", ECONNRESET,
-  // "fetch failed", etc. It is transient and worth retrying, and it shows up
-  // most on long, large generations whose streaming response outlives a flaky
-  // hop (VPN, corporate proxy, or a self-hosted ANTHROPIC_BASE_URL relay that
-  // caps streaming-request duration).
+  // A connection that *was established* and then dropped (or kept resetting),
+  // distinct from the `connection refused` case above (which never connects).
+  // The exact text has several faces depending on where the failure lands;
+  // these were captured by driving the real Claude Code CLI (2.1.168) against
+  // a flaky local hop:
+  //   - SSE stream cut after it started  -> "API Error: The socket connection
+  //     was closed unexpectedly. ... pass verbose: true ..."
+  //   - TLS tunnel reset                 -> "API Error: Unable to connect to
+  //     API (ECONNRESET)"
+  // Both are transient and worth retrying; the CLI retries internally for a
+  // minute or more before surfacing them, which is why long runs appear to
+  // "abort after a while". Most visible on large generations whose streaming
+  // response outlives a flaky hop (VPN, GFW/relay, corporate proxy, or a
+  // self-hosted ANTHROPIC_BASE_URL relay that caps streaming-request duration).
   const connectionDropped =
     /socket connection was closed/i.test(text) ||
     /closed unexpectedly/i.test(text) ||
+    /unable to connect to api/i.test(text) ||
     /socket hang up/i.test(text) ||
     /econnreset/i.test(text) ||
+    /etimedout/i.test(text) ||
     /epipe/i.test(text) ||
     /und_err_socket/i.test(text) ||
     /premature close/i.test(text) ||

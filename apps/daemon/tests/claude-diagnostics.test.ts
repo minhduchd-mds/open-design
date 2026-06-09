@@ -217,6 +217,24 @@ describe('diagnoseClaudeCliFailure', () => {
     expect(diagnostic?.retryable).toBe(true);
   });
 
+  // Captured verbatim from the real Claude Code CLI (2.1.168, official auth,
+  // no ANTHROPIC_BASE_URL) driven through a local proxy that reset the TLS
+  // tunnel mid-stream. The CLI retried internally for ~3 minutes, then emitted
+  // this on stdout as a result frame with is_error:true and exited 1.
+  it('classifies the real "Unable to connect to API (ECONNRESET)" transcript', () => {
+    const diagnostic = diagnoseClaudeCliFailure({
+      agentId: 'claude',
+      exitCode: 1,
+      stdoutTail:
+        '{"type":"result","subtype":"success","is_error":true,"result":"API Error: Unable to connect to API (ECONNRESET)","stop_reason":"stop_sequence"}',
+      env: {},
+    });
+
+    expect(diagnostic?.message).toContain('lost its connection to the Anthropic API');
+    expect(diagnostic?.detail).not.toContain('/login');
+    expect(diagnostic?.retryable).toBe(true);
+  });
+
   it('classifies ECONNRESET and socket hang up as connection drops', () => {
     for (const tail of ['Error: socket hang up', 'read ECONNRESET', 'TypeError: fetch failed']) {
       const diagnostic = diagnoseClaudeCliFailure({
