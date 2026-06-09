@@ -1512,7 +1512,11 @@
   box-shadow: var(--shadow-sm);
 }
 .chat-composer-fixed-layer .composer-shell {
-  padding: 0;
+  /* Even inset so the staged-context chips, the input box and the toolbar all
+     sit off the card's rounded frame (incl. a side margin on + and Send).
+     Horizontal padding narrows the @container width that drives the toolbar
+     label-collapse, so its breakpoint is lowered to match (see chat.css). */
+  padding: 6px 8px;
   border-color: var(--border);
   border-radius: var(--radius-md);
   box-shadow: none;
@@ -1534,6 +1538,13 @@
 .chat-composer-fixed-layer .composer.drag-active .composer-shell {
   border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 9%, transparent);
+}
+/* Keep the typing area a clean white field with a soft border so it reads as
+   the one input surface inside the tinted card — the resting border replaces
+   the removed toolbar divider as the only separator in the footer. */
+.chat-composer-fixed-layer .composer-input-wrap {
+  background: var(--bg-panel);
+  border-color: var(--border-soft);
 }
 .app .composer textarea {
   min-height: 56px;
@@ -1558,8 +1569,14 @@
   gap: 6px;
 }
 .chat-composer-fixed-layer .composer-row {
-  min-height: 32px;
-  padding-top: 2px;
+  /* Match the 28px control height exactly — the old 32px min-height left 4px
+     of dead space that made the footer band feel too tall. */
+  min-height: 28px;
+  /* No divider above the toolbar: the white input box already separates it
+     from the textarea, so the extra border-top + its 2px spacing just stacked
+     another line into the footer. Drop both so the card reads as fewer layers. */
+  padding-top: 0;
+  border-top: none;
 }
 .app .composer-row .icon-btn,
 .app .composer-import,
