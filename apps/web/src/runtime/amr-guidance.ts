@@ -4,8 +4,10 @@
 // its own module so ChatPane / ProjectView / AssistantMessage can import it
 // without a circular dependency.
 
-// AMR model-gateway console wallet (recharge).
-export const AMR_RECHARGE_URL = 'https://open-design.ai/amr/wallet';
+// AMR model-gateway console wallet (recharge). `source=open_design` tags the
+// landing page_view so vela analytics can attribute the visit to Open Design.
+export const AMR_RECHARGE_URL =
+  'https://open-design.ai/amr/wallet?source=open_design';
 
 // Codes that mean a non-AMR agent hit "the model service rejected or could not
 // serve the run" — auth missing/invalid, quota/rate exhausted, or the upstream

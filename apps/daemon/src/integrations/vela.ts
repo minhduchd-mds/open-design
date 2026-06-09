@@ -179,6 +179,11 @@ export function cancelVelaLogin(): CancelVelaLoginResult {
 export interface SpawnVelaLoginDeps {
   configuredEnv?: Record<string, string>;
   baseEnv?: NodeJS.ProcessEnv;
+  // Open Design's installation id, forwarded to the vela CLI as
+  // OD_INSTALLATION_ID so it can correlate its analytics back to this
+  // installation and tag the events with source=open_design. Only pass it
+  // when the user has consented to telemetry; omit/null otherwise.
+  installationId?: string | null;
 }
 
 async function waitForImmediateLoginFailure(child: ChildProcess): Promise<void> {
@@ -246,6 +251,9 @@ export async function spawnVelaLogin(
     throw new Error('vela binary not found; install vela or configure VELA_BIN');
   }
   const env = spawnEnvForAgent('amr', baseEnv, configuredEnv);
+  if (typeof deps.installationId === 'string' && deps.installationId) {
+    env.OD_INSTALLATION_ID = deps.installationId;
+  }
   // Route through createCommandInvocation so an npm/Node-style `vela.cmd` or
   // `vela.bat` shim on Windows gets wrapped under `cmd.exe /d /s /c …` with
   // verbatim args, matching what `execAgentFile` / chat-run spawning do. A

@@ -6084,7 +6084,16 @@ export async function startServer({
     try {
       const appConfig = await readAppConfig(RUNTIME_DATA_DIR);
       const configuredEnv = agentCliEnvForAgent(appConfig.agentCliEnv, 'amr');
-      const spawned = await spawnVelaLogin({ configuredEnv });
+      // Forward the installation id to the vela CLI only when the user has
+      // consented to telemetry — it correlates CLI analytics to this
+      // installation and tags them source=open_design.
+      const installationId =
+        appConfig.telemetry?.metrics === true &&
+        typeof appConfig.installationId === 'string' &&
+        appConfig.installationId
+          ? appConfig.installationId
+          : null;
+      const spawned = await spawnVelaLogin({ configuredEnv, installationId });
       res.status(202).json(spawned);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
