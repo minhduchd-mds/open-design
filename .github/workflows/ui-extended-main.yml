@@ -79,7 +79,7 @@ jobs:
             smoke_command: >-
               pnpm -C e2e exec playwright test -c playwright.config.ts
               ui/critical-smoke.test.ts
-              --grep '\[P0\] settings dialog'
+              --grep '\[P0\].*settings dialog'
             command: >-
               pnpm -C e2e exec playwright test -c playwright.config.ts
               ui/settings-api-protocol.test.ts
