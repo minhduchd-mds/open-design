@@ -620,6 +620,10 @@ describe('EntryShell onboarding Open Design AMR runtime', () => {
     chooseDropdownOption('Organization size', /Growth company/i);
     chooseDropdownOption('Use case', /Product design/i);
     chooseDropdownOption('Where did you hear about us?', /Search/i);
+    fireEvent.click(screen.getByRole('button', { name: /^Continue$/i }));
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Stay in the loop' })).toBeTruthy();
+    });
     await waitFor(() => {
       expect(document.querySelector('.onboarding-view__email-input')).toBeTruthy();
     });
@@ -642,11 +646,17 @@ describe('EntryShell onboarding Open Design AMR runtime', () => {
           step_index: '2',
           step_name: 'about_you',
         }),
+        expect.objectContaining({
+          page_name: 'onboarding',
+          area: 'newsletter',
+          step_index: '3',
+          step_name: 'newsletter',
+        }),
       ]),
     );
 
-    // The About-you survey snapshot fires from the final step and carries
-    // the user's role/org/use-case/source picks.
+    // The About-you survey snapshot fires when the user continues past
+    // the About-you step and carries the role/org/use-case/source picks.
     expect(findTrackedEvent('ui_click', (payload) => payload.element === 'about_you_submit')).toMatchObject({
       page_name: 'onboarding',
       area: 'about_you',
@@ -693,10 +703,14 @@ describe('EntryShell onboarding Open Design AMR runtime', () => {
     globalThis.fetch = fetchMock as typeof fetch;
     renderOnboarding();
 
-    // Connect -> About you
+    // Connect -> About you -> Newsletter
     fireEvent.click(await screen.findByRole('button', { name: /^Continue$/i }));
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'About you' })).toBeTruthy();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^Continue$/i }));
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Stay in the loop' })).toBeTruthy();
     });
     await waitFor(() => {
       expect(document.querySelector('.onboarding-view__email-input')).toBeTruthy();
@@ -746,6 +760,7 @@ describe('EntryShell onboarding Open Design AMR runtime', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'About you' })).toBeTruthy();
     });
+    fireEvent.click(screen.getByRole('button', { name: /^Continue$/i }));
     await waitFor(() => {
       expect(document.querySelector('.onboarding-view__email-input')).toBeTruthy();
     });
@@ -801,6 +816,7 @@ describe('EntryShell onboarding Open Design AMR runtime', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'About you' })).toBeTruthy();
     });
+    fireEvent.click(screen.getByRole('button', { name: /^Continue$/i }));
     await waitFor(() => {
       expect(document.querySelector('.onboarding-view__email-input')).toBeTruthy();
     });
