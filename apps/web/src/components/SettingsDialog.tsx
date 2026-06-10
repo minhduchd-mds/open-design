@@ -3743,7 +3743,7 @@ export function SettingsDialog({
                                           {amrRescueAvailable && !isAmrAgent ? (
                                             <button
                                               type="button"
-                                              className="settings-test-btn"
+                                              className="ghost icon-btn settings-test-btn"
                                               onClick={handleUseAmrRescue}
                                             >
                                               {t('settings.amrRescueCta')}
@@ -4118,7 +4118,7 @@ export function SettingsDialog({
                   <div className="settings-test-actions-row">
                     <button
                       type="button"
-                      className="settings-test-btn"
+                      className="ghost icon-btn settings-test-btn"
                       onClick={handleUseAmrRescue}
                     >
                       {t('settings.amrRescueCta')}
