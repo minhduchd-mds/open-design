@@ -21,6 +21,7 @@ const MAX_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 // `OD_ACP_STAGE_TIMEOUT_MS=0` would call `setTimeout(..., 0)` and fail every
 // ACP session on the next tick instead of disabling the watchdog.
 const DEFAULT_STAGE_TIMEOUT_MS = 600_000;
+const ACP_ARTIFACT_ECHO_START_RE = /^\s*<\s*(?:\|?\s*DSML[\s,]+artifact\b|artifact\b)/i;
 
 type JsonRpcId = string | number;
 type JsonObject = Record<string, unknown>;
@@ -779,6 +780,7 @@ export function attachAcpSession({
   let stageTimer: TimerHandle | null = null;
   let dsmlArtifactSuppressor: ArtifactTextSuppressor | null = null;
   let dsmlArtifactSuppressorArmedAfterText = false;
+  let dsmlArtifactSuppressorSawIncrementalProse = false;
   const acpArtifactWriteToolCallIds = new Set<string>();
 
   const stageWatchdogDisabled = stageTimeoutMs <= 0;
@@ -1028,28 +1030,37 @@ export function attachAcpSession({
               const strippedDelta = dsmlArtifactSuppressor.strip(delta);
               const hasOpenArtifactCandidate =
                 dsmlArtifactSuppressor.isSuppressing() || dsmlArtifactSuppressor.hasPendingCandidate();
+              const consumedArtifactText = wasSuppressingArtifact || strippedDelta !== delta;
               const shouldPreserveIncrementalProse =
                 !isCumulativeSnapshot &&
                 !wasSuppressingArtifact &&
                 !hadPendingArtifactCandidate &&
                 !hasOpenArtifactCandidate &&
-                (strippedDelta === delta || !dsmlArtifactSuppressorArmedAfterText);
+                (
+                  strippedDelta === delta ||
+                  (
+                    !dsmlArtifactSuppressorArmedAfterText &&
+                    dsmlArtifactSuppressorSawIncrementalProse &&
+                    !ACP_ARTIFACT_ECHO_START_RE.test(delta)
+                  )
+                );
               const outputDelta = shouldPreserveIncrementalProse ? delta : strippedDelta;
               if (outputDelta) {
                 emittedVisibleTextChunk = true;
                 send('agent', { type: 'text_delta', delta: outputDelta });
               }
-              const consumedArtifactText =
-                !shouldPreserveIncrementalProse && (wasSuppressingArtifact || strippedDelta !== delta);
               if (
-                shouldPreserveIncrementalProse ||
-                (
-                  consumedArtifactText &&
-                  !hasOpenArtifactCandidate
-                )
+                strippedDelta === delta &&
+                !wasSuppressingArtifact &&
+                !hadPendingArtifactCandidate &&
+                !hasOpenArtifactCandidate
               ) {
+                dsmlArtifactSuppressorSawIncrementalProse = true;
+              }
+              if (consumedArtifactText && !hasOpenArtifactCandidate) {
                 dsmlArtifactSuppressor = null;
                 dsmlArtifactSuppressorArmedAfterText = false;
+                dsmlArtifactSuppressorSawIncrementalProse = false;
               }
             } else {
               emittedVisibleTextChunk = true;
@@ -1074,11 +1085,13 @@ export function attachAcpSession({
         if (isAcpArtifactWriteUpdate(update, acpArtifactWriteToolCallIds)) {
           dsmlArtifactSuppressor = createDsmlArtifactTextSuppressor();
           dsmlArtifactSuppressorArmedAfterText = emittedTextBuffer.length > 0;
+          dsmlArtifactSuppressorSawIncrementalProse = false;
           if (toolCallId) acpArtifactWriteToolCallIds.delete(toolCallId);
         } else if (toolCallId && isAcpTerminalFailureStatus(update)) {
           acpArtifactWriteToolCallIds.delete(toolCallId);
           dsmlArtifactSuppressor = null;
           dsmlArtifactSuppressorArmedAfterText = false;
+          dsmlArtifactSuppressorSawIncrementalProse = false;
         }
         return;
       }
