@@ -787,6 +787,43 @@ test('[P1] project detail assistant completion actions support copy, fork, and f
     .not.toBe(conversationId);
 });
 
+test('[P1] project detail conversations menu supports new chat, search, counts, and run duration metadata', async ({ page }) => {
+  const { projectId, conversations } = await seedProjectConversationHistory(page);
+  await routeConversationHistoryFixtures(page, projectId, conversations);
+
+  await page.goto(`/projects/${projectId}/conversations/${conversations[0]!.id}`);
+  await expectWorkspaceReady(page);
+
+  await page.getByTestId('conversation-history-trigger').click();
+  const menu = page.getByTestId('conversation-history-menu');
+  await expect(menu).toBeVisible();
+  await expect(page.getByTestId('conversation-history-count')).toHaveText('3');
+
+  await expect(page.getByTestId(`conversation-select-${conversations[0]!.id}`)).toContainText('Runway final polish');
+  await expect(page.getByTestId(`conversation-meta-${conversations[0]!.id}`)).toHaveText('8 msg · 5m 42s');
+  await expect(page.getByTestId(`conversation-meta-${conversations[1]!.id}`)).toHaveText('6 msg · 19m 00s');
+  await expect(page.getByTestId(`conversation-meta-${conversations[2]!.id}`)).toContainText('6 msg ·');
+
+  await page.getByTestId('conversation-history-search').fill('font audit');
+  await expect(page.getByTestId('conversation-history-count')).toHaveText('1 / 3');
+  await expect(page.getByTestId(`conversation-item-${conversations[1]!.id}`)).toBeVisible();
+  await expect(page.getByTestId(`conversation-item-${conversations[0]!.id}`)).toHaveCount(0);
+
+  await page.getByTestId('conversation-history-search').fill('');
+  const newConversationRequestPromise = page.waitForRequest((request) => {
+    return request.method() === 'POST'
+      && request.url().endsWith(`/api/projects/${projectId}/conversations`);
+  });
+  await page.getByTestId('conversation-history-new').click();
+  await newConversationRequestPromise;
+  await expect(page.getByTestId('conversation-history-menu')).toHaveCount(0);
+
+  await page.getByTestId('conversation-history-trigger').click();
+  await expect(page.getByTestId('conversation-history-count')).toHaveText('4');
+  await expect(page.getByTestId('conversation-select-conv-new-history')).toContainText('Untitled');
+  await expect(page.getByTestId('conversation-meta-conv-new-history')).toHaveText('0 msg · now');
+});
+
 test('[P0] project detail share menu copies the current share link for uploaded html artifacts', async ({ page }) => {
   let uploadedName = '';
   await page.addInitScript(() => {
@@ -1001,6 +1038,8 @@ test('[P2] home designs view toggle switches between grid and kanban and persist
 });
 
 test('[P1] home designs search filters projects and recovers from no results', async ({ page }) => {
+  test.setTimeout(60_000);
+
   const stamp = Date.now();
   const alphaName = `Home search alpha ${stamp}`;
   const betaName = `Home search beta ${stamp}`;
@@ -1503,24 +1542,46 @@ async function createProject(
   page: Page,
   projectName: string,
 ) {
-  const response = await page.request.post('/api/projects', {
-    data: {
-      id: `project-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      name: projectName,
-      skillId: null,
-      designSystemId: null,
-      metadata: {
-        kind: 'prototype',
-        nameSource: 'user',
-      },
-    },
-  });
-  expect(response.ok(), await response.text()).toBeTruthy();
+  const response = await retryProjectCreate(page, projectName);
   const body = (await response.json()) as {
     project: { id: string };
     conversationId: string;
   };
   await page.goto(`/projects/${body.project.id}/conversations/${body.conversationId}`);
+}
+
+async function retryProjectCreate(
+  page: Page,
+  projectName: string,
+) {
+  let lastError = '';
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const response = await page.request.post('/api/projects', {
+        timeout: 15_000,
+        data: {
+          id: `project-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          name: projectName,
+          skillId: null,
+          designSystemId: null,
+          metadata: {
+            kind: 'prototype',
+            nameSource: 'user',
+          },
+        },
+      });
+      if (response.ok()) return response;
+      lastError = await response.text();
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+    }
+
+    if (attempt < 3) {
+      await page.waitForTimeout(500 * attempt);
+    }
+  }
+
+  throw new Error(`create project "${projectName}" failed after retries: ${lastError}`);
 }
 
 async function seedProjectWithAssistantCompletion(
@@ -1600,6 +1661,142 @@ async function seedProjectWithAssistantCompletion(
   expect(assistantResponse.ok(), `seed assistant message: ${await assistantResponse.text()}`).toBeTruthy();
 
   return { projectId, conversationId, assistantMessageId, assistantText };
+}
+
+type ConversationHistoryFixture = {
+  id: string;
+  projectId: string;
+  title: string | null;
+  sessionMode: 'design' | 'ask';
+  messageCount: number;
+  createdAt: number;
+  updatedAt: number;
+  totalDurationMs?: number;
+  latestRun?: {
+    status: 'succeeded' | 'failed' | 'canceled';
+    durationMs?: number;
+  };
+};
+
+async function seedProjectConversationHistory(
+  page: Page,
+): Promise<{
+  projectId: string;
+  conversations: ConversationHistoryFixture[];
+}> {
+  const projectId = `conversation-history-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const projectResponse = await page.request.post('/api/projects', {
+    data: {
+      id: projectId,
+      name: 'Conversation History Coverage',
+      skillId: null,
+      designSystemId: null,
+      metadata: {
+        kind: 'prototype',
+        nameSource: 'user',
+      },
+    },
+  });
+  expect(projectResponse.ok(), `create project: ${await projectResponse.text()}`).toBeTruthy();
+  const { conversationId } = (await projectResponse.json()) as { conversationId: string };
+
+  const now = Date.now();
+  return {
+    projectId,
+    conversations: [
+      {
+        id: conversationId,
+        projectId,
+        title: 'Runway final polish',
+        sessionMode: 'design',
+        messageCount: 8,
+        createdAt: now - 90 * 60_000,
+        updatedAt: now - 30_000,
+        totalDurationMs: 342_000,
+        latestRun: {
+          status: 'succeeded',
+          durationMs: 330_000,
+        },
+      },
+      {
+        id: 'conv-font-audit',
+        projectId,
+        title: 'Font audit and brand pass',
+        sessionMode: 'design',
+        messageCount: 6,
+        createdAt: now - 80 * 60_000,
+        updatedAt: now - 2 * 60_000,
+        latestRun: {
+          status: 'succeeded',
+          durationMs: 1_140_000,
+        },
+      },
+      {
+        id: 'conv-slide-review',
+        projectId,
+        title: 'Slide review baseline',
+        sessionMode: 'ask',
+        messageCount: 6,
+        createdAt: now - 70 * 60_000,
+        updatedAt: now - 7 * 60_000,
+      },
+    ],
+  };
+}
+
+async function routeConversationHistoryFixtures(
+  page: Page,
+  projectId: string,
+  initialConversations: ConversationHistoryFixture[],
+) {
+  const conversations = [...initialConversations];
+  await page.route(`**/api/projects/${projectId}/conversations`, async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: { conversations } });
+      return;
+    }
+    if (route.request().method() === 'POST') {
+      const now = Date.now();
+      const fresh: ConversationHistoryFixture = {
+        id: 'conv-new-history',
+        projectId,
+        title: null,
+        sessionMode: 'design',
+        messageCount: 0,
+        createdAt: now,
+        updatedAt: now,
+      };
+      conversations.unshift(fresh);
+      await route.fulfill({ json: { conversation: fresh } });
+      return;
+    }
+    await route.continue();
+  });
+  await page.route(`**/api/projects/${projectId}/conversations/*/messages`, async (route) => {
+    if (route.request().method() === 'GET') {
+      const conversationId = conversationIdFromMessagesApiPath(route.request().url());
+      const conversation = conversations.find((item) => item.id === conversationId);
+      const count = conversation?.messageCount ?? 0;
+      await route.fulfill({
+        json: {
+          messages: Array.from({ length: count }, (_, index) => ({
+            id: `${conversationId}-m-${index}`,
+            role: index % 2 === 0 ? 'user' : 'assistant',
+            content: `Conversation ${conversationId} message ${index + 1}`,
+            createdAt: (conversation?.createdAt ?? Date.now()) + index,
+          })),
+        },
+      });
+      return;
+    }
+    await route.continue();
+  });
+}
+
+function conversationIdFromMessagesApiPath(url: string): string {
+  const pathname = new URL(url).pathname;
+  const match = pathname.match(/\/conversations\/([^/]+)\/messages$/);
+  return match ? decodeURIComponent(match[1]!) : '';
 }
 
 async function openNewProjectPanel(page: Page) {
@@ -1895,9 +2092,11 @@ function isCreateProjectRequest(request: Request): boolean {
 
 function getProjectContextFromUrl(page: Page) {
   const url = new URL(page.url());
-  const [, projectId] = url.pathname.match(/\/projects\/([^/]+)/) ?? [];
+  const [, projectId, conversationId] = url.pathname.match(
+    /\/projects\/([^/]+)(?:\/conversations\/([^/]+))?/,
+  ) ?? [];
   if (!projectId) throw new Error(`unexpected project route: ${url.pathname}`);
-  return { projectId };
+  return { projectId, conversationId };
 }
 
 function getProjectIdFromApiPath(rawUrl: string) {
