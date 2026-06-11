@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="true-blueprint">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MERIDIAN GRID · System Architecture — True Blueprint deck</title>
+<style>
+/* hps-true-blueprint :: webfonts (Google Fonts @import only — no other external deps) */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,700;0,800;1,400&display=swap');
+</style>
+<style>
+/* ============================================================
+   TRUE BLUEPRINT — locked token sheet.
+   Ported from lewislulu/html-ppt-skill assets/themes/blueprint.css
+   Blueprint-blue field, white drafting grid, dashed translucent
+   cards, white / ice-blue ink, amber annotations, all-mono type.
+   2px corners. No shadows. THEME IS LOCKED — do not restyle.
+   ============================================================ */
+:root{
+  --bg:#0b3a6f; --bg-soft:#0a3260; --surface:rgba(255,255,255,.06); --surface-2:rgba(255,255,255,.1);
+  --border:rgba(190,220,255,.3); --border-strong:rgba(190,220,255,.55);
+  --text-1:#e8f3ff; --text-2:#b8d4f0; --text-3:#7da8cf;
+  --accent:#ffffff; --accent-2:#aee1ff; --accent-3:#ffd27a;
+  --good:#8ef0a6; --warn:#ffd27a; --bad:#ff8a96;
+  --grad:linear-gradient(135deg,#ffffff,#aee1ff);
+  --grad-soft:linear-gradient(135deg,#0a3260,#0b3a6f);
+  --radius:2px; --radius-sm:2px; --radius-lg:4px;
+  --shadow:none; --shadow-lg:0 16px 40px rgba(0,0,0,.3);
+  --font-sans:'JetBrains Mono','IBM Plex Mono',Menlo,monospace;
+  --font-serif:'JetBrains Mono',Menlo,monospace;
+  --font-mono:'JetBrains Mono',SFMono-Regular,Menlo,monospace;
+  --font-display:'JetBrains Mono',Menlo,monospace;
+  --letter-tight:-.02em; --letter-normal:0;
+  --ease:cubic-bezier(.4,0,.2,1);
+  --grid-line:rgba(255,255,255,.06);
+  --ink:rgba(190,220,255,.45);
+}
+</style>
+<style>
+/* ============================================================
+   BASE + SLIDE SYSTEM — horizontal scroll-snap deck.
+   One <section class="slide"> = exactly one viewport screen.
+   16:9 / 1280×720 baseline, fluid via clamp(). Keep verbatim.
+   ============================================================ */
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{color:var(--text-1);font-family:var(--font-sans);
+  font-weight:400;line-height:1.6;letter-spacing:var(--letter-normal);
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;overflow:hidden;
+  /* signature: 40px white drafting grid over blueprint blue */
+  background:
+    linear-gradient(var(--grid-line) 1px,transparent 1px) 0 0/40px 40px,
+    linear-gradient(90deg,var(--grid-line) 1px,transparent 1px) 0 0/40px 40px,
+    var(--bg)}
+img,svg,video{max-width:100%;display:block}
+code,kbd,pre,samp{font-family:var(--font-mono)}
+
+.deck{display:flex;width:100vw;height:100vh;overflow-x:auto;overflow-y:hidden;
+  scroll-snap-type:x mandatory;scrollbar-width:none;-ms-overflow-style:none}
+.deck::-webkit-scrollbar{display:none}
+.slide{position:relative;flex:0 0 100vw;height:100vh;scroll-snap-align:start;
+  display:flex;flex-direction:column;justify-content:center;
+  padding:72px 96px;overflow:hidden}
+
+/* ============ DRAWING FRAME (signature chrome on every slide) ============ */
+.slide::before{content:"";position:absolute;inset:28px;border:1px solid var(--ink);
+  border-radius:var(--radius);pointer-events:none}
+.slide::after{content:"";position:absolute;inset:34px;border:1px dashed rgba(190,220,255,.18);
+  border-radius:var(--radius);pointer-events:none}
+
+/* ============ TYPOGRAPHY ============ */
+.eyebrow{font-size:12px;font-weight:500;letter-spacing:.22em;text-transform:uppercase;color:var(--text-3);margin:0}
+.kicker{font-size:13px;font-weight:700;color:var(--accent-2);letter-spacing:.18em;text-transform:uppercase;margin:0 0 12px}
+.h1{font-family:var(--font-display);font-size:clamp(40px,5vw,64px);line-height:1.08;font-weight:800;letter-spacing:var(--letter-tight);margin:0 0 18px;color:var(--text-1);text-transform:uppercase}
+.h2{font-family:var(--font-display);font-size:clamp(30px,3.8vw,48px);line-height:1.12;font-weight:700;letter-spacing:var(--letter-tight);margin:0 0 14px;color:var(--text-1);text-transform:uppercase}
+.h3{font-size:clamp(20px,2.3vw,28px);line-height:1.2;font-weight:700;margin:0 0 10px}
+.h4{font-size:clamp(15px,1.55vw,19px);line-height:1.3;font-weight:700;margin:0 0 8px;letter-spacing:.04em;text-transform:uppercase}
+.lede{font-size:clamp(15px,1.55vw,19px);line-height:1.65;color:var(--text-2);font-weight:300;max-width:64ch;margin:0}
+.dim{color:var(--text-2)}
+.dim2{color:var(--text-3)}
+.mono{font-family:var(--font-mono)}
+.gradient-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.annot{color:var(--accent-3)}
+
+/* ============ LAYOUT PRIMITIVES ============ */
+.row{display:flex;gap:24px;align-items:center}
+.row.wrap{flex-wrap:wrap}
+.grid{display:grid;gap:20px}
+.g2{grid-template-columns:repeat(2,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)}
+.center{display:flex;align-items:center;justify-content:center;text-align:center}
+.mt-s{margin-top:8px}.mt-m{margin-top:18px}.mt-l{margin-top:32px}
+
+/* ============ CARDS / PILLS (dashed translucent — blueprint signature) ============ */
+.card{background:rgba(255,255,255,.04);border:1px dashed var(--ink);border-radius:var(--radius);
+  padding:24px 26px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.card-soft{background:var(--surface)}
+.card-accent{border-top:2px solid var(--accent-3)}
+.pill{display:inline-block;padding:4px 14px;border-radius:var(--radius);font-size:12px;font-weight:500;
+  background:transparent;color:var(--text-2);border:1px dashed var(--ink);letter-spacing:.06em;text-transform:uppercase}
+.pill-accent{color:var(--accent-3);border-color:rgba(255,210,122,.55)}
+.divider-accent{height:2px;width:96px;background:var(--accent-2);border-radius:0;position:relative}
+.divider-accent::after{content:"";position:absolute;right:-14px;top:-3px;width:8px;height:8px;border:1px solid var(--accent-2);transform:rotate(45deg)}
+
+/* ============ DECK CHROME ============ */
+.deck-header{position:fixed;top:36px;left:48px;right:48px;display:flex;align-items:center;justify-content:space-between;
+  font-size:11px;color:var(--text-3);letter-spacing:.18em;text-transform:uppercase;z-index:10;pointer-events:none}
+.deck-footer{position:fixed;bottom:36px;left:48px;right:48px;display:flex;align-items:center;justify-content:space-between;
+  font-size:11px;color:var(--text-3);letter-spacing:.08em;z-index:10;pointer-events:none}
+.theme-chip{font-family:var(--font-mono);font-size:11px;letter-spacing:.04em;text-transform:none;color:var(--accent-2)}
+.progress-bar{position:fixed;left:0;right:0;bottom:0;height:2px;z-index:20;pointer-events:none;background:rgba(255,255,255,.08)}
+.progress-bar>span{display:block;height:100%;width:0;background:var(--accent-2);transition:width .3s var(--ease)}
+
+/* ============ TITLE BLOCK (drawing-sheet cover signature) ============ */
+.title-block{display:grid;grid-template-columns:repeat(4,auto);gap:0;border:1px solid var(--border-strong);
+  border-radius:var(--radius);overflow:hidden;width:max-content;max-width:100%}
+.title-block div{padding:10px 22px;border-right:1px solid var(--border);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3)}
+.title-block div:last-child{border-right:0}
+.title-block b{display:block;font-size:14px;font-weight:700;color:var(--text-1);letter-spacing:.04em;margin-top:2px}
+
+/* ============ SLIDE-LOCAL COMPONENTS ============ */
+.section-num{position:absolute;right:84px;bottom:64px;font-size:clamp(120px,16vw,210px);font-weight:800;line-height:.9;
+  color:transparent;-webkit-text-stroke:1.5px var(--ink);letter-spacing:-.04em;z-index:0;pointer-events:none}
+.slide>*{position:relative;z-index:1}
+.kpi .num{font-size:clamp(32px,3.8vw,50px);font-weight:800;letter-spacing:var(--letter-tight);line-height:1.1;color:var(--accent)}
+.kpi .lbl{font-size:12px;color:var(--text-3);margin-top:8px;letter-spacing:.06em;text-transform:uppercase;line-height:1.5}
+.stat-big{font-size:clamp(96px,13vw,180px);font-weight:800;line-height:1;letter-spacing:-.04em;margin:0}
+.bar-chart{display:flex;align-items:flex-end;gap:18px;height:230px;margin-top:44px;max-width:820px}
+.bar-chart .bar{flex:1;background:repeating-linear-gradient(45deg,rgba(174,225,255,.35) 0 6px,rgba(174,225,255,.12) 6px 12px);
+  border:1px solid var(--accent-2);border-bottom:2px solid var(--accent-2);border-radius:var(--radius) var(--radius) 0 0;position:relative;min-height:18px}
+.bar-chart .bar.hot{background:repeating-linear-gradient(45deg,rgba(255,210,122,.4) 0 6px,rgba(255,210,122,.14) 6px 12px);border-color:var(--accent-3)}
+.bar-chart .bar span{position:absolute;bottom:-32px;left:0;right:0;text-align:center;font-size:11px;color:var(--text-3);letter-spacing:.04em;text-transform:uppercase}
+.bar-chart .bar em{position:absolute;top:-30px;left:0;right:0;text-align:center;font-size:14px;font-weight:700;font-style:normal;color:var(--text-1)}
+.steps{counter-reset:step}
+.steps .card{padding-top:36px}
+.steps .card::before{counter-increment:step;content:"[" counter(step,decimal-leading-zero) "]";
+  font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--accent-3);
+  position:absolute;top:13px;left:26px;letter-spacing:.08em}
+.quote{font-family:var(--font-mono);font-size:clamp(26px,3.2vw,42px);line-height:1.4;font-weight:700;max-width:28ch;margin:0}
+.check{list-style:none;padding:0;margin:0;font-size:clamp(14px,1.4vw,17px)}
+.check li{padding:8px 0 8px 32px;position:relative;color:var(--text-2)}
+.check li::before{content:"";position:absolute;left:0;top:13px;width:16px;height:16px;border-radius:var(--radius);
+  border:1px dashed var(--accent-2)}
+.check li::after{content:"";position:absolute;left:4px;top:16px;width:8px;height:4px;
+  border-left:2px solid var(--accent-2);border-bottom:2px solid var(--accent-2);transform:rotate(-45deg)}
+.spec-table{width:100%;border-collapse:collapse;font-size:clamp(12px,1.2vw,14px)}
+.spec-table td{padding:9px 14px;border:1px dashed var(--ink);color:var(--text-2)}
+.spec-table td:first-child{color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;font-size:11px;width:34%}
+.spec-table b{color:var(--text-1);font-weight:700}
+
+/* ============ SPEAKER NOTES (hidden from audience) ============ */
+.notes{display:none!important}
+
+/* ============ ANIMATIONS (entry effects, upstream subset) ============ */
+@keyframes kf-rise{from{opacity:0;transform:translateY(48px)}to{opacity:1;transform:none}}
+@keyframes kf-fade-up{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:none}}
+@keyframes kf-draw{from{stroke-dashoffset:600}to{stroke-dashoffset:0}}
+.anim-rise-in{animation:kf-rise .8s var(--ease) both}
+.anim-fade-up{animation:kf-fade-up .7s var(--ease) both}
+.anim-stagger-list>*{opacity:0;animation:kf-rise .6s var(--ease) both}
+.anim-stagger-list>*:nth-child(1){animation-delay:.05s}
+.anim-stagger-list>*:nth-child(2){animation-delay:.15s}
+.anim-stagger-list>*:nth-child(3){animation-delay:.25s}
+.anim-stagger-list>*:nth-child(4){animation-delay:.35s}
+.anim-stagger-list>*:nth-child(5){animation-delay:.45s}
+.anim-stagger-list>*:nth-child(n+6){animation-delay:.55s}
+
+/* ============ PRINT ============ */
+@media print{
+  body{overflow:visible}
+  .deck{display:block;width:auto;height:auto;overflow:visible}
+  .slide{width:100vw;height:100vh;page-break-after:always}
+  .deck-header,.deck-footer,.progress-bar{display:none!important}
+}
+</style>
+</head>
+<body>
+
+<div class="deck-header"><span>Meridian Grid · Drawing Set MG-2026</span><span class="theme-chip">theme: true-blueprint [locked]</span></div>
+
+<div class="deck" id="deck">
+
+  <!-- 1 · layout: cover (drawing sheet with title block) -->
+  <section class="slide" data-title="Cover">
+    <p class="kicker">// System architecture review</p>
+    <h1 class="h1 anim-rise-in">Meridian Grid<br><span class="gradient-text">Control Plane v3</span></h1>
+    <p class="lede">A working blueprint for the next revision of our edge-orchestration platform: one control plane, three failure domains, zero shared state.</p>
+    <div class="title-block mt-l anim-fade-up">
+      <div>DWG NO.<b>MG-CP3-001</b></div>
+      <div>REV.<b class="annot">C</b></div>
+      <div>SCALE<b>1 : 1</b></div>
+      <div>DATE<b>2026-06-11</b></div>
+    </div>
+    <div class="notes">Cover styled as a drawing sheet: title block bottom-left carries drawing number, revision, scale and date. The whole deck is one engineering document.</div>
+  </section>
+
+  <!-- 2 · layout: toc (drawing index) -->
+  <section class="slide" data-title="Index">
+    <p class="kicker">// Sheet index</p>
+    <h2 class="h2">Three sheets in this set</h2>
+    <div class="grid g3 mt-l anim-stagger-list">
+      <div class="card card-accent"><h4 class="h4">SHT 01 · Topology</h4><p class="dim">Where the control plane sits, what it talks to, and the three failure domains it must survive.</p></div>
+      <div class="card card-accent"><h4 class="h4">SHT 02 · Load &amp; limits</h4><p class="dim">Measured throughput, latency budgets, and the bottleneck we are redrawing in rev C.</p></div>
+      <div class="card card-accent"><h4 class="h4">SHT 03 · Migration</h4><p class="dim">A four-phase cutover plan with rollback lines drawn before we move a single byte.</p></div>
+    </div>
+    <div class="notes">Table of contents framed as a sheet index — each card is one section of the drawing set.</div>
+  </section>
+
+  <!-- 3 · layout: section-divider -->
+  <section class="slide" data-title="Sheet 01 · Topology">
+    <span class="section-num">01</span>
+    <p class="eyebrow">Sheet one</p>
+    <h2 class="h2">Topology,<br>drawn to survive</h2>
+    <div class="divider-accent mt-m"></div>
+    <div class="notes">Section divider: outline-stroked giant number bottom-right, drawn with text-stroke in the ink color so it reads as a construction line.</div>
+  </section>
+
+  <!-- 4 · layout: arch-diagram (inline SVG schematic — no libraries) -->
+  <section class="slide" data-title="Architecture">
+    <p class="kicker">// SHT 01 · system schematic</p>
+    <h2 class="h2">One plane, three domains</h2>
+    <svg class="mt-m" viewBox="0 0 980 330" width="100%" style="max-width:980px" role="img" aria-label="Control plane schematic: gateway feeding the Meridian control plane, fanning out to three edge domains over a replicated log">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0L10 5L0 10z" fill="#aee1ff"/>
+        </marker>
+      </defs>
+      <g font-family="'JetBrains Mono',monospace" font-size="13" letter-spacing="1">
+        <!-- gateway -->
+        <rect x="20" y="125" width="170" height="80" fill="rgba(255,255,255,.05)" stroke="#aee1ff" stroke-width="1.5" stroke-dasharray="6 4" rx="2"/>
+        <text x="105" y="160" fill="#e8f3ff" text-anchor="middle" font-weight="700">API GATEWAY</text>
+        <text x="105" y="182" fill="#7da8cf" text-anchor="middle" font-size="11">mTLS · 42k rps</text>
+        <!-- control plane -->
+        <rect x="300" y="100" width="240" height="130" fill="rgba(255,255,255,.07)" stroke="#ffffff" stroke-width="2" rx="2"/>
+        <text x="420" y="145" fill="#ffffff" text-anchor="middle" font-weight="800" font-size="16">CONTROL PLANE</text>
+        <text x="420" y="170" fill="#b8d4f0" text-anchor="middle" font-size="11">scheduler · placement · policy</text>
+        <text x="420" y="192" fill="#ffd27a" text-anchor="middle" font-size="11">raft ×5 · stateless workers</text>
+        <!-- domains -->
+        <rect x="700" y="20"  width="180" height="74" fill="rgba(255,255,255,.05)" stroke="#aee1ff" stroke-width="1.5" stroke-dasharray="6 4" rx="2"/>
+        <text x="790" y="50" fill="#e8f3ff" text-anchor="middle" font-weight="700">DOMAIN A</text>
+        <text x="790" y="72" fill="#7da8cf" text-anchor="middle" font-size="11">eu-west · 38 nodes</text>
+        <rect x="700" y="128" width="180" height="74" fill="rgba(255,255,255,.05)" stroke="#aee1ff" stroke-width="1.5" stroke-dasharray="6 4" rx="2"/>
+        <text x="790" y="158" fill="#e8f3ff" text-anchor="middle" font-weight="700">DOMAIN B</text>
+        <text x="790" y="180" fill="#7da8cf" text-anchor="middle" font-size="11">us-east · 41 nodes</text>
+        <rect x="700" y="236" width="180" height="74" fill="rgba(255,255,255,.05)" stroke="#aee1ff" stroke-width="1.5" stroke-dasharray="6 4" rx="2"/>
+        <text x="790" y="266" fill="#e8f3ff" text-anchor="middle" font-weight="700">DOMAIN C</text>
+        <text x="790" y="288" fill="#7da8cf" text-anchor="middle" font-size="11">ap-south · 27 nodes</text>
+        <!-- connectors -->
+        <path d="M190 165 H292" stroke="#aee1ff" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+        <path d="M540 140 C620 130 630 70 692 60"  stroke="#aee1ff" stroke-width="1.5" stroke-dasharray="2 5" fill="none" marker-end="url(#arr)"/>
+        <path d="M540 165 H692" stroke="#aee1ff" stroke-width="1.5" stroke-dasharray="2 5" fill="none" marker-end="url(#arr)"/>
+        <path d="M540 195 C620 205 630 263 692 272" stroke="#aee1ff" stroke-width="1.5" stroke-dasharray="2 5" fill="none" marker-end="url(#arr)"/>
+        <!-- annotation / dimension line -->
+        <path d="M560 250 V300 H640" stroke="#ffd27a" stroke-width="1" fill="none"/>
+        <text x="648" y="304" fill="#ffd27a" font-size="11">replicated log — only state on the wire</text>
+      </g>
+    </svg>
+    <div class="notes">Architecture schematic drawn as pure inline SVG: dashed component boxes, ice-blue connector lines with arrowheads, one amber annotation as the dimension line. No diagram libraries.</div>
+  </section>
+
+  <!-- 5 · layout: two-column + spec table -->
+  <section class="slide" data-title="Design rules">
+    <p class="kicker">// SHT 01 · general notes</p>
+    <h2 class="h2">General notes</h2>
+    <div class="grid g2 mt-l">
+      <div>
+        <p class="lede">Every component on this sheet obeys four construction rules. Anything that cannot is redrawn until it can.</p>
+        <ul class="check mt-m">
+          <li>Workers are stateless — kill any of them at any time</li>
+          <li>All cross-domain traffic rides the replicated log</li>
+          <li>Policy is data, not code — hot-reload, never redeploy</li>
+          <li>Each domain runs degraded-but-alive on its own</li>
+        </ul>
+      </div>
+      <div class="card card-soft">
+        <table class="spec-table">
+          <tr><td>Consensus</td><td><b>Raft ×5</b> — survives two voter losses</td></tr>
+          <tr><td>Placement</td><td><b>Rendezvous hash</b> — no rebalance storms</td></tr>
+          <tr><td>Transport</td><td><b>gRPC + mTLS</b> — certs rotate every 24h</td></tr>
+          <tr><td>State</td><td><b>Log only</b> — snapshots every 5 min</td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="notes">Two-column layout: rules as a checklist on the left, a dashed spec table on the right — the table reads like a materials schedule on a real drawing.</div>
+  </section>
+
+  <!-- 6 · layout: section-divider -->
+  <section class="slide" data-title="Sheet 02 · Load">
+    <span class="section-num">02</span>
+    <p class="eyebrow">Sheet two</p>
+    <h2 class="h2">Load &amp; limits,<br>measured not guessed</h2>
+    <div class="divider-accent mt-m"></div>
+    <div class="notes">Second divider. Same construction-line number device.</div>
+  </section>
+
+  <!-- 7 · layout: kpi-grid -->
+  <section class="slide" data-title="Operating figures">
+    <p class="kicker">// SHT 02 · operating figures, 30-day window</p>
+    <h2 class="h2">The numbers on the plate</h2>
+    <div class="grid g4 mt-l anim-stagger-list">
+      <div class="card kpi"><div class="num">42k</div><div class="lbl">requests / second sustained at the gateway</div></div>
+      <div class="card kpi"><div class="num">11ms</div><div class="lbl">p99 placement decision, target ≤ 25ms</div></div>
+      <div class="card kpi"><div class="num annot">99.97%</div><div class="lbl">control-plane availability — rev C targets 99.99%</div></div>
+      <div class="card kpi"><div class="num">106</div><div class="lbl">edge nodes under management across 3 domains</div></div>
+    </div>
+    <div class="notes">KPI grid: four measured figures. The amber number marks the one rev C exists to move.</div>
+  </section>
+
+  <!-- 8 · layout: chart-bar (hatched CSS bars — no chart library) -->
+  <section class="slide" data-title="Bottleneck">
+    <p class="kicker">// SHT 02 · p99 latency budget by stage (ms)</p>
+    <h2 class="h2">Where the 11ms goes</h2>
+    <div class="bar-chart">
+      <div class="bar" style="height:22%"><em>1.4</em><span>admit</span></div>
+      <div class="bar" style="height:30%"><em>2.1</em><span>policy eval</span></div>
+      <div class="bar hot" style="height:88%"><em>5.8</em><span>log append</span></div>
+      <div class="bar" style="height:26%"><em>1.7</em><span>fan-out</span></div>
+    </div>
+    <p class="dim2 mt-l" style="margin-top:60px">Log append is 53% of the budget. Rev C batches appends per domain — bench says <span class="annot">5.8ms → 2.3ms</span>.</p>
+    <div class="notes">Bar chart rebuilt with hatched CSS bars — cross-hatching is the blueprint way to fill an area. The amber hatched bar is the bottleneck.</div>
+  </section>
+
+  <!-- 9 · layout: section-divider + process-steps combined sheet -->
+  <section class="slide" data-title="Sheet 03 · Migration">
+    <p class="kicker">// SHT 03 · cutover sequence</p>
+    <h2 class="h2">Four phases, rollback lines drawn first</h2>
+    <div class="grid g4 mt-l steps anim-stagger-list">
+      <div class="card"><h4 class="h4">Shadow</h4><p class="dim">Rev C runs beside rev B, replaying the live log. Two weeks, zero traffic.</p></div>
+      <div class="card"><h4 class="h4">Mirror</h4><p class="dim">Reads served by C, writes still land on B. Diffs alarmed at 0.01%.</p></div>
+      <div class="card"><h4 class="h4">Cutover</h4><p class="dim">Domain by domain, smallest first. One command back to B at any point.</p></div>
+      <div class="card"><h4 class="h4">Retire</h4><p class="dim">B kept warm for 30 days, then decommissioned with its snapshots archived.</p></div>
+    </div>
+    <div class="notes">Process steps with bracketed [01]–[04] counters, like detail callouts on a drawing. The rollback path is stated inside every phase.</div>
+  </section>
+
+  <!-- 10 · layout: comparison -->
+  <section class="slide" data-title="Rev B vs Rev C">
+    <p class="kicker">// SHT 03 · revision delta</p>
+    <h2 class="h2">Rev B vs Rev C</h2>
+    <div class="grid g2 mt-l">
+      <div class="card card-soft">
+        <p class="eyebrow" style="color:var(--bad)">Rev B — as built</p>
+        <h3 class="h3">Chatty &amp; coupled</h3>
+        <ul class="check"><li>Per-request appends to the log</li><li>Policy compiled into the scheduler binary</li><li>Domain failure pages a human at 3am</li></ul>
+      </div>
+      <div class="card card-accent">
+        <p class="eyebrow" style="color:var(--good)">Rev C — this drawing</p>
+        <h3 class="h3">Batched &amp; autonomous</h3>
+        <ul class="check"><li>Appends batched per domain, 2.5× headroom</li><li>Policy as hot-reloaded data</li><li>Domains degrade alone, recover alone</li></ul>
+      </div>
+    </div>
+    <div class="notes">Comparison: as-built vs proposed revision. Semantic good/bad tokens stay within the locked palette — coral and mint read as redline annotations.</div>
+  </section>
+
+  <!-- 11 · layout: big-quote + thanks -->
+  <section class="slide center" data-title="Sign-off">
+    <p class="quote anim-fade-up">"A system you can't draw on one sheet<br>is a system <span class="annot">you don't understand yet.</span>"</p>
+    <p class="eyebrow mt-l">— meridian platform team, design review notes</p>
+    <div class="row wrap mt-l" style="gap:8px;justify-content:center">
+      <span class="pill pill-accent">approved for rev C</span>
+      <span class="pill">← → navigate</span>
+      <span class="pill">#/4 deep link</span>
+    </div>
+    <div class="notes">Closer doubles as the sign-off block: the engineering principle as a pull quote, approval stamp as an amber pill.</div>
+  </section>
+
+</div>
+
+<div class="deck-footer"><span>hps-true-blueprint · MIT · after lewislulu/html-ppt-skill</span><span id="counter">1 / 11</span></div>
+<div class="progress-bar"><span id="bar"></span></div>
+
+<script>
+(function () {
+  var deck = document.getElementById('deck');
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var counter = document.getElementById('counter');
+  var bar = document.getElementById('bar');
+  var active = 0;
+  var lastKeyEvent = null;
+
+  function clamp(i) { return Math.max(0, Math.min(slides.length - 1, i)); }
+
+  function paint(i) {
+    counter.textContent = (i + 1) + ' / ' + slides.length;
+    bar.style.width = (((i + 1) / slides.length) * 100) + '%';
+  }
+
+  // Hash routing: #/N (1-based). replaceState keeps back-button clean and
+  // never throws inside a srcdoc iframe thanks to the try/catch.
+  function setHash(i) {
+    try { history.replaceState(null, '', '#/' + (i + 1)); } catch (_) { /* sandboxed */ }
+  }
+  function fromHash() {
+    var m = (location.hash || '').match(/^#\/(\d+)/);
+    return m ? clamp(parseInt(m[1], 10) - 1) : 0;
+  }
+
+  function go(i, instant) {
+    active = clamp(i);
+    deck.scrollTo({ left: active * deck.clientWidth, behavior: instant ? 'auto' : 'smooth' });
+    paint(active);
+    setHash(active);
+  }
+
+  function syncFromScroll() {
+    var i = Math.round(deck.scrollLeft / deck.clientWidth);
+    if (i !== active && i >= 0 && i < slides.length) { active = i; paint(i); setHash(i); }
+  }
+
+  function onKey(e) {
+    if (e === lastKeyEvent) return; // dedupe: same Event passes both listeners
+    lastKeyEvent = e;
+    var t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); go(active + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); go(active - 1); }
+    else if (e.key === 'Home') { e.preventDefault(); go(0); }
+    else if (e.key === 'End') { e.preventDefault(); go(slides.length - 1); }
+  }
+
+  // Listen on both window and document in capture phase so keys work no
+  // matter which element holds focus inside a host iframe.
+  window.addEventListener('keydown', onKey, true);
+  document.addEventListener('keydown', onKey, true);
+  deck.addEventListener('scroll', function () { window.requestAnimationFrame(syncFromScroll); }, { passive: true });
+  window.addEventListener('hashchange', function () { go(fromHash()); });
+  window.addEventListener('resize', function () { go(active, true); });
+
+  // Auto-focus so arrow keys work without a click.
+  document.body.setAttribute('tabindex', '-1');
+  document.body.style.outline = 'none';
+  function focusDeck() {
+    try { window.focus(); document.body.focus({ preventScroll: true }); } catch (_) { /* sandboxed */ }
+  }
+  document.addEventListener('mousedown', focusDeck);
+  window.addEventListener('load', focusDeck);
+
+  go(fromHash(), true);
+  paint(active);
+  focusDeck();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="catppuccin-mocha">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Loomtrace · Catppuccin Mocha deck</title>
+<style>
+/* hps-catppuccin-mocha :: webfonts (Google Fonts @import only — no other external deps) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,800;1,400;1,600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+</style>
+<style>
+/* ============================================================
+   CATPPUCCIN MOCHA — LOCKED TOKEN SHEET
+   Ported from lewislulu/html-ppt-skill assets/themes/catppuccin-mocha.css
+   on top of the upstream base.css token contract. This deck ships
+   exactly one theme. Do not add other theme blocks; do not change
+   any value below.
+   ============================================================ */
+:root{
+  --bg:#1e1e2e; --bg-soft:#181825; --surface:#313244; --surface-2:#45475a;
+  --border:rgba(205,214,244,.12); --border-strong:rgba(205,214,244,.24);
+  --text-1:#cdd6f4; --text-2:#a6adc8; --text-3:#7f849c;
+  --accent:#cba6f7; --accent-2:#89b4fa; --accent-3:#f5c2e7;
+  --good:#a6e3a1; --warn:#f9e2af; --bad:#f38ba8;
+  --grad:linear-gradient(135deg,#cba6f7,#89b4fa 50%,#94e2d5);
+  --grad-soft:linear-gradient(135deg,#313244,#45475a);
+  --radius:14px; --radius-sm:10px; --radius-lg:22px;
+  --shadow:0 10px 30px rgba(0,0,0,.35);
+  --shadow-lg:0 24px 60px rgba(0,0,0,.5);
+  --font-sans:'Inter','Noto Sans SC',-apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif;
+  --font-serif:'Playfair Display','Noto Serif SC',Georgia,serif;
+  --font-mono:'JetBrains Mono',SFMono-Regular,Menlo,monospace;
+  --font-display:var(--font-sans);
+  --letter-tight:-.03em; --letter-normal:-.01em;
+  --ease:cubic-bezier(.4,0,.2,1);
+}
+</style>
+<style>
+/* ============================================================
+   BASE + SLIDE SYSTEM — horizontal scroll-snap deck.
+   One <section class="slide"> = exactly one viewport screen.
+   Designed at 16:9 (1280×720 baseline), fluid to the viewport.
+   (mirrors upstream lewislulu/html-ppt-skill assets/base.css)
+   ============================================================ */
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{background:var(--bg);color:var(--text-1);font-family:var(--font-sans);
+  font-weight:400;line-height:1.6;letter-spacing:var(--letter-normal);
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;overflow:hidden}
+img,svg,video{max-width:100%;display:block}
+code,kbd,pre,samp{font-family:var(--font-mono)}
+
+.deck{display:flex;width:100vw;height:100vh;overflow-x:auto;overflow-y:hidden;
+  scroll-snap-type:x mandatory;scrollbar-width:none;-ms-overflow-style:none}
+.deck::-webkit-scrollbar{display:none}
+.slide{position:relative;flex:0 0 100vw;height:100vh;scroll-snap-align:start;
+  display:flex;flex-direction:column;justify-content:center;
+  padding:72px 96px;overflow:hidden}
+
+/* ============ SIGNATURE DEVICE — the Mocha glow ============
+   Two whisper-quiet pastel glows (mauve top-left, blue bottom-right)
+   over the #1e1e2e ink. Keep opacity at or below these values. */
+.slide::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;background:
+  radial-gradient(46% 38% at 12% 8%,rgba(203,166,247,.07),transparent 70%),
+  radial-gradient(50% 42% at 90% 94%,rgba(137,180,250,.06),transparent 70%)}
+.slide>*{position:relative;z-index:1}
+
+/* ============ TYPOGRAPHY ============ */
+.eyebrow{font-size:13px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--text-3);margin:0}
+.kicker{font-size:14px;font-weight:600;color:var(--accent);letter-spacing:.08em;text-transform:uppercase;margin:0 0 10px}
+.h1{font-family:var(--font-display);font-size:clamp(44px,5.6vw,72px);line-height:1.05;font-weight:800;letter-spacing:var(--letter-tight);margin:0 0 18px;color:var(--text-1)}
+.h2{font-family:var(--font-display);font-size:clamp(34px,4.2vw,54px);line-height:1.1;font-weight:700;letter-spacing:var(--letter-tight);margin:0 0 14px;color:var(--text-1)}
+.h3{font-size:clamp(22px,2.5vw,32px);line-height:1.2;font-weight:600;margin:0 0 10px}
+.h4{font-size:clamp(17px,1.7vw,22px);line-height:1.3;font-weight:600;margin:0 0 8px}
+.lede{font-size:clamp(17px,1.7vw,22px);line-height:1.55;color:var(--text-2);font-weight:300;max-width:62ch;margin:0}
+.dim{color:var(--text-2)}
+.dim2{color:var(--text-3)}
+.mono{font-family:var(--font-mono)}
+.serif{font-family:var(--font-serif)}
+.gradient-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+
+/* ============ LAYOUT PRIMITIVES ============ */
+.row{display:flex;gap:24px;align-items:center}
+.row.wrap{flex-wrap:wrap}
+.grid{display:grid;gap:24px}
+.g2{grid-template-columns:repeat(2,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)}
+.center{display:flex;align-items:center;justify-content:center;text-align:center}
+.mt-s{margin-top:8px}.mt-m{margin-top:18px}.mt-l{margin-top:32px}
+
+/* ============ CARDS / PILLS ============ */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:26px 28px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.card-soft{background:var(--bg-soft)}
+.card-accent{border-top:3px solid var(--accent)}
+.pill{display:inline-block;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:500;
+  background:var(--surface);color:var(--text-2);border:1px solid var(--border)}
+.pill-accent{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);border-color:color-mix(in srgb,var(--accent) 30%,transparent)}
+.divider-accent{height:3px;width:72px;background:var(--grad);border-radius:2px}
+
+/* ============ DECK CHROME ============ */
+.deck-header{position:fixed;top:24px;left:40px;right:40px;display:flex;align-items:center;justify-content:space-between;
+  font-size:12px;color:var(--text-3);letter-spacing:.12em;text-transform:uppercase;z-index:10;pointer-events:none}
+.deck-footer{position:fixed;bottom:24px;left:40px;right:40px;display:flex;align-items:center;justify-content:space-between;
+  font-size:12px;color:var(--text-3);z-index:10;pointer-events:none}
+.theme-chip{font-family:var(--font-mono);font-size:11px;letter-spacing:.04em;text-transform:none;color:var(--accent)}
+.progress-bar{position:fixed;left:0;right:0;bottom:0;height:3px;z-index:20;pointer-events:none}
+.progress-bar>span{display:block;height:100%;width:0;background:var(--grad);transition:width .3s var(--ease)}
+
+/* ============ SLIDE-LOCAL COMPONENTS ============ */
+.section-num{position:absolute;right:72px;bottom:40px;font-size:clamp(120px,17vw,220px);font-weight:900;line-height:.9;
+  color:var(--surface);letter-spacing:-.05em;z-index:0;pointer-events:none}
+.kpi .num{font-size:clamp(34px,4vw,52px);font-weight:800;letter-spacing:var(--letter-tight);line-height:1.1}
+.kpi .lbl{font-size:14px;color:var(--text-3);margin-top:6px}
+.stat-big{font-size:clamp(110px,15vw,200px);font-weight:900;line-height:1;letter-spacing:-.05em;margin:0}
+.bar-chart{display:flex;align-items:flex-end;gap:18px;height:240px;margin-top:40px;max-width:820px}
+.bar-chart .bar{flex:1;background:var(--grad);border-radius:8px 8px 0 0;position:relative;min-height:18px}
+.bar-chart .bar span{position:absolute;bottom:-30px;left:0;right:0;text-align:center;font-size:13px;color:var(--text-3)}
+.bar-chart .bar em{position:absolute;top:-30px;left:0;right:0;text-align:center;font-size:14px;font-weight:700;font-style:normal;color:var(--text-1)}
+.steps{counter-reset:step}
+.steps .card{padding-top:34px}
+.steps .card::before{counter-increment:step;content:counter(step,decimal-leading-zero);
+  font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--accent);
+  position:absolute;top:14px;left:28px;letter-spacing:.08em}
+.quote{font-family:var(--font-serif);font-size:clamp(30px,3.6vw,48px);line-height:1.35;font-weight:600;max-width:24ch;margin:0}
+.check{list-style:none;padding:0;margin:0;font-size:clamp(15px,1.5vw,19px)}
+.check li{padding:9px 0 9px 34px;position:relative;color:var(--text-2)}
+.check li::before{content:"";position:absolute;left:0;top:14px;width:18px;height:18px;border-radius:6px;
+  background:color-mix(in srgb,var(--accent) 16%,transparent);border:1.5px solid var(--accent)}
+.check li::after{content:"";position:absolute;left:4.5px;top:17px;width:9px;height:5px;
+  border-left:2px solid var(--accent);border-bottom:2px solid var(--accent);transform:rotate(-45deg)}
+
+/* terminal card — the Mocha developer signature layout */
+.terminal{background:var(--bg-soft);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow);overflow:hidden}
+.terminal .bar-top{display:flex;gap:7px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)}
+.terminal .bar-top i{width:11px;height:11px;border-radius:50%;display:block}
+.terminal .bar-top i:nth-child(1){background:var(--bad)}
+.terminal .bar-top i:nth-child(2){background:var(--warn)}
+.terminal .bar-top i:nth-child(3){background:var(--good)}
+.terminal .bar-top em{font-style:normal;font-family:var(--font-mono);font-size:11px;color:var(--text-3);margin-left:8px}
+.terminal pre{margin:0;padding:20px 22px;font-family:var(--font-mono);font-size:clamp(12px,1.15vw,14px);
+  line-height:1.85;color:var(--text-2);white-space:pre;overflow:hidden}
+.terminal .tk-a{color:var(--accent)}
+.terminal .tk-b{color:var(--accent-2)}
+.terminal .tk-p{color:var(--accent-3)}
+.terminal .tk-g{color:var(--good)}
+.terminal .tk-w{color:var(--warn)}
+.terminal .tk-r{color:var(--bad)}
+
+/* ============ SPEAKER NOTES (hidden from audience) ============ */
+.notes{display:none!important}
+
+/* ============ ANIMATIONS (entry effects, upstream subset) ============ */
+@keyframes kf-rise{from{opacity:0;transform:translateY(60px) scale(.97);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}
+@keyframes kf-fade-up{from{opacity:0;transform:translateY(32px)}to{opacity:1;transform:none}}
+.anim-rise-in{animation:kf-rise .9s var(--ease) both}
+.anim-fade-up{animation:kf-fade-up .7s var(--ease) both}
+.anim-stagger-list>*{opacity:0;animation:kf-rise .65s var(--ease) both}
+.anim-stagger-list>*:nth-child(1){animation-delay:.05s}
+.anim-stagger-list>*:nth-child(2){animation-delay:.15s}
+.anim-stagger-list>*:nth-child(3){animation-delay:.25s}
+.anim-stagger-list>*:nth-child(4){animation-delay:.35s}
+.anim-stagger-list>*:nth-child(5){animation-delay:.45s}
+.anim-stagger-list>*:nth-child(n+6){animation-delay:.55s}
+
+/* ============ PRINT ============ */
+@media print{
+  body{overflow:visible}
+  .deck{display:block;width:auto;height:auto;overflow:visible}
+  .slide{width:100vw;height:100vh;page-break-after:always}
+  .deck-header,.deck-footer,.progress-bar{display:none!important}
+}
+</style>
+</head>
+<body>
+
+<div class="deck-header"><span>Loomtrace · Engineering Guild</span><span class="theme-chip">catppuccin-mocha</span></div>
+
+<div class="deck" id="deck">
+
+  <!-- 1 · layout: cover -->
+  <section class="slide" data-title="Cover">
+    <p class="kicker">Engineering Guild · Tech sharing · Q2 2026</p>
+    <h1 class="h1 anim-rise-in">See every request,<br><span class="gradient-text">end to end</span></h1>
+    <p class="lede">Loomtrace is our open-source distributed-tracing toolkit. Thirty minutes on why latency hides between services — and how we made it visible without touching application code.</p>
+    <div class="row wrap mt-l" style="gap:8px">
+      <span class="pill pill-accent">distributed tracing</span>
+      <span class="pill">zero-code instrumentation</span>
+      <span class="pill">38 services live</span>
+      <span class="pill">OSS · MIT</span>
+    </div>
+    <div class="notes">Open with the one-liner: latency hides between services, not inside them. This deck is the internal tech-sharing version — assume engineers, skip the sales tone.</div>
+  </section>
+
+  <!-- 2 · layout: toc -->
+  <section class="slide" data-title="Agenda">
+    <p class="kicker">Agenda</p>
+    <h2 class="h2">Three parts, thirty minutes</h2>
+    <div class="grid g3 mt-l anim-stagger-list">
+      <div class="card card-accent"><h4 class="h4">① The invisible 400ms</h4><p class="dim">Why per-service dashboards can all be green while the checkout flow is slow.</p></div>
+      <div class="card card-accent"><h4 class="h4">② How Loomtrace works</h4><p class="dim">Span model, eBPF auto-instrumentation, tail-based sampling, the correlate step.</p></div>
+      <div class="card card-accent"><h4 class="h4">③ Rollout &amp; on-call wins</h4><p class="dim">What changed for incident response after 38 services went live.</p></div>
+    </div>
+    <div class="notes">Set expectations: part two is the technical core; part three is the proof it was worth it.</div>
+  </section>
+
+  <!-- 3 · layout: section-divider -->
+  <section class="slide" data-title="Section · Problem">
+    <span class="section-num">01</span>
+    <p class="eyebrow">Part one</p>
+    <h2 class="h2">The invisible<br>400 milliseconds</h2>
+    <div class="divider-accent mt-m"></div>
+    <div class="notes">Section divider. Pause here — ask who has debugged a cross-service latency issue with only per-service logs.</div>
+  </section>
+
+  <!-- 4 · layout: two-column (claim + terminal) -->
+  <section class="slide" data-title="Where latency hides">
+    <p class="kicker">The problem</p>
+    <h2 class="h2">Every dashboard green.<br>Checkout still slow.</h2>
+    <div class="grid g2 mt-l">
+      <div>
+        <p class="lede">A single checkout touches nine services. Each one reports a healthy p99 — but queueing, retries and serialization between them add up to 400ms nobody owns.</p>
+        <ul class="check mt-m">
+          <li>Per-service metrics can't see inter-service wait time</li>
+          <li>Log correlation by timestamp breaks under retries</li>
+          <li>On-call pages route to the wrong team 4 times out of 10</li>
+        </ul>
+      </div>
+      <div class="terminal">
+        <div class="bar-top"><i></i><i></i><i></i><em>loomtrace query · trace 9f3a</em></div>
+<pre><span class="tk-b">$</span> loomtrace spans --trace <span class="tk-p">9f3a</span> --slowest
+<span class="tk-a">gateway</span>        ████░░░░░░░░░░░░  <span class="tk-g">41ms</span>
+<span class="tk-a">cart-svc</span>       ██░░░░░░░░░░░░░░  <span class="tk-g">18ms</span>
+<span class="tk-a">pricing-svc</span>    ███░░░░░░░░░░░░░  <span class="tk-g">26ms</span>
+<span class="tk-a">inventory-svc</span>  █████████████░░░  <span class="tk-r">212ms</span> <span class="tk-w">← retry x3</span>
+<span class="tk-a">payment-svc</span>    ██████░░░░░░░░░░  <span class="tk-w">94ms</span>
+<span class="tk-b">total</span>          <span class="tk-r">417ms</span>  (budget 250ms)</pre>
+      </div>
+    </div>
+    <div class="notes">The terminal card is the money shot: one trace shows inventory-svc retrying three times — invisible in every per-service dashboard.</div>
+  </section>
+
+  <!-- 5 · layout: kpi-grid -->
+  <section class="slide" data-title="Rollout KPIs">
+    <p class="kicker">Part two · How it works in numbers</p>
+    <h2 class="h2">Instrumentation without the rewrite</h2>
+    <div class="grid g4 mt-l anim-stagger-list">
+      <div class="card kpi"><div class="num gradient-text">38</div><div class="lbl">services auto-instrumented via eBPF — zero app-code changes</div></div>
+      <div class="card kpi"><div class="num gradient-text">1.2ms</div><div class="lbl">median overhead added per traced request</div></div>
+      <div class="card kpi"><div class="num gradient-text">100%</div><div class="lbl">of error traces kept by tail-based sampling (0.8% of healthy ones)</div></div>
+      <div class="card kpi"><div class="num gradient-text">14d</div><div class="lbl">from first deploy to full production coverage</div></div>
+    </div>
+    <div class="notes">Emphasize "zero app-code changes" — the eBPF agent attaches at the kernel boundary, so Go, Java and Node services all came along for free.</div>
+  </section>
+
+  <!-- 6 · layout: stat-highlight -->
+  <section class="slide center" data-title="Headline stat">
+    <p class="kicker">Mean time to root cause</p>
+    <p class="stat-big gradient-text anim-rise-in">−78%</p>
+    <p class="lede mt-m" style="max-width:46ch">from 67 minutes of grep archaeology to 15 minutes of following one trace, measured across 23 incidents this quarter.</p>
+    <div class="notes">One number carries the slide. 67 → 15 minutes, n=23 incidents — be ready to share the incident list in the appendix doc.</div>
+  </section>
+
+  <!-- 7 · layout: chart-bar (pure CSS — no chart library) -->
+  <section class="slide" data-title="On-call hours">
+    <p class="kicker">Part three · Rollout wins</p>
+    <h2 class="h2">Where on-call hours went, before Loomtrace</h2>
+    <div class="bar-chart">
+      <div class="bar" style="height:90%"><em>44%</em><span>locating the failing hop</span></div>
+      <div class="bar" style="height:58%"><em>28%</em><span>correlating logs</span></div>
+      <div class="bar" style="height:35%"><em>17%</em><span>actual fix</span></div>
+      <div class="bar" style="height:22%"><em>11%</em><span>writeup</span></div>
+    </div>
+    <p class="dim2 mt-l" style="margin-top:56px">Tracing collapses the first two bars — 72% of every incident was spent finding the problem, not fixing it.</p>
+    <div class="notes">Bars are pure CSS on the gradient token — no chart library anywhere in this file. The story: most on-call time was search, not repair.</div>
+  </section>
+
+  <!-- 8 · layout: process-steps -->
+  <section class="slide" data-title="Pipeline">
+    <p class="kicker">Architecture</p>
+    <h2 class="h2">Four stages, one pipeline</h2>
+    <div class="grid g4 mt-l steps anim-stagger-list">
+      <div class="card"><h4 class="h4">Instrument</h4><p class="dim">eBPF agent per node captures spans at the socket layer — no SDK required.</p></div>
+      <div class="card"><h4 class="h4">Collect</h4><p class="dim">OTLP-compatible collectors batch and compress; 4MB/s per node ceiling.</p></div>
+      <div class="card"><h4 class="h4">Correlate</h4><p class="dim">Trace IDs propagate via W3C traceparent; retries fold into one tree.</p></div>
+      <div class="card"><h4 class="h4">Alert</h4><p class="dim">SLO burn alerts link straight to the slowest exemplar trace.</p></div>
+    </div>
+    <div class="notes">The counter pseudo-element numbers the cards automatically. If anyone asks: OTLP-compatible means existing OpenTelemetry SDK spans merge into the same trace tree.</div>
+  </section>
+
+  <!-- 9 · layout: comparison -->
+  <section class="slide" data-title="Before / After">
+    <p class="kicker">Comparison</p>
+    <h2 class="h2">Grep-driven vs trace-driven</h2>
+    <div class="grid g2 mt-l">
+      <div class="card card-soft">
+        <p class="eyebrow" style="color:var(--bad)">Before</p>
+        <h3 class="h3">Log archaeology</h3>
+        <ul class="check"><li>Nine ssh sessions, nine log formats</li><li>Timestamp correlation breaks on retries</li><li>Page bounces between four teams</li></ul>
+      </div>
+      <div class="card card-accent">
+        <p class="eyebrow" style="color:var(--good)">After</p>
+        <h3 class="h3">One trace, one owner</h3>
+        <ul class="check"><li>Single waterfall for the whole request</li><li>Retries and queue time explicit per hop</li><li>Alert links to the exact slow span</li></ul>
+      </div>
+    </div>
+    <div class="notes">Red eyebrow vs green eyebrow on the semantic tokens. The "page bounces between four teams" line lands hardest with on-call folks.</div>
+  </section>
+
+  <!-- 10 · layout: big-quote -->
+  <section class="slide center" data-title="Quote">
+    <p class="quote serif anim-fade-up">“You can't fix the latency you can't <span class="gradient-text">see</span>.”</p>
+    <p class="eyebrow mt-l">— SRE handbook, incident review 2026-04</p>
+    <div class="notes">Big serif pull quote, nothing else competing. Let it sit for a beat before the closer.</div>
+  </section>
+
+  <!-- 11 · layout: thanks / cta -->
+  <section class="slide center" data-title="Thanks">
+    <p class="kicker">Get involved</p>
+    <h1 class="h1">Trace your service <span class="gradient-text">this sprint</span></h1>
+    <p class="lede mt-m" style="max-width:52ch">The agent rolls out per-namespace. File a `#loomtrace` request and you'll have waterfalls by Friday.</p>
+    <div class="row wrap mt-l" style="gap:8px;justify-content:center">
+      <span class="pill pill-accent">← → navigate</span>
+      <span class="pill">Space next</span>
+      <span class="pill">#/6 deep link</span>
+      <span class="pill">print → PDF</span>
+    </div>
+    <div class="notes">Close on the concrete ask: one Slack request, waterfalls by Friday. Q&amp;A from here.</div>
+  </section>
+
+</div>
+
+<div class="deck-footer"><span>catppuccin-mocha · upstream lewislulu/html-ppt-skill · MIT</span><span id="counter">1 / 11</span></div>
+<div class="progress-bar"><span id="bar"></span></div>
+
+<script>
+(function () {
+  var deck = document.getElementById('deck');
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var counter = document.getElementById('counter');
+  var bar = document.getElementById('bar');
+  var active = 0;
+  var lastKeyEvent = null;
+
+  function clamp(i) { return Math.max(0, Math.min(slides.length - 1, i)); }
+
+  function paint(i) {
+    counter.textContent = (i + 1) + ' / ' + slides.length;
+    bar.style.width = (((i + 1) / slides.length) * 100) + '%';
+  }
+
+  // Hash routing: #/N (1-based). replaceState keeps back-button clean and
+  // never throws inside a srcdoc iframe thanks to the try/catch.
+  function setHash(i) {
+    try { history.replaceState(null, '', '#/' + (i + 1)); } catch (_) { /* sandboxed */ }
+  }
+  function fromHash() {
+    var m = (location.hash || '').match(/^#\/(\d+)/);
+    return m ? clamp(parseInt(m[1], 10) - 1) : 0;
+  }
+
+  function go(i, instant) {
+    active = clamp(i);
+    deck.scrollTo({ left: active * deck.clientWidth, behavior: instant ? 'auto' : 'smooth' });
+    paint(active);
+    setHash(active);
+  }
+
+  function syncFromScroll() {
+    var i = Math.round(deck.scrollLeft / deck.clientWidth);
+    if (i !== active && i >= 0 && i < slides.length) { active = i; paint(i); setHash(i); }
+  }
+
+  function onKey(e) {
+    if (e === lastKeyEvent) return; // dedupe: same Event passes both listeners
+    lastKeyEvent = e;
+    var t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); go(active + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); go(active - 1); }
+    else if (e.key === 'Home') { e.preventDefault(); go(0); }
+    else if (e.key === 'End') { e.preventDefault(); go(slides.length - 1); }
+  }
+
+  // Listen on both window and document in capture phase so keys work no
+  // matter which element holds focus inside a host iframe.
+  window.addEventListener('keydown', onKey, true);
+  document.addEventListener('keydown', onKey, true);
+  deck.addEventListener('scroll', function () { window.requestAnimationFrame(syncFromScroll); }, { passive: true });
+  window.addEventListener('hashchange', function () { go(fromHash()); });
+  window.addEventListener('resize', function () { go(active, true); });
+
+  // Auto-focus so arrow keys work without a click.
+  document.body.setAttribute('tabindex', '-1');
+  document.body.style.outline = 'none';
+  function focusDeck() {
+    try { window.focus(); document.body.focus({ preventScroll: true }); } catch (_) { /* sandboxed */ }
+  }
+  document.addEventListener('mousedown', focusDeck);
+  window.addEventListener('load', focusDeck);
+
+  go(fromHash(), true);
+  paint(active);
+  focusDeck();
+})();
+</script>
+</body>
+</html>

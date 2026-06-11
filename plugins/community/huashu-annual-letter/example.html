@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>织云 · 二〇二五年度信 — Annual Letter</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Noto+Serif+SC:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Noto+Sans+SC:wght@400;500&display=swap');
+
+:root {
+  /* ===== Annual Letter design tokens (editorial longform) ===== */
+  --paper: #FBFAF8;                   /* cream paper, every page */
+  --panel: #FFFFFF;                   /* data-card surface */
+  --ink: #232036;                     /* deep ink */
+  --ink-70: rgba(35, 32, 54, 0.72);   /* prose body */
+  --ink-45: rgba(35, 32, 54, 0.46);   /* captions, chrome */
+  --hairline: rgba(35, 32, 54, 0.12); /* all rules */
+  --accent: #635BFF;                  /* Stripe purple — the only accent */
+  --accent-soft: rgba(99, 91, 255, 0.08);
+
+  --serif: "Newsreader", "Source Serif 4", "Noto Serif SC", Georgia, serif;
+  --serif-text: "Source Serif 4", "Newsreader", "Noto Serif SC", Georgia, serif;
+  --sans: "Inter", "Noto Sans SC", "PingFang SC", -apple-system, sans-serif;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #131120;
+  overflow: hidden;
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+* { box-sizing: border-box; }
+
+/* ===== Stage: fixed 1920×1080 canvas, scaled to fit the viewport ===== */
+#stage {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 1920px;
+  height: 1080px;
+  transform-origin: center center;
+  background: var(--paper);
+  overflow: hidden;
+}
+
+/* ===== Slides ===== */
+.slide {
+  position: absolute;
+  inset: 0;
+  display: none;
+  padding: 84px 150px 72px;
+  background: var(--paper);
+  color: var(--ink);
+}
+.slide.active { display: flex; flex-direction: column; }
+
+/* faint paper warmth */
+.slide::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 28% 18%, rgba(99, 91, 255, 0.025), transparent 58%);
+  pointer-events: none;
+}
+
+/* ===== Letter chrome ===== */
+.letterhead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px solid var(--hairline);
+  padding-bottom: 16px;
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-45);
+}
+.letterhead strong { color: var(--accent); font-weight: 600; }
+
+.footer {
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-top: 1px solid var(--hairline);
+  padding-top: 16px;
+  font-family: var(--sans);
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-45);
+}
+
+.kicker {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ink-45);
+  margin: 52px 0 0;
+}
+.kicker::before { content: ''; width: 44px; height: 3px; background: var(--accent); }
+
+h1, h2 { font-family: var(--serif); font-weight: 500; margin: 0; }
+.hl { color: var(--accent); }
+.en-sub {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 28px;
+  font-weight: 400;
+  color: var(--ink-45);
+}
+.en-sub b { color: var(--accent); font-weight: 500; }
+
+/* ===== Genre devices ===== */
+.measure { max-width: 980px; }   /* ≈ 65ch publication measure */
+.prose {
+  font-family: var(--serif-text);
+  font-size: 26px;
+  line-height: 1.9;
+  color: var(--ink-70);
+  margin: 0 0 30px;
+}
+.prose strong { color: var(--ink); font-weight: 600; }
+.dropcap::first-letter {
+  font-family: var(--serif);
+  font-size: 108px;
+  line-height: 0.86;
+  font-weight: 500;
+  color: var(--accent);
+  float: left;
+  padding: 10px 18px 0 0;
+}
+.num { font-variant-numeric: tabular-nums; }
+
+.data-card {
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  border-top: 3px solid var(--accent);
+  padding: 26px 28px 24px;
+}
+.data-card .label {
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-45);
+  margin: 0 0 12px;
+}
+.data-card .value {
+  font-family: var(--serif);
+  font-size: 54px;
+  font-weight: 500;
+  line-height: 1.05;
+  color: var(--ink);
+  margin: 0;
+}
+.data-card .value em { font-style: normal; color: var(--accent); }
+.data-card .caption {
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink-45);
+  margin: 12px 0 0;
+}
+
+.footnote {
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--ink-45);
+  margin: 0;
+}
+
+/* ===== UI: counter + key hint ===== */
+#counter {
+  position: fixed;
+  right: 22px;
+  bottom: 18px;
+  z-index: 50;
+  font-family: "Inter", ui-monospace, monospace;
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  font-variant-numeric: tabular-nums;
+  color: rgba(251, 250, 248, 0.82);
+  background: rgba(19, 17, 32, 0.62);
+  border: 1px solid rgba(251, 250, 248, 0.2);
+  border-radius: 999px;
+  padding: 7px 16px;
+  user-select: none;
+}
+#hint {
+  position: fixed;
+  left: 22px;
+  bottom: 18px;
+  z-index: 50;
+  font-family: "Inter", ui-monospace, monospace;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  color: rgba(251, 250, 248, 0.45);
+  user-select: none;
+}
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <!-- 01 · Cover masthead -->
+  <section class="slide" data-screen-label="01 刊头">
+    <div class="letterhead"><span><strong>织云</strong> Zhiyun · Annual Letter</span><span>第三封年度信 · 2026 年 1 月</span></div>
+    <div class="kicker">To Our Fellow Travelers · 二〇二五年度信</div>
+    <h1 style="font-size:128px; line-height:1.18; margin-top:48px; letter-spacing:0.01em;">写给同行者的<br><span class="hl">第三封信</span></h1>
+    <p class="en-sub" style="margin-top:30px;">On scale, patience, and the <b>slow craft</b> we still believe in.</p>
+    <div class="footer"><span>Cover</span><span>织云团队 · 谨呈</span></div>
+  </section>
+
+  <!-- 02 · Contents -->
+  <section class="slide" data-screen-label="02 纲目">
+    <div class="letterhead"><span><strong>织云</strong> Zhiyun · Annual Letter</span><span>Contents</span></div>
+    <div class="kicker">信之纲目</div>
+    <h2 style="font-size:76px; margin-top:36px;">这封信谈四件事</h2>
+    <div class="measure" style="margin-top:56px; max-width:1240px;">
+      <div style="display:flex; align-items:baseline; gap:36px; border-top:1px solid var(--hairline); padding:26px 8px;">
+        <span class="num" style="font-family:var(--serif); font-size:30px; color:var(--accent); width:56px;">一</span>
+        <span style="font-family:var(--serif); font-size:34px; font-weight:500;">数字之外</span>
+        <span style="font-size:19px; color:var(--ink-45); margin-left:auto;">规模翻倍之后，我们更在意的事</span>
+      </div>
+      <div style="display:flex; align-items:baseline; gap:36px; border-top:1px solid var(--hairline); padding:26px 8px;">
+        <span class="num" style="font-family:var(--serif); font-size:30px; color:var(--accent); width:56px;">二</span>
+        <span style="font-family:var(--serif); font-size:34px; font-weight:500;">我们学到的三件事</span>
+        <span style="font-size:19px; color:var(--ink-45); margin-left:auto;">耐心、删减，与把工具做「轻」</span>
+      </div>
+      <div style="display:flex; align-items:baseline; gap:36px; border-top:1px solid var(--hairline); padding:26px 8px;">
+        <span class="num" style="font-family:var(--serif); font-size:30px; color:var(--accent); width:56px;">三</span>
+        <span style="font-family:var(--serif); font-size:34px; font-weight:500;">平台与生态</span>
+        <span style="font-size:19px; color:var(--ink-45); margin-left:auto;">三年增长曲线，与它背后的人</span>
+      </div>
+      <div style="display:flex; align-items:baseline; gap:36px; border-top:1px solid var(--hairline); border-bottom:1px solid var(--hairline); padding:26px 8px;">
+        <span class="num" style="font-family:var(--serif); font-size:30px; color:var(--accent); width:56px;">四</span>
+        <span style="font-family:var(--serif); font-size:34px; font-weight:500;">致谢与来年</span>
+        <span style="font-size:19px; color:var(--ink-45); margin-left:auto;">写在第四年开始之前</span>
+      </div>
+    </div>
+    <div class="footer"><span>Contents</span><span>织云 · 二〇二五年度信</span></div>
+  </section>
+
+  <!-- 03 · Salutation: prose with drop cap + inline data card -->
+  <section class="slide" data-screen-label="03 信首">
+    <div class="letterhead"><span><strong>织云</strong> Zhiyun · Annual Letter</span><span>一 · 数字之外</span></div>
+    <div style="display:flex; gap:72px; margin-top:64px;">
+      <div class="measure">
+        <p style="font-family:var(--serif); font-size:34px; font-weight:500; margin:0 0 36px;">各位同行者：</p>
+        <p class="prose dropcap">这是我们写给你们的第三封年度信。三年前织云上线的那个冬天，我们在一间共享办公室里数着第一批一百个团队的注册邮件；今年写这封信时，平台上已经有三万七千多个团队在交付他们一年里最重要的设计项目。规模变了，但我们想在信的开头先说一句没变的话：<strong>织云存在的理由，是让小团队也能拥有大公司的交付秩序。</strong></p>
+        <p class="prose">过去十二个月，我们刻意把发版节奏放慢到每月一次，把省下来的工程时间全部投进了稳定性和迁移工具。这个决定在季度报表上看不出任何好处，但它换来了下面这个我们最珍视的数字。</p>
+      </div>
+      <div style="width:420px; padding-top:96px;">
+        <div class="data-card">
+          <p class="label">年度续约率 · Net Retention</p>
+          <p class="value num"><em>96.4%</em></p>
+          <p class="caption">续约的不是合同，是信任。较二〇二四年提高 3.1 个百分点。</p>
+        </div>
+        <div class="data-card" style="margin-top:28px; border-top-color:var(--hairline);">
+          <p class="label">活跃团队 · Active Teams</p>
+          <p class="value num">37,412</p>
+          <p class="caption">其中 71% 是十人以下的小团队。</p>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><span>Salutation</span><span>织云 · 二〇二五年度信</span></div>
+  </section>
+
+  <!-- 04 · Display-number anchor -->
+  <section class="slide" data-screen-label="04 数字锚点">
+    <div class="letterhead"><span><strong>织云</strong> Zhiyun · Annual Letter</span><span>一 · 数字之外</span></div>
+    <div style="margin:auto 0; text-align:center;">
+      <p style="font-family:var(--sans); font-size:17px; font-weight:500; letter-spacing:0.26em; text-transform:uppercase; color:var(--ink-45); margin:0 0 8px;">全年经由织云交付的设计合同额</p>
+      <p class="num" style="font-family:var(--serif); font-size:252px; font-weight:500; line-height:1.16; color:var(--accent); margin:0;">¥48.6 亿</p>
+      <p style="font-family:var(--serif); font-size:36px; font-weight:500; margin:18px 0 0;">同比增长 <span class="hl num">62%</span>，其中四成来自三线以下城市的团队</p>
+      <p class="footnote" style="margin-top:26px;">口径：2025 年 1 月 1 日至 12 月 31 日，平台内签约并完成验收的合同总额。</p>
+    </div>
+    <div class="footer"><span>Anchor</span><span>织云 · 二〇二五年度信</span></div>
+  </section>
+
+  <!-- 05 · Prose + inline data cards -->
+  <section class="slide" data-screen-label="05 散文与数据卡">
+    <div class="letterhead"><span><strong>织云</strong> Zhiyun · Annual Letter</span><span>二 · 我们学到的三件事</span></div>
+    <div class="kicker">二 · 我们学到的三件事</div>
+    <h2 style="font-size:64px; margin-top:30px;">把工具做「轻」，把承诺做重</h2>
+    <div style="display:flex; gap:72px; margin-top:44px;">
+      <div class="measure" style="max-width:920px;">
+        <p class="prose">第一件事关于<strong>耐心</strong>。我们砍掉了路线图上四十一个「看起来很聪明」的功能，只留下九个，然后把每一个都做到能写进合同里。第二件事关于<strong>删减</strong>：今年织云的界面比去年少了 23% 的按钮，客服工单却下降了三分之一——少，经常就是多。</p>
+        <p class="prose">第三件事最难：<strong>承认慢</strong>。设计交付不是流水线，验收的分歧、返工的反复，都是创作的一部分。我们不再试图用倒计时去「优化」它，而是把分歧本身变成了产品里可以被记录、被回看的对象。</p>
+      </div>
+      <div style="flex:1; display:flex; flex-direction:column; gap:24px;">
+        <div class="data-card">
+          <p class="label">界面按钮数</p>
+          <p class="value num">−23%</p>
+          <p class="caption">删减是今年最贵的功能。</p>
+        </div>
+        <div class="data-card" style="border-top-color:var(--hairline);">
+          <p class="label">客服工单</p>
+          <p class="value num">−33%</p>
+          <p class="caption">少，经常就是多。</p>
+        </div>
+        <div class="data-card" style="border-top-color:var(--hairline);">
+          <p class="label">发版节奏</p>
+          <p class="value num">12 次<span style="font-size:30px; color:var(--ink-45);"> / 年</span></p>
+          <p class="caption">从每周一次放慢到每月一次。</p>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><span>Prose · Cards</span><span>织云 · 二〇二五年度信</span></div>
+  </section>
+
+  <!-- 06 · Chart: minimal SVG line -->
+  <section class="slide" data-screen-label="06 图表">
+    <div class="letterhead"><span><strong>织云</strong> Zhiyun · Annual Letter</span><span>三 · 平台与生态</span></div>
+    <div class="kicker">三 · 平台与生态</div>
+    <h2 style="font-size:64px; margin-top:30px;">三年，三万七千个团队</h2>
+    <div style="display:flex; gap:80px; margin-top:48px; align-items:flex-start;">
+      <svg width="1020" height="440" viewBox="0 0 1020 440" role="img" aria-label="活跃团队数 2023 至 2025 年增长曲线">
+        <line x1="40" y1="400" x2="1000" y2="400" stroke="rgba(35,32,54,0.18)" stroke-width="1"/>
+        <path d="M 80 376 C 260 366, 360 330, 520 252 C 680 174, 820 96, 940 56" fill="none" stroke="#635BFF" stroke-width="4" stroke-linecap="round"/>
+        <path d="M 80 376 C 260 366, 360 330, 520 252 C 680 174, 820 96, 940 56 L 940 400 L 80 400 Z" fill="rgba(99,91,255,0.06)" stroke="none"/>
+        <circle cx="80" cy="376" r="7" fill="#FBFAF8" stroke="#635BFF" stroke-width="3"/>
+        <circle cx="520" cy="252" r="7" fill="#FBFAF8" stroke="#635BFF" stroke-width="3"/>
+        <circle cx="940" cy="56" r="8" fill="#635BFF"/>
+        <text x="80" y="340" text-anchor="middle" font-family="Inter, sans-serif" font-size="20" fill="rgba(35,32,54,0.72)" style="font-variant-numeric:tabular-nums;">4,300</text>
+        <text x="520" y="216" text-anchor="middle" font-family="Inter, sans-serif" font-size="20" fill="rgba(35,32,54,0.72)" style="font-variant-numeric:tabular-nums;">16,900</text>
+        <text x="940" y="28" text-anchor="middle" font-family="Inter, sans-serif" font-size="24" font-weight="600" fill="#635BFF" style="font-variant-numeric:tabular-nums;">37,412</text>
+        <text x="80" y="430" text-anchor="middle" font-family="Inter, sans-serif" font-size="18" fill="rgba(35,32,54,0.46)">2023</text>
+        <text x="520" y="430" text-anchor="middle" font-family="Inter, sans-serif" font-size="18" fill="rgba(35,32,54,0.46)">2024</text>
+        <text x="940" y="430" text-anchor="middle" font-family="Inter, sans-serif" font-size="18" fill="rgba(35,32,54,0.46)">2025</text>
+      </svg>
+      <div style="width:480px; padding-top:24px;">
+        <p class="prose" style="font-size:24px;">曲线本身并不稀奇，稀奇的是它的构成：今年新增团队里，<strong>每三个就有一个</strong>来自老用户的口头推荐。我们没有增长团队，三万七千个团队就是增长团队。</p>
+        <p class="footnote">活跃团队：当月有至少一次交付行为的付费团队。年末值。</p>
+      </div>
+    </div>
+    <div class="footer"><span>Figure 01</span><span>织云 · 二〇二五年度信</span></div>
+  </section>
+
+  <!-- 07 · Quote -->
+  <section class="slide" data-screen-label="07 引语">
+    <div class="letterhead"><span><strong>织云</strong> Zhiyun · Annual Letter</span><span>三 · 平台与生态</span></div>
+    <div style="margin:auto 0; max-width:1420px; position:relative;">
+      <span aria-hidden="true" style="position:absolute; top:-150px; left:-40px; font-family:var(--serif); font-size:420px; line-height:1; color:var(--accent-soft); user-select:none;">“</span>
+      <p style="font-family:var(--serif); font-size:68px; font-weight:500; line-height:1.62; margin:0; position:relative;">织云没有让我们跑得更快，它让我们终于敢<span class="hl">慢下来</span>，把东西做对。</p>
+      <p style="font-family:var(--sans); font-size:17px; font-weight:500; letter-spacing:0.22em; text-transform:uppercase; color:var(--ink-45); margin:52px 0 0;">—— 沈一舟 · 山月工作室 设计负责人</p>
+    </div>
+    <div class="footer"><span>Quote</span><span>织云 · 二〇二五年度信</span></div>
+  </section>
+
+  <!-- 08 · Metrics panorama -->
+  <section class="slide" data-screen-label="08 数据全景">
+    <div class="letterhead"><span><strong>织云</strong> Zhiyun · Annual Letter</span><span>Appendix · 年度数字</span></div>
+    <div class="kicker">年度数字 · By the Numbers</div>
+    <h2 style="font-size:64px; margin-top:30px;">把一年放进九个格子里</h2>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:26px; margin-top:48px;">
+      <div class="data-card">
+        <p class="label">活跃团队</p>
+        <p class="value num">37,412</p>
+        <p class="caption">同比 +121%</p>
+      </div>
+      <div class="data-card" style="border-top-color:var(--hairline);">
+        <p class="label">交付合同额</p>
+        <p class="value num">¥48.6 亿</p>
+        <p class="caption">同比 +62%</p>
+      </div>
+      <div class="data-card" style="border-top-color:var(--hairline);">
+        <p class="label">净续约率</p>
+        <p class="value num"><em>96.4%</em></p>
+        <p class="caption">+3.1 pt</p>
+      </div>
+      <div class="data-card" style="border-top-color:var(--hairline);">
+        <p class="label">全员人数</p>
+        <p class="value num">214 人</p>
+        <p class="caption">人均服务 175 个团队</p>
+      </div>
+      <div class="data-card" style="border-top-color:var(--hairline);">
+        <p class="label">年度发版</p>
+        <p class="value num">12 次</p>
+        <p class="caption">每一次都写了致用户的发版信</p>
+      </div>
+      <div class="data-card" style="border-top-color:var(--hairline);">
+        <p class="label">服务城市</p>
+        <p class="value num">289 座</p>
+        <p class="caption">最远的团队在喀什</p>
+      </div>
+    </div>
+    <p class="footnote" style="margin-top:34px;">以上数字均为 2025 自然年口径，经内部审计复核；合同额含税。详细口径见信末附录。</p>
+    <div class="footer"><span>By the Numbers</span><span>织云 · 二〇二五年度信</span></div>
+  </section>
+
+  <!-- 09 · Outlook prose -->
+  <section class="slide" data-screen-label="09 来年">
+    <div class="letterhead"><span><strong>织云</strong> Zhiyun · Annual Letter</span><span>四 · 致谢与来年</span></div>
+    <div class="kicker">四 · 致谢与来年</div>
+    <h2 style="font-size:64px; margin-top:30px;">第四年，我们只做一件事</h2>
+    <div class="measure" style="margin-top:44px;">
+      <p class="prose">二〇二六年，织云只有一个目标：让平台上每一个团队的<strong>验收周期中位数</strong>从十一天降到七天。不是靠催促，而是靠把模糊的需求在动工之前就变得清晰——我们会把今年沉淀的四千多份验收纪要，变成每个行业都能直接取用的交付标准。</p>
+      <p class="prose">要感谢的人太多。感谢三万七千个团队把一年里最重要的项目放在织云上；感谢年初那封措辞严厉的用户来信，它让我们砍掉了整条做了一半的产品线；也感谢两百一十四位同事，在一个鼓励喧哗的年代里，安静地把一件小事做了三年。</p>
+    </div>
+    <div class="footer"><span>Outlook</span><span>织云 · 二〇二五年度信</span></div>
+  </section>
+
+  <!-- 10 · Signed closing -->
+  <section class="slide" data-screen-label="10 署名">
+    <div class="letterhead"><span><strong>织云</strong> Zhiyun · Annual Letter</span><span>Fin</span></div>
+    <div style="margin:auto 0;">
+      <h2 style="font-size:96px; line-height:1.3;">明年这个时候，<br>我们<span class="hl">再写信给你</span>。</h2>
+      <p class="en-sub" style="font-size:30px; margin-top:36px;">With patience, and with <b>gratitude</b>.</p>
+      <div style="margin-top:64px; border-top:1px solid var(--hairline); max-width:560px; padding-top:24px;">
+        <p style="font-family:var(--serif); font-style:italic; font-size:34px; margin:0;">织云全体同事 敬上</p>
+        <p class="footnote" style="margin-top:10px;">二〇二六年一月 · 于杭州</p>
+      </div>
+      <div style="display:inline-flex; align-items:center; gap:18px; margin-top:60px; border:1px solid var(--hairline); border-radius:999px; padding:16px 40px; font-family:var(--sans); font-size:16px; letter-spacing:0.14em; color:var(--ink-45);">
+        <span>←</span><span>→</span><span>SPACE</span><span style="color:var(--accent);">翻页</span><span>·</span><span>#/N</span><span style="color:var(--accent);">跳页</span>
+      </div>
+    </div>
+    <div class="footer"><span>Closing</span><span>织云 · github.com/alchaincyf/huashu-design</span></div>
+  </section>
+
+</div>
+
+<div id="counter">01 / 10</div>
+<div id="hint">←/→ · SPACE</div>
+
+<script>
+(function () {
+  var stage = document.getElementById('stage');
+  var counter = document.getElementById('counter');
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var total = slides.length;
+  var current = 0;
+
+  // --- fit(): scale the fixed 1920×1080 canvas into the viewport (letterbox) ---
+  function fit() {
+    var s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+    stage.style.transform = 'translate(-50%, -50%) scale(' + s + ')';
+  }
+
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+
+  // --- go(i): activate slide i, sync counter + hash (#/N, 1-indexed) ---
+  function go(i, skipHash) {
+    current = Math.max(0, Math.min(total - 1, i));
+    for (var k = 0; k < total; k++) {
+      slides[k].classList.toggle('active', k === current);
+    }
+    counter.textContent = pad(current + 1) + ' / ' + pad(total);
+    if (!skipHash) {
+      var target = '#/' + (current + 1);
+      if (location.hash !== target) {
+        try { history.replaceState(null, '', target); }
+        catch (err) { location.hash = target; }
+      }
+    }
+  }
+
+  function fromHash() {
+    var m = location.hash.match(/^#\/(\d+)$/);
+    if (m) {
+      var n = parseInt(m[1], 10);
+      if (n >= 1 && n <= total) { go(n - 1, true); return; }
+    }
+    go(0, true);
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    switch (e.key) {
+      case 'ArrowRight':
+      case 'ArrowDown':
+      case ' ':
+      case 'PageDown':
+        e.preventDefault();
+        go(current + 1);
+        break;
+      case 'ArrowLeft':
+      case 'ArrowUp':
+      case 'PageUp':
+        e.preventDefault();
+        go(current - 1);
+        break;
+      case 'Home':
+        e.preventDefault();
+        go(0);
+        break;
+      case 'End':
+        e.preventDefault();
+        go(total - 1);
+        break;
+    }
+  });
+
+  // click right two-thirds → next, left third → previous
+  stage.addEventListener('click', function (e) {
+    var x = e.clientX;
+    if (x < window.innerWidth / 3) { go(current - 1); }
+    else { go(current + 1); }
+  });
+
+  window.addEventListener('hashchange', fromHash);
+  window.addEventListener('resize', fit);
+
+  fit();
+  fromHash();
+})();
+</script>
+</body>
+</html>

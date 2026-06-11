@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>素白 SOBLANC · 2026 品牌年度报告 — Luxe Whitespace</title>
+<style>
+  /* ============================================================
+     Luxe Whitespace · 奢华留白
+     Locked design tokens — re-theme by changing VALUES only.
+     70%+ whitespace, Inter 200–600, one warm gold (#D4A574),
+     hairline gradients, ultra-thin floating numerals.
+     Based on huashu-design ppt-build by 花叔 (alchaincyf).
+     ============================================================ */
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&display=swap');
+
+  :root {
+    --bg:       #FAFAF8;   /* warm off-white page             */
+    --ink:      #2A2A2A;   /* primary ink                     */
+    --gold:     #D4A574;   /* THE warm gold — the only accent */
+    --hairline: #E0DCD6;   /* gradient hairline separators    */
+    --rule:     #EEECE8;   /* horizontal section rules        */
+    --track:    #EEECEA;   /* comparison bar track            */
+    --bar:      #D8D5D0;   /* baseline / losing bar           */
+    --muted:    #888888;   /* metric names / strong captions  */
+    --soft:     #A0A09A;   /* subtitles                       */
+    --faint:    #B8B4AE;   /* tertiary captions               */
+    --ghost:    #C8C4BC;   /* brand text / source notes       */
+    --body:     #999999;   /* insight body copy               */
+    --sans: 'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    background: #EFEEEA;
+    font-family: var(--sans);
+    overflow: hidden;
+  }
+
+  /* ---- fixed 1920×1080 stage, letterboxed by fit() ---- */
+  #stage {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 1920px;
+    height: 1080px;
+    transform: translate(-50%, -50%) scale(1);
+    transform-origin: center center;
+    background: var(--bg);
+    box-shadow: 0 0 80px rgba(0,0,0,0.06);
+  }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: none;
+    background: var(--bg);
+    color: var(--ink);
+    overflow: hidden;
+    padding: 64px 96px 48px 96px;
+    flex-direction: column;
+  }
+  .slide.active { display: flex; }
+
+  /* ---- page chrome: eyebrow row + bottom brand mark ---- */
+  .top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+  }
+  .eyebrow {
+    font-size: 10px; font-weight: 400;
+    letter-spacing: 4px; text-transform: uppercase;
+    color: var(--faint);
+  }
+  .source-note {
+    font-size: 10px; font-weight: 300;
+    color: var(--ghost);
+    text-align: right; line-height: 1.6;
+  }
+
+  .bottom-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding-top: 24px;
+    margin-top: auto;
+  }
+  .insight-text {
+    font-size: 13px; font-weight: 300;
+    color: var(--body); line-height: 1.8;
+    max-width: 640px;
+  }
+  .insight-text strong { font-weight: 500; color: #666; }
+  .brand-mark { display: flex; align-items: center; gap: 16px; }
+  .brand-line { width: 32px; height: 1px; background: var(--gold); opacity: 0.6; }
+  .brand-text {
+    font-size: 10px; font-weight: 400;
+    letter-spacing: 3px; color: var(--ghost);
+    text-transform: uppercase;
+  }
+
+  /* ---- title block (hairline-ruled) ---- */
+  .title-area { padding-bottom: 24px; border-bottom: 1px solid var(--rule); }
+  .main-title {
+    font-size: 40px; font-weight: 200;
+    letter-spacing: -0.5px; line-height: 1.2;
+    color: var(--ink);
+  }
+  .main-title .mid { font-weight: 400; }
+  .main-title .gold-dot { color: var(--gold); font-weight: 300; font-size: 48px; }
+  .subtitle {
+    font-size: 14px; font-weight: 300;
+    color: var(--soft); margin-top: 8px;
+    letter-spacing: 0.3px;
+  }
+
+  /* ---- signature: vertical gradient hairline separators ---- */
+  .v-hairline {
+    width: 1px; align-self: stretch;
+    background: linear-gradient(to bottom, transparent, var(--hairline) 50%, transparent);
+  }
+
+  /* ---- ultra-thin floating numerals ---- */
+  .metric-value {
+    font-size: 120px; font-weight: 200;
+    letter-spacing: -4px; line-height: 1;
+    color: var(--ink);
+  }
+  .metric-value .dot { color: var(--gold); font-weight: 300; }
+  .metric-unit {
+    font-size: 28px; font-weight: 200;
+    color: var(--gold); vertical-align: super;
+    margin-left: 2px; opacity: 0.8;
+  }
+  .metric-name {
+    font-size: 12px; font-weight: 500;
+    letter-spacing: 2px; text-transform: uppercase;
+    color: var(--muted); margin-top: 16px; margin-bottom: 8px;
+  }
+  .metric-category {
+    font-size: 11px; font-weight: 300;
+    color: var(--faint); letter-spacing: 0.5px;
+  }
+
+  /* ---- hero data: metric card columns ---- */
+  .hero-data {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .metric-card {
+    flex: 1;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    position: relative;
+    padding: 32px 24px;
+  }
+  .metric-card::after {
+    content: '';
+    position: absolute; right: 0; top: 25%;
+    height: 50%; width: 1px;
+    background: linear-gradient(to bottom, transparent, var(--hairline) 50%, transparent);
+  }
+  .metric-card:last-child::after { display: none; }
+
+  /* ---- signature: gold-vs-grey comparison bars ---- */
+  .comparison-group { margin-top: 24px; width: 280px; }
+  .comp-row { display: flex; align-items: center; margin-bottom: 8px; gap: 8px; }
+  .comp-label {
+    font-size: 11px; font-weight: 400; color: #A8A4A0;
+    width: 80px; text-align: right; flex-shrink: 0;
+  }
+  .comp-track {
+    flex: 1; height: 2px; background: var(--track);
+    border-radius: 1px; position: relative; overflow: hidden;
+  }
+  .comp-fill { height: 100%; border-radius: 1px; background: var(--bar); }
+  .comp-fill.gold { background: var(--gold); height: 3px; margin-top: -0.5px; }
+  .comp-val {
+    font-size: 11px; font-weight: 500; color: #999;
+    width: 44px; flex-shrink: 0;
+  }
+  .comp-val.gold { color: var(--gold); }
+
+  /* ---- cover ---- */
+  .cover-body {
+    flex: 1; display: flex; flex-direction: column;
+    justify-content: center; align-items: flex-start;
+    position: relative;
+  }
+  .cover-title {
+    font-size: 104px; font-weight: 200;
+    letter-spacing: -2px; line-height: 1.15;
+    color: var(--ink);
+  }
+  .cover-title .gold-dot { color: var(--gold); font-weight: 300; }
+  .cover-sub {
+    font-size: 16px; font-weight: 300;
+    color: var(--soft); margin-top: 32px;
+    letter-spacing: 2px;
+  }
+  .cover-rule {
+    width: 64px; height: 1px; background: var(--gold);
+    opacity: 0.7; margin-top: 48px;
+  }
+  .cover-year {
+    position: absolute; right: 0; bottom: -24px;
+    font-size: 280px; font-weight: 200;
+    letter-spacing: -10px; line-height: 1;
+    color: var(--ink); opacity: 0.05;
+    pointer-events: none;
+  }
+
+  /* ---- contents ---- */
+  .toc { flex: 1; display: flex; flex-direction: column; justify-content: center; max-width: 1100px; }
+  .toc-row {
+    display: flex; align-items: baseline; gap: 48px;
+    padding: 26px 0; border-bottom: 1px solid var(--rule);
+  }
+  .toc-row:first-child { border-top: 1px solid var(--rule); }
+  .toc-num {
+    font-size: 32px; font-weight: 200;
+    color: var(--gold); width: 72px;
+    letter-spacing: -1px; flex-shrink: 0;
+  }
+  .toc-title { font-size: 22px; font-weight: 300; color: var(--ink); letter-spacing: 0.5px; }
+  .toc-desc { font-size: 12px; font-weight: 300; color: var(--faint); margin-left: auto; letter-spacing: 1px; }
+
+  /* ---- big number hero ---- */
+  .big-hero {
+    flex: 1; display: flex;
+    align-items: center; justify-content: center; gap: 96px;
+  }
+  .big-number {
+    font-size: 240px; font-weight: 200;
+    letter-spacing: -10px; line-height: 0.95;
+    color: var(--ink);
+  }
+  .big-number .dot { color: var(--gold); font-weight: 300; }
+  .big-number .unit {
+    font-size: 56px; font-weight: 200;
+    color: var(--gold); vertical-align: super; opacity: 0.8;
+    letter-spacing: 0;
+  }
+  .big-side { max-width: 380px; }
+  .big-side-label {
+    font-size: 12px; font-weight: 500;
+    letter-spacing: 3px; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 20px;
+  }
+  .big-side-text {
+    font-size: 15px; font-weight: 300;
+    color: var(--body); line-height: 2;
+  }
+  .big-side-text strong { font-weight: 500; color: #666; }
+  .big-side-rule { width: 40px; height: 1px; background: var(--gold); opacity: 0.6; margin-bottom: 20px; }
+
+  /* ---- horizontal channel bars (chart page) ---- */
+  .channel-list { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 40px; max-width: 1240px; margin: 0 auto; width: 100%; }
+  .channel-row { display: flex; align-items: center; gap: 32px; }
+  .channel-name { width: 200px; font-size: 15px; font-weight: 300; color: var(--ink); flex-shrink: 0; }
+  .channel-name small { display: block; font-size: 10px; font-weight: 400; letter-spacing: 2px; text-transform: uppercase; color: var(--faint); margin-top: 4px; }
+  .channel-track { flex: 1; height: 2px; background: var(--track); position: relative; }
+  .channel-fill { position: absolute; left: 0; top: 0; height: 2px; background: var(--bar); }
+  .channel-fill.gold { background: linear-gradient(to right, var(--gold), rgba(212,165,116,0.35)); height: 3px; top: -0.5px; }
+  .channel-val { width: 150px; text-align: right; font-size: 32px; font-weight: 200; letter-spacing: -1px; color: var(--ink); flex-shrink: 0; }
+  .channel-val .dot { color: var(--gold); font-weight: 300; }
+  .channel-val small { font-size: 12px; font-weight: 300; color: var(--faint); letter-spacing: 0; margin-left: 6px; }
+
+  /* ---- timeline ---- */
+  .timeline { flex: 1; display: flex; align-items: center; }
+  .tl-col {
+    flex: 1; position: relative;
+    padding: 0 40px;
+    display: flex; flex-direction: column; gap: 20px;
+  }
+  .tl-col::after {
+    content: '';
+    position: absolute; right: 0; top: 15%;
+    height: 70%; width: 1px;
+    background: linear-gradient(to bottom, transparent, var(--hairline) 50%, transparent);
+  }
+  .tl-col:last-child::after { display: none; }
+  .tl-year {
+    font-size: 88px; font-weight: 200;
+    letter-spacing: -3px; line-height: 1;
+  }
+  .tl-col:nth-child(1) .tl-year { color: var(--ghost); }
+  .tl-col:nth-child(2) .tl-year { color: var(--faint); }
+  .tl-col:nth-child(3) .tl-year { color: var(--muted); }
+  .tl-col:nth-child(4) .tl-year { color: var(--ink); }
+  .tl-col:nth-child(4) .tl-year .dot { color: var(--gold); font-weight: 300; }
+  .tl-title { font-size: 16px; font-weight: 500; color: var(--ink); letter-spacing: 0.5px; }
+  .tl-text { font-size: 13px; font-weight: 300; color: var(--body); line-height: 1.9; }
+  .tl-rule { width: 32px; height: 1px; background: var(--gold); opacity: 0.6; }
+
+  /* ---- quote ---- */
+  .quote-body {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+  }
+  .quote-hairline { width: 1px; height: 88px; background: linear-gradient(to bottom, transparent, var(--gold)); opacity: 0.7; }
+  .quote-text {
+    font-size: 52px; font-weight: 200;
+    line-height: 1.6; letter-spacing: 0.5px;
+    color: var(--ink); max-width: 1240px;
+    margin: 56px 0;
+  }
+  .quote-text .gold { color: var(--gold); font-weight: 300; }
+  .quote-attr {
+    font-size: 12px; font-weight: 400;
+    letter-spacing: 3px; text-transform: uppercase;
+    color: var(--faint);
+  }
+  .quote-attr strong { font-weight: 500; color: var(--muted); }
+
+  /* ---- two-column before / after ---- */
+  .duo { flex: 1; display: flex; align-items: stretch; gap: 0; }
+  .duo-col { flex: 1; padding: 48px 64px; display: flex; flex-direction: column; justify-content: center; }
+  .duo-label {
+    font-size: 11px; font-weight: 500;
+    letter-spacing: 3px; text-transform: uppercase;
+    color: var(--faint); margin-bottom: 36px;
+  }
+  .duo-col.after .duo-label { color: var(--gold); }
+  .duo-item { margin-bottom: 36px; }
+  .duo-item:last-child { margin-bottom: 0; }
+  .duo-num { font-size: 56px; font-weight: 200; letter-spacing: -2px; line-height: 1; color: var(--ghost); }
+  .duo-col.after .duo-num { color: var(--ink); }
+  .duo-col.after .duo-num .dot { color: var(--gold); font-weight: 300; }
+  .duo-num .unit { font-size: 20px; font-weight: 200; vertical-align: super; margin-left: 2px; }
+  .duo-col.after .duo-num .unit { color: var(--gold); opacity: 0.8; }
+  .duo-cap { font-size: 12px; font-weight: 400; letter-spacing: 1px; color: var(--soft); margin-top: 10px; }
+
+  /* ---- stats grid 2×2 ---- */
+  .stats-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    align-items: center;
+    position: relative;
+  }
+  .stats-grid::before {
+    content: '';
+    position: absolute; left: 50%; top: 8%;
+    height: 84%; width: 1px;
+    background: linear-gradient(to bottom, transparent, var(--hairline) 50%, transparent);
+  }
+  .stats-grid::after {
+    content: '';
+    position: absolute; top: 50%; left: 8%;
+    width: 84%; height: 1px;
+    background: linear-gradient(to right, transparent, var(--hairline) 50%, transparent);
+  }
+  .stat-cell { text-align: center; padding: 32px; }
+  .stat-num {
+    font-size: 96px; font-weight: 200;
+    letter-spacing: -3px; line-height: 1;
+    color: var(--ink);
+  }
+  .stat-num .dot { color: var(--gold); font-weight: 300; }
+  .stat-num .unit { font-size: 26px; font-weight: 200; color: var(--gold); vertical-align: super; opacity: 0.8; }
+  .stat-cap {
+    font-size: 11px; font-weight: 500;
+    letter-spacing: 2.5px; text-transform: uppercase;
+    color: var(--muted); margin-top: 18px;
+  }
+  .stat-sub { font-size: 11px; font-weight: 300; color: var(--faint); margin-top: 6px; }
+
+  /* ---- closing ---- */
+  .closing-body {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+  }
+  .closing-title {
+    font-size: 120px; font-weight: 200;
+    letter-spacing: -2px; line-height: 1.2;
+    color: var(--ink);
+  }
+  .closing-title .gold-dot { color: var(--gold); font-weight: 300; }
+  .closing-sub {
+    font-size: 14px; font-weight: 300;
+    color: var(--soft); margin-top: 40px;
+    letter-spacing: 3px; text-transform: uppercase;
+  }
+  .closing-rule { width: 64px; height: 1px; background: var(--gold); opacity: 0.7; margin-top: 48px; }
+
+  /* ---- deck runtime: slide-dot indicator / counter / key hint ---- */
+  #dots {
+    position: absolute; top: 70px; right: 96px;
+    display: flex; gap: 6px; align-items: center;
+    z-index: 30;
+  }
+  .slide-dot {
+    width: 4px; height: 4px; border-radius: 50%;
+    background: var(--hairline);
+    transition: all 0.25s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .slide-dot.active { background: var(--gold); width: 16px; border-radius: 2px; }
+
+  #counter {
+    position: absolute; right: 32px; bottom: 26px;
+    z-index: 30;
+    font-size: 11px; font-weight: 300;
+    letter-spacing: 2px; color: var(--faint);
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    padding: 6px 16px;
+    background: rgba(250,250,248,0.9);
+  }
+  #counter b { color: var(--gold); font-weight: 400; }
+
+  #keyhint {
+    position: absolute; left: 32px; bottom: 26px;
+    z-index: 30;
+    font-size: 10px; font-weight: 300;
+    letter-spacing: 2px; text-transform: uppercase;
+    color: var(--ghost);
+  }
+  #keyhint b { color: var(--faint); font-weight: 400; }
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <!-- ① 封面 -->
+  <section class="slide active" data-screen-label="01 封面">
+    <div class="top-row">
+      <div class="eyebrow">Soblanc Maison de Parfum</div>
+      <div class="source-note">Annual Brand Report<br>2026 · Confidential</div>
+    </div>
+    <div class="cover-body">
+      <div class="cover-year">26</div>
+      <div class="cover-title">留白，是最贵的<br>设计语言<span class="gold-dot">。</span></div>
+      <div class="cover-sub">素白香氛工作室 · 2026 品牌年度报告</div>
+      <div class="cover-rule"></div>
+    </div>
+    <div class="bottom-section">
+      <div class="insight-text">从一间 38 平方米的上海工作室，到三座城市的五家精品空间——素白用六年时间证明：<strong>克制本身就是一种增长策略</strong>。</div>
+      <div class="brand-mark"><div class="brand-line"></div><span class="brand-text">Soblanc</span></div>
+    </div>
+  </section>
+
+  <!-- ② 目录 -->
+  <section class="slide" data-screen-label="02 目录">
+    <div class="top-row">
+      <div class="eyebrow">Contents</div>
+      <div class="source-note">2026 Annual Report<br>8 Chapters</div>
+    </div>
+    <div class="title-area">
+      <div class="main-title">本年度报告<span class="mid">目录</span><span class="gold-dot">.</span></div>
+      <div class="subtitle">六年品牌沉淀，一年关键跃迁——以下为八个章节的阅读地图</div>
+    </div>
+    <div class="toc">
+      <div class="toc-row"><span class="toc-num">01</span><span class="toc-title">年度关键数字</span><span class="toc-desc">One Number</span></div>
+      <div class="toc-row"><span class="toc-num">02</span><span class="toc-title">三项核心指标全景</span><span class="toc-desc">Key Metrics</span></div>
+      <div class="toc-row"><span class="toc-num">03</span><span class="toc-title">渠道营收构成</span><span class="toc-desc">Channels</span></div>
+      <div class="toc-row"><span class="toc-num">04</span><span class="toc-title">品牌六年里程</span><span class="toc-desc">Timeline</span></div>
+      <div class="toc-row"><span class="toc-num">05</span><span class="toc-title">主理人的话</span><span class="toc-desc">Letter</span></div>
+      <div class="toc-row"><span class="toc-num">06</span><span class="toc-title">会员体系重塑前后</span><span class="toc-desc">Before / After</span></div>
+      <div class="toc-row"><span class="toc-num">07</span><span class="toc-title">2027 目标矩阵</span><span class="toc-desc">Targets</span></div>
+    </div>
+    <div class="bottom-section">
+      <div class="insight-text">建议阅读顺序：先看数字，再读故事。</div>
+      <div class="brand-mark"><div class="brand-line"></div><span class="brand-text">Soblanc</span></div>
+    </div>
+  </section>
+
+  <!-- ③ 大数字页 -->
+  <section class="slide" data-screen-label="03 年度关键数字">
+    <div class="top-row">
+      <div class="eyebrow">Chapter 01 · One Number</div>
+      <div class="source-note">「沉香之庭」限定系列<br>2026.09 发售数据</div>
+    </div>
+    <div class="big-hero">
+      <div class="big-number">98<span class="dot">.</span>2<span class="unit">%</span></div>
+      <div class="big-side">
+        <div class="big-side-rule"></div>
+        <div class="big-side-label">限定系列首周售罄率</div>
+        <div class="big-side-text">九月发售的「沉香之庭」限定系列，<strong>1,200 套于七天内售出 1,178 套</strong>，未投放任何付费广告。预约名单中 64% 来自老客转介——这是品牌六年来最安静、也最确定的一次胜利。</div>
+      </div>
+    </div>
+    <div class="bottom-section">
+      <div class="insight-text">数据来源：素白 DTC 商城后台 + 五家精品空间 POS 汇总，统计周期 2026.09.12–09.18。</div>
+      <div class="brand-mark"><div class="brand-line"></div><span class="brand-text">Soblanc</span></div>
+    </div>
+  </section>
+
+  <!-- ④ 三指标数据剧场（上游母版） -->
+  <section class="slide" data-screen-label="04 核心指标">
+    <div class="top-row">
+      <div class="eyebrow">Chapter 02 · Key Metrics</div>
+      <div class="source-note">对照口径：高端香氛行业均值<br>第三方零售咨询年报 2026</div>
+    </div>
+    <div class="title-area">
+      <div class="main-title">三项核心指标<span class="mid">全面超越行业</span><span class="gold-dot">。</span></div>
+      <div class="subtitle">复购、口碑与增长——慢品牌在快行业里跑出的三条金线</div>
+    </div>
+    <div class="hero-data">
+      <div class="metric-card">
+        <div class="metric-value">68<span class="dot">.</span>4<span class="metric-unit">%</span></div>
+        <div class="metric-name">年度复购率</div>
+        <div class="metric-category">Repurchase Rate</div>
+        <div class="comparison-group">
+          <div class="comp-row"><span class="comp-label">素白</span><div class="comp-track"><div class="comp-fill gold" style="width: 100%;"></div></div><span class="comp-val gold">68.4%</span></div>
+          <div class="comp-row"><span class="comp-label">行业均值</span><div class="comp-track"><div class="comp-fill" style="width: 45%;"></div></div><span class="comp-val">30.8%</span></div>
+          <div class="comp-row"><span class="comp-label">上年素白</span><div class="comp-track"><div class="comp-fill" style="width: 81%;"></div></div><span class="comp-val">55.2%</span></div>
+        </div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">82</div>
+        <div class="metric-name">净推荐值 NPS</div>
+        <div class="metric-category">Net Promoter Score</div>
+        <div class="comparison-group">
+          <div class="comp-row"><span class="comp-label">素白</span><div class="comp-track"><div class="comp-fill gold" style="width: 100%;"></div></div><span class="comp-val gold">82</span></div>
+          <div class="comp-row"><span class="comp-label">行业均值</span><div class="comp-track"><div class="comp-fill" style="width: 50%;"></div></div><span class="comp-val">41</span></div>
+          <div class="comp-row"><span class="comp-label">上年素白</span><div class="comp-track"><div class="comp-fill" style="width: 91%;"></div></div><span class="comp-val">75</span></div>
+        </div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">47<span class="dot">.</span>6<span class="metric-unit">%</span></div>
+        <div class="metric-name">营收同比增长</div>
+        <div class="metric-category">YoY Revenue Growth</div>
+        <div class="comparison-group">
+          <div class="comp-row"><span class="comp-label">素白</span><div class="comp-track"><div class="comp-fill gold" style="width: 100%;"></div></div><span class="comp-val gold">47.6%</span></div>
+          <div class="comp-row"><span class="comp-label">行业均值</span><div class="comp-track"><div class="comp-fill" style="width: 26%;"></div></div><span class="comp-val">12.3%</span></div>
+          <div class="comp-row"><span class="comp-label">上年素白</span><div class="comp-track"><div class="comp-fill" style="width: 66%;"></div></div><span class="comp-val">31.5%</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="bottom-section">
+      <div class="insight-text">素白在<strong>零付费投放</strong>的前提下，复购率达到行业均值的 <strong>2.2 倍</strong>——产品与空间体验本身，就是最有效的获客渠道。</div>
+      <div class="brand-mark"><div class="brand-line"></div><span class="brand-text">Soblanc</span></div>
+    </div>
+  </section>
+
+  <!-- ⑤ 渠道构成 -->
+  <section class="slide" data-screen-label="05 渠道构成">
+    <div class="top-row">
+      <div class="eyebrow">Chapter 03 · Revenue by Channel</div>
+      <div class="source-note">2026 全年营收 ¥8,640 万<br>四大渠道拆分</div>
+    </div>
+    <div class="title-area">
+      <div class="main-title">渠道构成：<span class="mid">私域成为第一增长极</span><span class="gold-dot">。</span></div>
+      <div class="subtitle">老客社群贡献近半营收——金色为本年度增速最高的渠道</div>
+    </div>
+    <div class="channel-list">
+      <div class="channel-row">
+        <div class="channel-name">私域会员商城<small>Private Domain</small></div>
+        <div class="channel-track"><div class="channel-fill gold" style="width: 100%;"></div></div>
+        <div class="channel-val">46<span class="dot">.</span>2<small>%</small></div>
+      </div>
+      <div class="channel-row">
+        <div class="channel-name">精品空间零售<small>Boutique Retail</small></div>
+        <div class="channel-track"><div class="channel-fill" style="width: 68%;"></div></div>
+        <div class="channel-val">31<span class="dot">.</span>4<small>%</small></div>
+      </div>
+      <div class="channel-row">
+        <div class="channel-name">高端百货专柜<small>Department Store</small></div>
+        <div class="channel-track"><div class="channel-fill" style="width: 32%;"></div></div>
+        <div class="channel-val">14<span class="dot">.</span>8<small>%</small></div>
+      </div>
+      <div class="channel-row">
+        <div class="channel-name">跨境与酒店联名<small>Cross-border &amp; Hotel</small></div>
+        <div class="channel-track"><div class="channel-fill" style="width: 16%;"></div></div>
+        <div class="channel-val">7<span class="dot">.</span>6<small>%</small></div>
+      </div>
+    </div>
+    <div class="bottom-section">
+      <div class="insight-text">私域渠道同比增长 <strong>+86%</strong>，且客单价（¥1,680）高于全渠道均值 22%——<strong>最贵的客人，恰恰来自最安静的渠道</strong>。</div>
+      <div class="brand-mark"><div class="brand-line"></div><span class="brand-text">Soblanc</span></div>
+    </div>
+  </section>
+
+  <!-- ⑥ 时间线 -->
+  <section class="slide" data-screen-label="06 品牌里程">
+    <div class="top-row">
+      <div class="eyebrow">Chapter 04 · Timeline</div>
+      <div class="source-note">2023 — 2026<br>四年关键节点</div>
+    </div>
+    <div class="title-area">
+      <div class="main-title">慢，<span class="mid">是我们走得最快的方式</span><span class="gold-dot">。</span></div>
+      <div class="subtitle">从单一工作室到五家空间——每一步都比计划晚，却都比预期好</div>
+    </div>
+    <div class="timeline">
+      <div class="tl-col">
+        <div class="tl-year">23</div>
+        <div class="tl-rule"></div>
+        <div class="tl-title">起点</div>
+        <div class="tl-text">上海安福路 38㎡ 工作室开业，首年仅推出三款香薰，营收 ¥410 万。</div>
+      </div>
+      <div class="tl-col">
+        <div class="tl-year">24</div>
+        <div class="tl-rule"></div>
+        <div class="tl-title">立住</div>
+        <div class="tl-text">「素白十二时辰」系列获日本 Good Design 提名，复购率首次突破 40%。</div>
+      </div>
+      <div class="tl-col">
+        <div class="tl-year">25</div>
+        <div class="tl-rule"></div>
+        <div class="tl-title">扩张</div>
+        <div class="tl-text">杭州、成都精品空间落地；私域会员破 3 万，营收 ¥5,850 万。</div>
+      </div>
+      <div class="tl-col">
+        <div class="tl-year">26<span class="dot">.</span></div>
+        <div class="tl-rule"></div>
+        <div class="tl-title">跃迁</div>
+        <div class="tl-text">限定系列七天售罄，营收 ¥8,640 万，五家空间全部实现单店盈利。</div>
+      </div>
+    </div>
+    <div class="bottom-section">
+      <div class="insight-text">四年间我们拒绝了 11 次联名邀约和 3 轮机构融资——<strong>节奏，是品牌最重要的资产</strong>。</div>
+      <div class="brand-mark"><div class="brand-line"></div><span class="brand-text">Soblanc</span></div>
+    </div>
+  </section>
+
+  <!-- ⑦ 引用页 -->
+  <section class="slide" data-screen-label="07 主理人的话">
+    <div class="top-row">
+      <div class="eyebrow">Chapter 05 · Letter</div>
+      <div class="source-note">主理人年度致辞<br>节选</div>
+    </div>
+    <div class="quote-body">
+      <div class="quote-hairline"></div>
+      <div class="quote-text">香气是看不见的建筑，<br>而留白，是我们为它<span class="gold">保留的天井</span>。</div>
+      <div class="quote-attr"><strong>沈一白</strong> · 素白香氛工作室 创始人 &amp; 首席调香师</div>
+    </div>
+    <div class="bottom-section">
+      <div class="insight-text">全文收录于《素白六年：一间工作室的克制实验》内部刊物。</div>
+      <div class="brand-mark"><div class="brand-line"></div><span class="brand-text">Soblanc</span></div>
+    </div>
+  </section>
+
+  <!-- ⑧ 双栏对照 -->
+  <section class="slide" data-screen-label="08 会员体系重塑">
+    <div class="top-row">
+      <div class="eyebrow">Chapter 06 · Membership Reform</div>
+      <div class="source-note">改版周期 2026.03–2026.06<br>口径：改版前后各 90 天</div>
+    </div>
+    <div class="title-area">
+      <div class="main-title">会员体系重塑：<span class="mid">删掉一半规则之后</span><span class="gold-dot">。</span></div>
+      <div class="subtitle">从积分商城到「无层级·只有礼遇」——做减法带来的四组对照</div>
+    </div>
+    <div class="duo">
+      <div class="duo-col">
+        <div class="duo-label">改版前 · Before</div>
+        <div class="duo-item"><div class="duo-num">38<span class="unit">%</span></div><div class="duo-cap">会员季度活跃率</div></div>
+        <div class="duo-item"><div class="duo-num">¥1,210</div><div class="duo-cap">会员年均消费</div></div>
+        <div class="duo-item"><div class="duo-num">5<span class="unit">级</span></div><div class="duo-cap">会员等级与 27 条积分规则</div></div>
+      </div>
+      <div class="v-hairline"></div>
+      <div class="duo-col after">
+        <div class="duo-label">改版后 · After</div>
+        <div class="duo-item"><div class="duo-num">61<span class="dot">.</span>5<span class="unit">%</span></div><div class="duo-cap">会员季度活跃率 · +23.5pt</div></div>
+        <div class="duo-item"><div class="duo-num">¥1,980</div><div class="duo-cap">会员年均消费 · +63.6%</div></div>
+        <div class="duo-item"><div class="duo-num">0<span class="unit">级</span></div><div class="duo-cap">无层级，仅 4 项不变的礼遇</div></div>
+      </div>
+    </div>
+    <div class="bottom-section">
+      <div class="insight-text">规则越少，信任越多。改版后客服咨询量下降 <strong>41%</strong>，而会员主动转介率上升 <strong>2.4 倍</strong>。</div>
+      <div class="brand-mark"><div class="brand-line"></div><span class="brand-text">Soblanc</span></div>
+    </div>
+  </section>
+
+  <!-- ⑨ 目标矩阵 -->
+  <section class="slide" data-screen-label="09 2027 目标">
+    <div class="top-row">
+      <div class="eyebrow">Chapter 07 · Targets 2027</div>
+      <div class="source-note">董事会已审议通过<br>2026.12</div>
+    </div>
+    <div class="title-area">
+      <div class="main-title">2027：<span class="mid">四个克制的数字</span><span class="gold-dot">。</span></div>
+      <div class="subtitle">不追风口，只立标尺——明年我们仍然只做四件事</div>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-cell">
+        <div class="stat-num">¥1<span class="dot">.</span>2<span class="unit">亿</span></div>
+        <div class="stat-cap">年度营收目标</div>
+        <div class="stat-sub">同比 +38.9%，仍不开放加盟</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-num">7<span class="unit">家</span></div>
+        <div class="stat-cap">精品空间总数</div>
+        <div class="stat-sub">新增北京、深圳各一家</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-num">72<span class="dot">.</span>0<span class="unit">%</span></div>
+        <div class="stat-cap">复购率目标</div>
+        <div class="stat-sub">继续保持零付费投放</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-num">2<span class="unit">个</span></div>
+        <div class="stat-cap">全年新品系列上限</div>
+        <div class="stat-sub">少发布，发布即完整</div>
+      </div>
+    </div>
+    <div class="bottom-section">
+      <div class="insight-text">四个数字之外的一切机会，默认回答都是<strong>「不」</strong>。</div>
+      <div class="brand-mark"><div class="brand-line"></div><span class="brand-text">Soblanc</span></div>
+    </div>
+  </section>
+
+  <!-- ⑩ 结尾 -->
+  <section class="slide" data-screen-label="10 结尾">
+    <div class="top-row">
+      <div class="eyebrow">Soblanc Maison de Parfum</div>
+      <div class="source-note">Annual Brand Report<br>2026 · Fin</div>
+    </div>
+    <div class="closing-body">
+      <div class="closing-title">少，即是奢<span class="gold-dot">。</span></div>
+      <div class="closing-sub">Less is Luxury</div>
+      <div class="closing-rule"></div>
+    </div>
+    <div class="bottom-section">
+      <div class="insight-text">素白香氛工作室 · 上海 杭州 成都 · hello@soblanc.example</div>
+      <div class="brand-mark"><div class="brand-line"></div><span class="brand-text">Soblanc</span></div>
+    </div>
+  </section>
+
+  <div id="dots"></div>
+  <div id="counter">01 <b>/</b> 10</div>
+  <div id="keyhint"><b>← →</b> Space 翻页 · <b>#/N</b> 直达</div>
+</div>
+
+<script>
+(function () {
+  var stage = document.getElementById('stage');
+  var counter = document.getElementById('counter');
+  var dotsWrap = document.getElementById('dots');
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var total = slides.length;
+  var current = 0;
+  var dots = [];
+
+  // build the gold slide-dot indicator (signature device, top-right)
+  for (var d = 0; d < total; d++) {
+    var dot = document.createElement('span');
+    dot.className = 'slide-dot';
+    dotsWrap.appendChild(dot);
+    dots.push(dot);
+  }
+
+  // fit(): scale the fixed 1920×1080 canvas into the viewport (letterbox)
+  function fit() {
+    var s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+    stage.style.transform = 'translate(-50%, -50%) scale(' + s + ')';
+  }
+
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+
+  // go(i): activate slide i, sync dots + counter + hash (#/N, 1-indexed)
+  function go(i, skipHash) {
+    current = Math.max(0, Math.min(total - 1, i));
+    for (var k = 0; k < total; k++) {
+      slides[k].classList.toggle('active', k === current);
+      dots[k].classList.toggle('active', k === current);
+    }
+    counter.innerHTML = pad(current + 1) + ' <b>/</b> ' + pad(total);
+    if (!skipHash) {
+      var target = '#/' + (current + 1);
+      if (location.hash !== target) {
+        try { history.replaceState(null, '', target); }
+        catch (err) { location.hash = target; }
+      }
+    }
+  }
+
+  function fromHash() {
+    var m = location.hash.match(/^#\/(\d+)$/);
+    if (m) {
+      var n = parseInt(m[1], 10);
+      if (n >= 1 && n <= total) { go(n - 1, true); return; }
+    }
+    go(0, true);
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    switch (e.key) {
+      case 'ArrowRight':
+      case 'ArrowDown':
+      case ' ':
+      case 'PageDown':
+        e.preventDefault();
+        go(current + 1);
+        break;
+      case 'ArrowLeft':
+      case 'ArrowUp':
+      case 'PageUp':
+        e.preventDefault();
+        go(current - 1);
+        break;
+      case 'Home':
+        e.preventDefault();
+        go(0);
+        break;
+      case 'End':
+        e.preventDefault();
+        go(total - 1);
+        break;
+    }
+  });
+
+  // click: left third of the window goes back, the rest goes forward
+  stage.addEventListener('click', function (e) {
+    if (e.clientX < window.innerWidth / 3) { go(current - 1); }
+    else { go(current + 1); }
+  });
+
+  window.addEventListener('hashchange', fromHash);
+  window.addEventListener('resize', fit);
+
+  fit();
+  fromHash();
+})();
+</script>
+</body>
+</html>

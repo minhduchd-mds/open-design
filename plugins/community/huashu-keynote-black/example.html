@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>曜石 One · 2026 秋季发布会 — Keynote Black 黑场大数字</title>
+<style>
+  /* ============================================================
+     Keynote Black · 黑场大数字
+     Locked design tokens — only --accent may change, and only to
+     one of: #FF6900 (Mi orange) / #1ED760 (Spotify green) /
+     #2997FF (Apple blue). One accent per deck. One idea per screen.
+     Generated from the「黑底巨型数字剧场 / Black Big-Number Stage」
+     spec in huashu-design references/design-styles.md
+     by 花叔 (alchaincyf).
+     ============================================================ */
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800;900&family=Noto+Sans+SC:wght@500;700;900&display=swap');
+
+  :root {
+    --stage:    #000000;   /* the stage — every page bg        */
+    --ink:      #FFFFFF;   /* primary type, pure white only    */
+    --accent:   #FF6900;   /* THE accent — deck-wide single    */
+    --muted:    #9B9B9B;   /* captions / secondary lines       */
+    --faint:    #5F5F5F;   /* whisper labels, footnotes        */
+    --line:     #2A2A2A;   /* hairlines, capsule borders       */
+    --bar-base: #3A3A3A;   /* losing / baseline bar            */
+    --sans: 'Inter', 'Geist', 'Noto Sans SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    background: #000;
+    font-family: var(--sans);
+    overflow: hidden;
+  }
+
+  /* ---- fixed 1920×1080 stage, letterboxed by fit() ---- */
+  #stage {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 1920px;
+    height: 1080px;
+    transform: translate(-50%, -50%) scale(1);
+    transform-origin: center center;
+    background: var(--stage);
+  }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: none;
+    background: var(--stage);
+    color: var(--ink);
+    overflow: hidden;
+  }
+  .slide.active { display: flex; }
+  .slide {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
+  /* ---- accent: the one laser pointer ---- */
+  .a { color: var(--accent); }
+
+  /* ---- whisper top label (chrome, not content) ---- */
+  .whisper {
+    position: absolute;
+    top: 56px; left: 0; right: 0;
+    font-size: 12px; font-weight: 600;
+    letter-spacing: 4px; text-transform: uppercase;
+    color: var(--faint);
+    text-align: center;
+  }
+
+  /* ---- stage spotlight: the ONLY decoration ---- */
+  .spotlight {
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 1400px; height: 760px;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(closest-side, rgba(255,255,255,.05), transparent);
+    pointer-events: none;
+  }
+
+  /* ---- typographic atoms ---- */
+  .hero-word {
+    font-size: 280px; font-weight: 900;
+    line-height: 1; letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
+  }
+  .hero-number {
+    font-size: 420px; font-weight: 900;
+    line-height: 0.9; letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
+  }
+  .hero-unit {
+    font-size: 44px; font-weight: 700;
+    letter-spacing: 6px; text-transform: uppercase;
+  }
+  .caption {
+    font-size: 24px; font-weight: 500;
+    color: var(--muted); letter-spacing: 1px;
+    margin-top: 48px;
+  }
+  .footnote {
+    position: absolute;
+    bottom: 56px; left: 0; right: 0;
+    font-size: 12px; font-weight: 500;
+    letter-spacing: 2px;
+    color: var(--faint);
+    text-align: center;
+  }
+
+  /* ---- agenda rows (三件事) ---- */
+  .agenda { width: 880px; margin-top: 96px; text-align: left; }
+  .agenda-row {
+    display: flex; align-items: baseline; gap: 48px;
+    padding: 40px 0;
+    border-top: 1px solid var(--line);
+  }
+  .agenda-row:last-child { border-bottom: 1px solid var(--line); }
+  .agenda-num {
+    font-size: 28px; font-weight: 900;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+    width: 64px; flex-shrink: 0;
+  }
+  .agenda-title { font-size: 44px; font-weight: 900; letter-spacing: -0.02em; }
+  .agenda-sub { font-size: 18px; font-weight: 500; color: var(--faint); margin-left: auto; letter-spacing: 1px; }
+
+  /* ---- versus bars (accent subject vs grey baseline) ---- */
+  .vs { width: 1240px; text-align: left; }
+  .vs-row { margin-top: 72px; }
+  .vs-row:first-child { margin-top: 0; }
+  .vs-metric {
+    font-size: 20px; font-weight: 700;
+    letter-spacing: 3px; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 24px;
+  }
+  .vs-track { display: flex; align-items: center; gap: 24px; margin-top: 14px; }
+  .vs-name {
+    font-size: 16px; font-weight: 700;
+    width: 130px; flex-shrink: 0;
+    letter-spacing: 1px;
+  }
+  .vs-name.base { color: var(--faint); font-weight: 600; }
+  .vs-bar { height: 36px; }
+  .vs-bar.win  { background: var(--accent); }
+  .vs-bar.base { background: var(--bar-base); }
+  .vs-value {
+    font-size: 22px; font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  .vs-value.base { color: var(--muted); font-weight: 600; }
+
+  /* ---- price reveal ---- */
+  .price-was {
+    font-size: 32px; font-weight: 600;
+    color: var(--muted);
+    text-decoration: line-through;
+    text-decoration-color: var(--faint);
+    letter-spacing: 1px;
+  }
+  .price {
+    font-size: 360px; font-weight: 900;
+    line-height: 1; letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
+    margin-top: 40px;
+  }
+  .price .a { font-size: 160px; font-weight: 800; vertical-align: 26%; margin-right: 16px; }
+
+  /* ---- key-hint capsule (closing) ---- */
+  .hint-capsule {
+    display: inline-flex; align-items: center; gap: 20px;
+    margin-top: 88px;
+    border: 1px solid var(--line);
+    padding: 18px 44px;
+    font-size: 13px; font-weight: 700;
+    letter-spacing: 3px; text-transform: uppercase;
+    color: var(--faint);
+  }
+  .hint-capsule .a { color: var(--accent); }
+
+  /* ---- runtime chrome ---- */
+  #counter {
+    position: fixed; right: 24px; bottom: 20px;
+    z-index: 99;
+    background: #000; color: var(--muted);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-family: var(--sans); font-size: 12px; font-weight: 700;
+    letter-spacing: 2px; padding: 8px 18px;
+    font-variant-numeric: tabular-nums;
+  }
+  #counter b { color: var(--accent); font-weight: 700; }
+  #hint {
+    position: fixed; left: 24px; bottom: 20px;
+    z-index: 99; color: var(--faint);
+    font-family: var(--sans); font-size: 11px; font-weight: 600;
+    letter-spacing: 2px; text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+
+<div id="stage">
+
+  <!-- ============ 01 封面 cover ============ -->
+  <section class="slide active" data-screen-label="01 封面">
+    <div class="whisper">YAO · 2026 秋季发布会</div>
+    <div class="spotlight"></div>
+    <div style="font-size:22px; font-weight:700; letter-spacing:10px; text-transform:uppercase; color:var(--muted);">曜 YAO</div>
+    <div style="font-size:200px; font-weight:900; letter-spacing:-0.04em; line-height:1.05; margin-top:48px;">
+      曜石 One<span class="a">。</span>
+    </div>
+    <div class="caption">一台听得懂你的随身 AI 终端</div>
+    <div class="footnote">2026.10.29 · 北京 · 本演示全部产品与数据为虚构内容，仅用于展示版式</div>
+  </section>
+
+  <!-- ============ 02 目录 agenda：三件事 ============ -->
+  <section class="slide" data-screen-label="02 三件事">
+    <div class="whisper">YAO · 曜石 One</div>
+    <div style="font-size:96px; font-weight:900; letter-spacing:-0.03em;">
+      今晚，只讲三件事<span class="a">。</span>
+    </div>
+    <div class="agenda">
+      <div class="agenda-row">
+        <span class="agenda-num">01</span>
+        <span class="agenda-title">听见</span>
+        <span class="agenda-sub">它如何听懂你</span>
+      </div>
+      <div class="agenda-row">
+        <span class="agenda-num">02</span>
+        <span class="agenda-title">算力</span>
+        <span class="agenda-sub">端侧推理，声音不出设备</span>
+      </div>
+      <div class="agenda-row">
+        <span class="agenda-num">03</span>
+        <span class="agenda-title">价格</span>
+        <span class="agenda-sub">最后揭晓</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 一词页 one-word ============ -->
+  <section class="slide" data-screen-label="03 一词">
+    <div class="whisper">第一件事 · 听见</div>
+    <div class="spotlight"></div>
+    <div class="hero-word">听<span class="a">。</span></div>
+    <div class="caption">不是听见，是听懂。</div>
+  </section>
+
+  <!-- ============ 04 大数字 big-number：唤醒 ============ -->
+  <section class="slide" data-screen-label="04 大数字 · 唤醒">
+    <div class="whisper">第一件事 · 听见</div>
+    <div class="spotlight"></div>
+    <div style="display:flex; align-items:baseline; gap:40px;">
+      <div class="hero-number">0.3</div>
+      <div class="hero-unit a">秒</div>
+    </div>
+    <div class="caption">从唤醒到响应——比眨一次眼睛更快</div>
+  </section>
+
+  <!-- ============ 05 大数字 big-number：续航 ============ -->
+  <section class="slide" data-screen-label="05 大数字 · 续航">
+    <div class="whisper">第一件事 · 听见</div>
+    <div class="spotlight"></div>
+    <div style="display:flex; align-items:baseline; gap:40px;">
+      <div class="hero-number">72</div>
+      <div class="hero-unit">小时</div>
+    </div>
+    <div class="caption">真实场景续航——出门三天，<span style="color:var(--ink); font-weight:700;">不带充电器</span></div>
+  </section>
+
+  <!-- ============ 06 对比 versus：参数 ============ -->
+  <section class="slide" data-screen-label="06 参数对比">
+    <div class="whisper">第一件事 · 听见</div>
+    <div class="vs">
+      <div class="vs-row">
+        <div class="vs-metric">唤醒响应 · 秒（越短越好）</div>
+        <div class="vs-track">
+          <span class="vs-name">曜石 One</span>
+          <div class="vs-bar win" style="width:260px;"></div>
+          <span class="vs-value">0.3</span>
+        </div>
+        <div class="vs-track">
+          <span class="vs-name base">行业旗舰</span>
+          <div class="vs-bar base" style="width:1040px;"></div>
+          <span class="vs-value base">1.2</span>
+        </div>
+      </div>
+      <div class="vs-row">
+        <div class="vs-metric">真实续航 · 小时</div>
+        <div class="vs-track">
+          <span class="vs-name">曜石 One</span>
+          <div class="vs-bar win" style="width:1040px;"></div>
+          <span class="vs-value">72</span>
+        </div>
+        <div class="vs-track">
+          <span class="vs-name base">行业旗舰</span>
+          <div class="vs-bar base" style="width:260px;"></div>
+          <span class="vs-value base">18</span>
+        </div>
+      </div>
+      <div class="vs-row">
+        <div class="vs-metric">整机重量 · 克（越轻越好）</div>
+        <div class="vs-track">
+          <span class="vs-name">曜石 One</span>
+          <div class="vs-bar win" style="width:740px;"></div>
+          <span class="vs-value">37</span>
+        </div>
+        <div class="vs-track">
+          <span class="vs-name base">行业旗舰</span>
+          <div class="vs-bar base" style="width:1040px;"></div>
+          <span class="vs-value base">52</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 07 大数字 big-number：算力 ============ -->
+  <section class="slide" data-screen-label="07 大数字 · 算力">
+    <div class="whisper">第二件事 · 算力</div>
+    <div class="spotlight"></div>
+    <div style="display:flex; align-items:baseline; gap:40px;">
+      <div class="hero-number" style="font-size:380px;">1,024</div>
+      <div class="hero-unit a">TOPS</div>
+    </div>
+    <div class="caption">全程端侧推理——你的声音，永远不出这台设备</div>
+  </section>
+
+  <!-- ============ 08 引语 quote ============ -->
+  <section class="slide" data-screen-label="08 引语">
+    <div class="whisper">第二件事 · 算力</div>
+    <div style="max-width:1320px; font-size:84px; font-weight:900; line-height:1.3; letter-spacing:-0.02em;">
+      「真正的科技，<br>是让你<span class="a">忘记</span>科技的存在。」
+    </div>
+    <div style="margin-top:64px; font-size:14px; font-weight:600; letter-spacing:4px; text-transform:uppercase; color:var(--faint);">
+      林一 · 曜 YAO 创始人
+    </div>
+  </section>
+
+  <!-- ============ 09 价格 price-reveal ============ -->
+  <section class="slide" data-screen-label="09 价格">
+    <div class="whisper">第三件事 · 价格</div>
+    <div class="spotlight"></div>
+    <div class="price-was">行业同级旗舰 ¥4,999</div>
+    <div class="price"><span class="a">¥</span>2,999</div>
+    <div class="caption">今晚 21:00，全渠道开售</div>
+  </section>
+
+  <!-- ============ 10 one more thing ============ -->
+  <section class="slide" data-screen-label="10 One More Thing">
+    <div class="spotlight"></div>
+    <div style="font-size:120px; font-weight:900; letter-spacing:-0.03em;">
+      One more thing<span class="a">…</span>
+    </div>
+    <div class="caption">曜石 One 钛金属版——限量 10,000 台，同价。</div>
+  </section>
+
+  <!-- ============ 11 结尾 closing ============ -->
+  <section class="slide" data-screen-label="11 结尾">
+    <div class="whisper">YAO · 2026 秋季发布会</div>
+    <div class="spotlight"></div>
+    <div style="font-size:240px; font-weight:900; letter-spacing:-0.04em;">
+      谢谢<span class="a">。</span>
+    </div>
+    <div class="hint-capsule">
+      <span>←</span><span>→</span><span>Space</span><span class="a">翻页</span><span>·</span><span>#/N</span><span class="a">跳页</span>
+    </div>
+    <div class="footnote">Keynote Black · based on huashu-design black-big-number-stage</div>
+  </section>
+
+</div>
+
+<div id="counter">01 <b>/</b> 11</div>
+<div id="hint">←/→ · Space</div>
+
+<script>
+(function () {
+  var stage = document.getElementById('stage');
+  var counter = document.getElementById('counter');
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var total = slides.length;
+  var current = 0;
+
+  // fit(): scale the fixed 1920×1080 canvas into the viewport (letterbox)
+  function fit() {
+    var s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+    stage.style.transform = 'translate(-50%, -50%) scale(' + s + ')';
+  }
+
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+
+  // go(i): activate slide i, sync counter + hash (#/N, 1-indexed)
+  function go(i, skipHash) {
+    current = Math.max(0, Math.min(total - 1, i));
+    for (var k = 0; k < total; k++) {
+      slides[k].classList.toggle('active', k === current);
+    }
+    counter.innerHTML = pad(current + 1) + ' <b>/</b> ' + pad(total);
+    if (!skipHash) {
+      var target = '#/' + (current + 1);
+      if (location.hash !== target) {
+        try { history.replaceState(null, '', target); }
+        catch (err) { location.hash = target; }
+      }
+    }
+  }
+
+  function fromHash() {
+    var m = location.hash.match(/^#\/(\d+)$/);
+    if (m) {
+      var n = parseInt(m[1], 10);
+      if (n >= 1 && n <= total) { go(n - 1, true); return; }
+    }
+    go(0, true);
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    switch (e.key) {
+      case 'ArrowRight':
+      case 'ArrowDown':
+      case ' ':
+      case 'PageDown':
+        e.preventDefault();
+        go(current + 1);
+        break;
+      case 'ArrowLeft':
+      case 'ArrowUp':
+      case 'PageUp':
+        e.preventDefault();
+        go(current - 1);
+        break;
+      case 'Home':
+        e.preventDefault();
+        go(0);
+        break;
+      case 'End':
+        e.preventDefault();
+        go(total - 1);
+        break;
+    }
+  });
+
+  // click: left third of the window goes back, the rest goes forward
+  stage.addEventListener('click', function (e) {
+    if (e.clientX < window.innerWidth / 3) { go(current - 1); }
+    else { go(current + 1); }
+  });
+
+  window.addEventListener('hashchange', fromHash);
+  window.addEventListener('resize', fit);
+
+  fit();
+  fromHash();
+})();
+</script>
+</body>
+</html>

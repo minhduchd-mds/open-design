@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Night Garden · Dark Botanical</title>
+
+<!-- Fonts: Dark Botanical pairing — elegant serif display + light grotesque body -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+/* ===========================================
+   CSS CUSTOM PROPERTIES (THEME)
+   Dark Botanical preset — near-black ground,
+   warm pink/gold/terracotta glow, elegant serif.
+   =========================================== */
+:root {
+    --stage-bg: #0a0a0a;
+    --bg-primary: #0f0f0f;
+    --text-primary: #e8e4df;
+    --text-secondary: #9a9590;
+    --text-faint: rgba(232, 228, 223, 0.34);
+    --accent-warm: #d4a574;   /* terracotta gold */
+    --accent-pink: #e8b4b8;   /* dusty rose */
+    --accent-gold: #c9b896;   /* pale gold */
+    --line: rgba(232, 228, 223, 0.14);
+    --line-warm: rgba(212, 165, 116, 0.45);
+
+    /* Typography — authored at the 1920×1080 stage size */
+    --font-display: 'Cormorant', serif;
+    --font-body: 'IBM Plex Sans', sans-serif;
+    --title-size: 150px;
+    --h2-size: 88px;
+    --subtitle-size: 30px;
+    --body-size: 26px;
+
+    /* Spacing — authored at the 1920×1080 stage size */
+    --slide-pad: 110px;
+
+    /* Animation — one signature easing for the whole deck */
+    --ease-botanic: cubic-bezier(0.22, 1, 0.36, 1);
+    --duration-normal: 0.9s;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* ===========================================
+   FIXED 16:9 STAGE: MANDATORY BASE STYLES
+   (full contents of viewport-base.css)
+   Slides are authored at 1920×1080 and scaled as a whole.
+   =========================================== */
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    background: var(--stage-bg, #000);
+}
+.deck-viewport {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    background: var(--stage-bg, #000);
+}
+/* Fixed 16:9 design canvas. JavaScript sets transform: translate(...) scale(...). */
+.deck-stage {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    transform-origin: 0 0;
+    background: var(--bg-primary, #fff);
+}
+/* Slides stack inside the fixed stage. Content laid out at 1920×1080, never reflowed per device. */
+.slide {
+    position: absolute;
+    inset: 0;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    display: block;
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    background: var(--bg-primary, #fff);
+}
+.slide.active,
+.slide.visible {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+    z-index: 1;
+}
+img, video, canvas, svg {
+    max-width: 100%;
+    max-height: 100%;
+}
+/* Presentation chrome stays outside the slide design system */
+.deck-controls {
+    position: fixed;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%);
+    z-index: 1000;
+}
+@media print {
+    html, body { width: 1920px; height: auto; overflow: visible; background: #fff; }
+    .deck-viewport { position: static; overflow: visible; background: #fff; }
+    .deck-stage { position: static; width: auto; height: auto; transform: none !important; background: none; }
+    .slide {
+        position: relative;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        width: 1920px;
+        height: 1080px;
+        break-after: page;
+        page-break-after: always;
+    }
+    .slide:last-child { break-after: auto; page-break-after: auto; }
+    .deck-controls { display: none !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.2s !important;
+    }
+}
+
+/* ===========================================
+   SLIDE SHELL — shared chrome inside every slide
+   =========================================== */
+.slide {
+    font-family: var(--font-body);
+    font-weight: 300;
+    color: var(--text-primary);
+    transition: opacity 0.6s var(--ease-botanic);
+}
+.slide-inner {
+    position: absolute;
+    inset: 0;
+    padding: var(--slide-pad);
+    display: flex;
+    flex-direction: column;
+    align-items: center;       /* Dark Botanical: centered composition */
+    justify-content: center;
+    text-align: center;
+}
+
+/* === GLOW ORBS — signature abstract shapes (pure CSS, no illustration) === */
+.orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(90px);
+    pointer-events: none;
+}
+.orb-warm { background: radial-gradient(circle, rgba(212, 165, 116, 0.55) 0%, rgba(212, 165, 116, 0) 70%); }
+.orb-pink { background: radial-gradient(circle, rgba(232, 180, 184, 0.45) 0%, rgba(232, 180, 184, 0) 70%); }
+.orb-gold { background: radial-gradient(circle, rgba(201, 184, 150, 0.40) 0%, rgba(201, 184, 150, 0) 70%); }
+
+/* === THIN VERTICAL ACCENT LINE — signature element === */
+.vline {
+    width: 1px;
+    height: 110px;
+    background: linear-gradient(to bottom, var(--line-warm), rgba(212, 165, 116, 0));
+}
+
+/* Slide number, top-left — serif roman numeral feel */
+.slide-no {
+    position: absolute;
+    top: 58px;
+    left: var(--slide-pad);
+    font-family: var(--font-display);
+    font-size: 30px;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    color: var(--accent-warm);
+}
+/* Breadcrumb nav, top-right — quiet small caps */
+.crumbs {
+    position: absolute;
+    top: 66px;
+    right: var(--slide-pad);
+    display: flex;
+    gap: 38px;
+    font-size: 18px;
+    font-weight: 400;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+}
+.crumbs .on { color: var(--accent-warm); }
+/* Baseline rule across the bottom of each slide */
+.baseline {
+    position: absolute;
+    left: var(--slide-pad);
+    right: var(--slide-pad);
+    bottom: 62px;
+    border-top: 1px solid var(--line);
+    padding-top: 18px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 17px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+}
+
+/* ===========================================
+   TYPOGRAPHY
+   =========================================== */
+.display {
+    font-family: var(--font-display);
+    font-size: var(--title-size);
+    font-weight: 500;
+    line-height: 1.0;
+    letter-spacing: 0.01em;
+}
+.display em, .h2 em {
+    font-style: italic;
+    font-weight: 500;
+    color: var(--accent-pink);
+}
+.h2 {
+    font-family: var(--font-display);
+    font-size: var(--h2-size);
+    font-weight: 500;
+    line-height: 1.05;
+}
+.kicker {
+    font-size: 19px;
+    font-weight: 400;
+    letter-spacing: 0.42em;
+    text-transform: uppercase;
+    color: var(--accent-warm);
+}
+.lede {
+    font-size: var(--subtitle-size);
+    line-height: 1.6;
+    color: var(--text-secondary);
+    max-width: 58ch;
+}
+/* Italic signature line — Dark Botanical signature typography */
+.signature {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 32px;
+    color: var(--accent-gold);
+    letter-spacing: 0.03em;
+}
+
+/* ===========================================
+   ANIMATIONS — trigger via .visible on the slide
+   =========================================== */
+.reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity var(--duration-normal) var(--ease-botanic),
+                transform var(--duration-normal) var(--ease-botanic);
+}
+.slide.visible .reveal { opacity: 1; transform: translateY(0); }
+.reveal:nth-child(1) { transition-delay: 0.1s; }
+.reveal:nth-child(2) { transition-delay: 0.22s; }
+.reveal:nth-child(3) { transition-delay: 0.34s; }
+.reveal:nth-child(4) { transition-delay: 0.46s; }
+.reveal:nth-child(5) { transition-delay: 0.58s; }
+.reveal:nth-child(6) { transition-delay: 0.7s; }
+
+/* ===========================================
+   S1 · COVER — centered title, corner orbs
+   =========================================== */
+.cover-stack { display: flex; flex-direction: column; align-items: center; gap: 40px; }
+.cover-stack .display { font-size: 168px; }
+
+/* ===========================================
+   S2 · CONTENTS — quiet numbered list
+   =========================================== */
+.toc { margin-top: 64px; width: 1080px; display: flex; flex-direction: column; }
+.toc-row {
+    display: flex;
+    align-items: baseline;
+    gap: 52px;
+    padding: 32px 12px;
+    border-top: 1px solid var(--line);
+    font-family: var(--font-display);
+    font-size: 44px;
+    font-weight: 500;
+    text-align: left;
+}
+.toc-row:last-child { border-bottom: 1px solid var(--line); }
+.toc-row .idx {
+    font-style: italic;
+    font-size: 28px;
+    color: var(--accent-warm);
+    min-width: 70px;
+}
+.toc-row .hint {
+    margin-left: auto;
+    font-family: var(--font-body);
+    font-size: 18px;
+    font-weight: 300;
+    color: var(--text-faint);
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+}
+
+/* ===========================================
+   S3 · SECTION DIVIDER — outlined serif numeral
+   =========================================== */
+.divider-no {
+    font-family: var(--font-display);
+    font-size: 430px;
+    font-weight: 500;
+    line-height: 0.9;
+    color: transparent;
+    -webkit-text-stroke: 1.5px var(--accent-warm);
+}
+
+/* ===========================================
+   S4 · THREE VOWS — pillar columns with vlines
+   =========================================== */
+.pillars { margin-top: 84px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 80px; width: 1560px; }
+.pillar { display: flex; flex-direction: column; align-items: center; gap: 26px; }
+.pillar .vline { height: 84px; }
+.pillar.p2 .vline { background: linear-gradient(to bottom, rgba(232, 180, 184, 0.5), rgba(232, 180, 184, 0)); }
+.pillar.p3 .vline { background: linear-gradient(to bottom, rgba(201, 184, 150, 0.5), rgba(201, 184, 150, 0)); }
+.pillar .num { font-family: var(--font-display); font-style: italic; font-size: 30px; color: var(--accent-warm); }
+.pillar.p2 .num { color: var(--accent-pink); }
+.pillar.p3 .num { color: var(--accent-gold); }
+.pillar h3 { font-family: var(--font-display); font-size: 44px; font-weight: 500; line-height: 1.1; }
+.pillar p { font-size: 23px; line-height: 1.6; color: var(--text-secondary); }
+
+/* ===========================================
+   S5 · BIG NUMBER — glowing oversized serif
+   =========================================== */
+.stat-num {
+    position: relative;
+    font-family: var(--font-display);
+    font-size: 400px;
+    font-weight: 500;
+    line-height: 0.95;
+    color: var(--accent-warm);
+}
+.stat-label {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 46px;
+    font-weight: 400;
+    color: var(--text-primary);
+}
+.stat-note { margin-top: 20px; font-size: 24px; line-height: 1.6; color: var(--text-secondary); max-width: 52ch; }
+
+/* ===========================================
+   S6 · CHART — slender gradient columns (pure CSS)
+   =========================================== */
+.chart { margin-top: 80px; display: flex; align-items: flex-end; gap: 150px; height: 480px; }
+.chart-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 22px; }
+.chart-bar {
+    width: 92px;
+    border-radius: 46px 46px 0 0;
+    transform-origin: bottom;
+    transform: scaleY(0);
+    transition: transform 1.1s var(--ease-botanic);
+}
+.chart-bar.warm { background: linear-gradient(to top, rgba(212, 165, 116, 0.16), var(--accent-warm)); }
+.chart-bar.pink { background: linear-gradient(to top, rgba(232, 180, 184, 0.16), var(--accent-pink)); }
+.chart-bar.gold { background: linear-gradient(to top, rgba(201, 184, 150, 0.16), var(--accent-gold)); }
+.slide.visible .chart-bar { transform: scaleY(1); }
+.slide.visible .chart-col:nth-child(1) .chart-bar { transition-delay: 0.2s; }
+.slide.visible .chart-col:nth-child(2) .chart-bar { transition-delay: 0.34s; }
+.slide.visible .chart-col:nth-child(3) .chart-bar { transition-delay: 0.48s; }
+.slide.visible .chart-col:nth-child(4) .chart-bar { transition-delay: 0.62s; }
+.chart-val { font-family: var(--font-display); font-style: italic; font-size: 38px; color: var(--text-primary); }
+.chart-cap { font-size: 18px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--text-secondary); }
+
+/* ===========================================
+   S7 · QUOTE — italic serif hero
+   =========================================== */
+.quote-text {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 70px;
+    line-height: 1.3;
+    max-width: 1380px;
+}
+.quote-text strong { font-weight: 500; font-style: italic; color: var(--accent-pink); }
+.quote-attr { margin-top: 48px; font-size: 19px; letter-spacing: 0.34em; text-transform: uppercase; color: var(--text-secondary); }
+
+/* ===========================================
+   S8 · COMPARISON — two columns, central vline
+   =========================================== */
+.compare { margin-top: 72px; display: grid; grid-template-columns: 1fr 1px 1fr; gap: 0; width: 1560px; align-items: stretch; }
+.compare .mid { background: linear-gradient(to bottom, rgba(212, 165, 116, 0), var(--line-warm), rgba(212, 165, 116, 0)); }
+.compare .col { padding: 0 90px; text-align: left; }
+.compare h3 { font-family: var(--font-display); font-size: 46px; font-weight: 500; margin-bottom: 40px; }
+.compare .col.atelier h3 { font-style: italic; color: var(--accent-warm); }
+.compare ul { list-style: none; display: grid; gap: 26px; font-size: 24px; font-weight: 300; line-height: 1.55; color: var(--text-secondary); }
+.compare li { padding-left: 38px; position: relative; }
+.compare li::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 17px;
+    width: 16px; height: 1px;
+    background: var(--text-faint);
+}
+.compare .col.atelier li { color: var(--text-primary); }
+.compare .col.atelier li::before { background: var(--accent-warm); }
+
+/* ===========================================
+   S9 · COLLECTION GRID — 4 cards with orb dots
+   =========================================== */
+.grid4 { margin-top: 70px; display: grid; grid-template-columns: 1fr 1fr; gap: 30px; width: 1480px; }
+.gcard {
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 44px 56px;
+    display: flex;
+    align-items: center;
+    gap: 44px;
+    text-align: left;
+    background: rgba(232, 228, 223, 0.015);
+}
+.gcard .dot { flex: none; width: 58px; height: 58px; border-radius: 50%; filter: blur(7px); }
+.gcard .dot.warm { background: radial-gradient(circle at 35% 35%, var(--accent-warm), rgba(212, 165, 116, 0.05)); }
+.gcard .dot.pink { background: radial-gradient(circle at 35% 35%, var(--accent-pink), rgba(232, 180, 184, 0.05)); }
+.gcard .dot.gold { background: radial-gradient(circle at 35% 35%, var(--accent-gold), rgba(201, 184, 150, 0.05)); }
+.gcard h3 { font-family: var(--font-display); font-style: italic; font-size: 40px; font-weight: 500; margin-bottom: 8px; }
+.gcard p { font-size: 21px; line-height: 1.5; color: var(--text-secondary); }
+
+/* ===========================================
+   S10 · CLOSING
+   =========================================== */
+.close-links { display: flex; gap: 64px; margin-top: 56px; font-size: 19px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--text-secondary); }
+.close-links .lk { display: flex; align-items: center; gap: 16px; }
+.close-links svg { width: 26px; height: 26px; }
+
+/* ===========================================
+   DECK CHROME — page counter (outside the stage)
+   =========================================== */
+.deck-controls {
+    font-family: var(--font-body);
+    font-size: 13px;
+    letter-spacing: 0.3em;
+    color: rgba(232, 228, 223, 0.5);
+    background: rgba(15, 15, 15, 0.6);
+    border: 1px solid rgba(232, 228, 223, 0.14);
+    padding: 8px 18px;
+    border-radius: 999px;
+    user-select: none;
+}
+.deck-controls .cur { color: #d4a574; font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="deck-viewport">
+    <main class="deck-stage" id="deckStage" aria-label="Slide deck">
+
+        <!-- === SLIDE 1: COVER === -->
+        <section class="slide active visible">
+            <div class="orb orb-warm" style="width: 560px; height: 560px; top: -180px; right: -120px;"></div>
+            <div class="orb orb-pink" style="width: 420px; height: 420px; top: 60px; right: 220px;"></div>
+            <div class="orb orb-gold" style="width: 460px; height: 460px; bottom: -200px; left: -140px;"></div>
+            <div class="slide-inner">
+                <nav class="crumbs"><span class="on">Maison</span><span>Garden</span><span>Collection</span><span>Visit</span></nav>
+                <div class="cover-stack">
+                    <p class="kicker reveal">Atelier Nocturne &middot; Maison de Parfum</p>
+                    <div class="vline reveal"></div>
+                    <h1 class="display reveal">The Night<br><em>Garden</em></h1>
+                    <p class="lede reveal">A botanical fragrance collection gathered after dusk — when the garden lowers its voice and the flowers speak in warmer tones.</p>
+                    <p class="signature reveal">— composed by hand, bottled at midnight</p>
+                </div>
+                <div class="baseline"><span>Atelier Nocturne</span><span>Collection No. IV</span></div>
+            </div>
+        </section>
+
+        <!-- === SLIDE 2: CONTENTS === -->
+        <section class="slide">
+            <div class="orb orb-gold" style="width: 480px; height: 480px; top: -160px; left: -160px;"></div>
+            <div class="slide-inner">
+                <div class="slide-no">II</div>
+                <nav class="crumbs"><span class="on">Maison</span><span>Garden</span><span>Collection</span><span>Visit</span></nav>
+                <h2 class="h2 reveal">This <em>evening</em></h2>
+                <div class="toc">
+                    <div class="toc-row reveal"><span class="idx">i.</span>The philosophy of the maison<span class="hint">Maison</span></div>
+                    <div class="toc-row reveal"><span class="idx">ii.</span>What grows in the night garden<span class="hint">Garden</span></div>
+                    <div class="toc-row reveal"><span class="idx">iii.</span>Four scents, one darkness<span class="hint">Collection</span></div>
+                    <div class="toc-row reveal"><span class="idx">iv.</span>An invitation to the atelier<span class="hint">Visit</span></div>
+                </div>
+                <div class="baseline"><span>Sommaire</span><span>02 / 10</span></div>
+            </div>
+        </section>
+
+        <!-- === SLIDE 3: SECTION DIVIDER === -->
+        <section class="slide">
+            <div class="orb orb-warm" style="width: 620px; height: 620px; bottom: -240px; right: -180px;"></div>
+            <div class="orb orb-pink" style="width: 380px; height: 380px; top: -120px; left: 240px;"></div>
+            <div class="slide-inner">
+                <nav class="crumbs"><span class="on">Maison</span><span>Garden</span><span>Collection</span><span>Visit</span></nav>
+                <div class="divider-no reveal">No.1</div>
+                <h2 class="h2 reveal" style="margin-top: 34px;">The <em>philosophy</em></h2>
+                <p class="signature reveal" style="margin-top: 22px;">slow perfumery, kept deliberately small</p>
+                <div class="baseline"><span>Section</span><span>03 / 10</span></div>
+            </div>
+        </section>
+
+        <!-- === SLIDE 4: THREE VOWS === -->
+        <section class="slide">
+            <div class="orb orb-gold" style="width: 440px; height: 440px; bottom: -180px; left: -120px;"></div>
+            <div class="slide-inner">
+                <div class="slide-no">IV</div>
+                <nav class="crumbs"><span class="on">Maison</span><span>Garden</span><span>Collection</span><span>Visit</span></nav>
+                <p class="kicker reveal">The vows</p>
+                <h2 class="h2 reveal" style="font-size: 72px; margin-top: 24px;">Three promises, kept in the dark</h2>
+                <div class="pillars">
+                    <div class="pillar p1 reveal">
+                        <div class="vline"></div>
+                        <span class="num">i.</span>
+                        <h3>Harvest at dusk</h3>
+                        <p>Night-blooming botanicals are cut only after sundown, when their oils are heaviest and the heat of the day has left them.</p>
+                    </div>
+                    <div class="pillar p2 reveal">
+                        <div class="vline"></div>
+                        <span class="num">ii.</span>
+                        <h3>Macerate slowly</h3>
+                        <p>No accelerants, no shortcuts. Each blend rests in amber glass until it stops arguing with itself — usually a season.</p>
+                    </div>
+                    <div class="pillar p3 reveal">
+                        <div class="vline"></div>
+                        <span class="num">iii.</span>
+                        <h3>Bottle few</h3>
+                        <p>Every formula is limited to nine hundred bottles. When the garden is done giving, so are we.</p>
+                    </div>
+                </div>
+                <div class="baseline"><span>Philosophy</span><span>04 / 10</span></div>
+            </div>
+        </section>
+
+        <!-- === SLIDE 5: BIG NUMBER === -->
+        <section class="slide">
+            <div class="orb orb-warm" style="width: 700px; height: 700px; top: 160px; left: 50%; margin-left: -350px;"></div>
+            <div class="slide-inner">
+                <div class="slide-no">V</div>
+                <nav class="crumbs"><span>Maison</span><span class="on">Garden</span><span>Collection</span><span>Visit</span></nav>
+                <div class="stat-num reveal">72</div>
+                <p class="stat-label reveal">botanicals in the night garden</p>
+                <p class="stat-note reveal">Fig leaf, night jasmine, black currant bud, smoked vetiver — every raw material is grown within the walls of the atelier or traded directly with a single farm we can name.</p>
+                <div class="baseline"><span>The garden</span><span>05 / 10</span></div>
+            </div>
+        </section>
+
+        <!-- === SLIDE 6: CHART === -->
+        <section class="slide">
+            <div class="orb orb-pink" style="width: 460px; height: 460px; top: -160px; right: -120px;"></div>
+            <div class="slide-inner">
+                <div class="slide-no">VI</div>
+                <nav class="crumbs"><span>Maison</span><span class="on">Garden</span><span>Collection</span><span>Visit</span></nav>
+                <p class="kicker reveal">How a scent unfolds</p>
+                <h2 class="h2 reveal" style="font-size: 68px; margin-top: 20px;">Hours on the skin</h2>
+                <div class="chart reveal">
+                    <div class="chart-col">
+                        <span class="chart-val">1h</span>
+                        <div class="chart-bar pink" style="height: 22%;"></div>
+                        <span class="chart-cap">Bergamot</span>
+                    </div>
+                    <div class="chart-col">
+                        <span class="chart-val">3h</span>
+                        <div class="chart-bar gold" style="height: 44%;"></div>
+                        <span class="chart-cap">Fig leaf</span>
+                    </div>
+                    <div class="chart-col">
+                        <span class="chart-val">6h</span>
+                        <div class="chart-bar warm" style="height: 70%;"></div>
+                        <span class="chart-cap">Night jasmine</span>
+                    </div>
+                    <div class="chart-col">
+                        <span class="chart-val">9h</span>
+                        <div class="chart-bar warm" style="height: 100%;"></div>
+                        <span class="chart-cap">Vetiver</span>
+                    </div>
+                </div>
+                <div class="baseline"><span>Longevity</span><span>06 / 10</span></div>
+            </div>
+        </section>
+
+        <!-- === SLIDE 7: QUOTE === -->
+        <section class="slide">
+            <div class="orb orb-warm" style="width: 480px; height: 480px; bottom: -200px; right: 180px;"></div>
+            <div class="orb orb-gold" style="width: 420px; height: 420px; top: -160px; left: -100px;"></div>
+            <div class="slide-inner">
+                <nav class="crumbs"><span>Maison</span><span class="on">Garden</span><span>Collection</span><span>Visit</span></nav>
+                <div class="vline reveal"></div>
+                <p class="quote-text reveal" style="margin-top: 44px;">A garden at noon tells you everything at once. A garden at night makes you <strong>lean in closer</strong> — that is all perfume has ever been.</p>
+                <p class="quote-attr reveal">Léa Moreau &mdash; founding nose, Atelier Nocturne</p>
+                <div class="baseline"><span>Quote</span><span>07 / 10</span></div>
+            </div>
+        </section>
+
+        <!-- === SLIDE 8: COMPARISON === -->
+        <section class="slide">
+            <div class="orb orb-pink" style="width: 420px; height: 420px; bottom: -160px; left: -120px;"></div>
+            <div class="slide-inner">
+                <div class="slide-no">VIII</div>
+                <nav class="crumbs"><span>Maison</span><span>Garden</span><span class="on">Collection</span><span>Visit</span></nav>
+                <h2 class="h2 reveal" style="font-size: 68px;">The factory &middot; the <em>atelier</em></h2>
+                <div class="compare reveal">
+                    <div class="col">
+                        <h3>The factory way</h3>
+                        <ul>
+                            <li>Synthetic accords designed for the first thirty seconds</li>
+                            <li>Batches of a hundred thousand, blended in steel</li>
+                            <li>Launch calendars set by holiday quarters</li>
+                            <li>The formula changes when the price of oud does</li>
+                        </ul>
+                    </div>
+                    <div class="mid"></div>
+                    <div class="col atelier">
+                        <h3>The atelier way</h3>
+                        <ul>
+                            <li>Living botanicals composed for the ninth hour</li>
+                            <li>Nine hundred numbered bottles, blended in glass</li>
+                            <li>Released when the maceration says so</li>
+                            <li>The formula changes only when the garden does</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="baseline"><span>Comparison</span><span>08 / 10</span></div>
+            </div>
+        </section>
+
+        <!-- === SLIDE 9: COLLECTION GRID === -->
+        <section class="slide">
+            <div class="orb orb-warm" style="width: 460px; height: 460px; top: -180px; right: -140px;"></div>
+            <div class="slide-inner">
+                <div class="slide-no">IX</div>
+                <nav class="crumbs"><span>Maison</span><span>Garden</span><span class="on">Collection</span><span>Visit</span></nav>
+                <p class="kicker reveal">Collection No. IV</p>
+                <h2 class="h2 reveal" style="font-size: 68px; margin-top: 20px;">Four scents, one darkness</h2>
+                <div class="grid4">
+                    <div class="gcard reveal">
+                        <span class="dot pink"></span>
+                        <div><h3>Lune Noire</h3><p>Black currant bud, dusty rose, cold amber — the garden gate at 2 a.m.</p></div>
+                    </div>
+                    <div class="gcard reveal">
+                        <span class="dot warm"></span>
+                        <div><h3>Fig &amp; Ember</h3><p>Green fig leaf over a dying bonfire; sweetness that remembers smoke.</p></div>
+                    </div>
+                    <div class="gcard reveal">
+                        <span class="dot gold"></span>
+                        <div><h3>Jasmin Minuit</h3><p>Night jasmine at full volume, steadied by pale sandalwood and salt.</p></div>
+                    </div>
+                    <div class="gcard reveal">
+                        <span class="dot warm"></span>
+                        <div><h3>Vétiver d'Or</h3><p>Smoked vetiver gilded with honeyed pollen — the last to leave the skin.</p></div>
+                    </div>
+                </div>
+                <div class="baseline"><span>The collection</span><span>09 / 10</span></div>
+            </div>
+        </section>
+
+        <!-- === SLIDE 10: CLOSING === -->
+        <section class="slide">
+            <div class="orb orb-warm" style="width: 600px; height: 600px; top: -200px; left: -160px;"></div>
+            <div class="orb orb-pink" style="width: 480px; height: 480px; bottom: -200px; right: -100px;"></div>
+            <div class="orb orb-gold" style="width: 380px; height: 380px; bottom: 120px; right: 320px;"></div>
+            <div class="slide-inner">
+                <nav class="crumbs"><span>Maison</span><span>Garden</span><span>Collection</span><span class="on">Visit</span></nav>
+                <h2 class="display reveal" style="font-size: 160px;">Bloom<br><em>after dark.</em></h2>
+                <p class="signature reveal" style="margin-top: 36px;">the atelier opens at sunset — come smell the garden think</p>
+                <div class="close-links reveal">
+                    <span class="lk"><svg viewBox="0 0 24 24" fill="none" stroke="#d4a574" stroke-width="1.6"><circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 0 0-8 8c0 5.4 8 12 8 12s8-6.6 8-12a8 8 0 0 0-8-8z"/></svg>17 Rue de la Nuit, Grasse</span>
+                    <span class="lk"><svg viewBox="0 0 24 24" fill="none" stroke="#d4a574" stroke-width="1.6"><path d="M3 8l9 6 9-6M4 19h16a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1z"/></svg>atelier-nocturne.example</span>
+                </div>
+                <div class="baseline"><span>Merci</span><span>10 / 10</span></div>
+            </div>
+        </section>
+
+    </main>
+</div>
+
+<!-- Page counter lives outside the scaled stage -->
+<div class="deck-controls" aria-hidden="true"><span class="cur" id="pageCur">1</span>&nbsp;/&nbsp;<span id="pageTotal">10</span></div>
+
+<script>
+/* ===========================================
+   SLIDE PRESENTATION CONTROLLER
+   Fixed 1920×1080 stage, scaled uniformly to the viewport.
+   Navigation: ← → Space PageUp/PageDown Home/End, wheel,
+   touch swipe. Current slide is mirrored into the URL hash.
+   =========================================== */
+(function () {
+    'use strict';
+
+    var STAGE_W = 1920;
+    var STAGE_H = 1080;
+
+    var stage = document.getElementById('deckStage');
+    var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+    var pageCur = document.getElementById('pageCur');
+    var pageTotal = document.getElementById('pageTotal');
+    var current = 0;
+    var wheelLockUntil = 0;
+
+    pageTotal.textContent = String(slides.length);
+
+    /* --- Stage scaling: one transform, letterbox as needed --- */
+    function fitStage() {
+        var factor = Math.min(window.innerWidth / STAGE_W, window.innerHeight / STAGE_H);
+        var x = (window.innerWidth - STAGE_W * factor) / 2;
+        var y = (window.innerHeight - STAGE_H * factor) / 2;
+        stage.style.transform = 'translate(' + x + 'px, ' + y + 'px) scale(' + factor + ')';
+    }
+
+    /* --- Hash routing: #/3 means slide index 3 (0-based) --- */
+    function indexFromHash() {
+        var m = /^#\/(\d+)$/.exec(window.location.hash);
+        if (!m) return null;
+        var idx = parseInt(m[1], 10);
+        return isNaN(idx) ? null : idx;
+    }
+
+    function show(index, skipHash) {
+        current = Math.max(0, Math.min(index, slides.length - 1));
+        slides.forEach(function (slide, i) {
+            slide.classList.toggle('active', i === current);
+            slide.classList.toggle('visible', i === current);
+        });
+        pageCur.textContent = String(current + 1);
+        if (!skipHash) {
+            var target = '#/' + current;
+            if (window.location.hash !== target) {
+                window.history.replaceState(null, '', target);
+            }
+        }
+    }
+
+    function next() { show(current + 1); }
+    function prev() { show(current - 1); }
+
+    /* --- Keyboard --- */
+    document.addEventListener('keydown', function (e) {
+        if (e.target && e.target.getAttribute && e.target.getAttribute('contenteditable')) return;
+        switch (e.key) {
+            case 'ArrowRight':
+            case 'ArrowDown':
+            case ' ':
+            case 'PageDown':
+                e.preventDefault(); next(); break;
+            case 'ArrowLeft':
+            case 'ArrowUp':
+            case 'PageUp':
+                e.preventDefault(); prev(); break;
+            case 'Home':
+                e.preventDefault(); show(0); break;
+            case 'End':
+                e.preventDefault(); show(slides.length - 1); break;
+        }
+    });
+
+    /* --- Mouse wheel (debounced) --- */
+    document.addEventListener('wheel', function (e) {
+        var now = Date.now();
+        if (now < wheelLockUntil) return;
+        if (Math.abs(e.deltaY) < 12) return;
+        wheelLockUntil = now + 650;
+        if (e.deltaY > 0) { next(); } else { prev(); }
+    }, { passive: true });
+
+    /* --- Touch swipe --- */
+    var touchX = null;
+    document.addEventListener('touchstart', function (e) {
+        if (e.touches.length === 1) touchX = e.touches[0].clientX;
+    }, { passive: true });
+    document.addEventListener('touchend', function (e) {
+        if (touchX === null) return;
+        var dx = e.changedTouches[0].clientX - touchX;
+        touchX = null;
+        if (Math.abs(dx) < 40) return;
+        if (dx < 0) { next(); } else { prev(); }
+    }, { passive: true });
+
+    /* --- Hash navigation (back/forward, deep links) --- */
+    window.addEventListener('hashchange', function () {
+        var idx = indexFromHash();
+        if (idx !== null && idx !== current) show(idx, true);
+    });
+
+    window.addEventListener('resize', fitStage);
+
+    fitStage();
+    var initial = indexFromHash();
+    show(initial !== null ? initial : 0, initial === null);
+})();
+</script>
+</body>
+</html>
