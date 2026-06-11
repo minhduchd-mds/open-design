@@ -1,12 +1,36 @@
 import path from 'node:path';
+import { createRequire } from 'node:module';
 
 import { describe, expect, it, vi } from 'vitest';
 import { SIDECAR_ENV } from '@open-design/sidecar-proto';
 
-import { createAgentRuntimeEnv, createAgentRuntimeToolPrompt } from '../src/server.js';
+import {
+  createAgentRuntimeEnv,
+  createAgentRuntimeToolPrompt,
+  resolvePlaywrightRuntimePaths,
+} from '../src/server.js';
 import { applyAgentLaunchEnv } from '../src/runtimes/launch.js';
 
+const require = createRequire(import.meta.url);
+
 describe('agent runtime tool environment', () => {
+  it('resolves the bundled Playwright CLI from package bin metadata', () => {
+    const runtimePaths = resolvePlaywrightRuntimePaths();
+    const packageJsonPath = require.resolve('playwright/package.json');
+    const packageJson = require(packageJsonPath);
+    const cliBin = packageJson?.bin?.playwright;
+
+    expect(typeof cliBin).toBe('string');
+    if (typeof cliBin !== 'string') {
+      throw new Error('playwright package.json does not declare bin.playwright');
+    }
+
+    expect(runtimePaths).toEqual({
+      cli: path.resolve(path.dirname(packageJsonPath), cliBin),
+      package: require.resolve('playwright'),
+    });
+  });
+
   it('injects daemon URL and run-scoped tool token into agent sessions', () => {
     const env = createAgentRuntimeEnv(
       { PATH: '/bin', OD_TOOL_TOKEN: 'stale-token' },

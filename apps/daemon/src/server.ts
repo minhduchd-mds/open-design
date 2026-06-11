@@ -554,8 +554,15 @@ export function resolveDaemonCliPath(env: NodeJS.ProcessEnv = process.env): stri
 
 export function resolvePlaywrightRuntimePaths(): PlaywrightRuntimePaths | null {
   try {
+    const packageJsonPath = require.resolve('playwright/package.json');
+    const packageJson = require(packageJsonPath);
+    const cliBin = packageJson?.bin?.playwright;
+    if (typeof cliBin !== 'string' || cliBin.trim().length === 0) {
+      return null;
+    }
+
     return {
-      cli: require.resolve('playwright/cli'),
+      cli: path.resolve(path.dirname(packageJsonPath), cliBin),
       package: require.resolve('playwright'),
     };
   } catch {
