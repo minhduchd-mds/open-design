@@ -73,6 +73,7 @@ describe("release workflows", () => {
     expect(beta).toContain("summary-metadata.ts");
     expect(betaSelfHosted).toContain("mac_arm64_update_metadata_url:");
     expect(betaSelfHosted).toContain("mac_arm64_delivery_mode:");
+    expect(betaSelfHosted).toContain('default: "https://s3.nexu.space/od-releases"');
     expect(betaSelfHosted).toContain("internal-updater");
     expect(betaSelfHosted).toContain("public-notarized");
     expect(selfHostedMac).toContain("RELEASE_DELIVERY_MODE: ${{ inputs.mac_arm64_delivery_mode }}");
@@ -97,6 +98,7 @@ describe("release workflows", () => {
     expect(betaSelfHosted).toContain("verify-metadata.ts");
     expect(betaSelfHosted).toContain("summary-metadata.ts");
     expect(win).toContain("-IncludeZip $${{ inputs.win_x64_target == 'all' || inputs.win_x64_target == 'zip' }}");
+    expect(selfHostedWin).toContain("OD_UPDATE_METADATA_URL: ${{ inputs.release_public_origin }}/beta/latest/metadata.json");
     expect(selfHostedWin).toContain("-IncludeZip $${{ inputs.win_x64_target == 'all' || inputs.win_x64_target == 'zip' }}");
     expect(prepareMac).not.toContain("required RELEASE_ASSET_SUFFIX");
     expect(prepareMac).toContain('RELEASE_ASSET_SUFFIX="${RELEASE_ASSET_SUFFIX:-}"');
