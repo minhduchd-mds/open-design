@@ -993,12 +993,108 @@
    border shift that the selectable CLI cards use. */
 .agent-card--amr-promoted {
   cursor: default;
+  min-height: 84px;
+  border-color: color-mix(in srgb, var(--amber-bg) 68%, var(--border-strong));
+  background: color-mix(in srgb, var(--amber-bg) 46%, var(--bg-panel));
+  box-shadow: none;
 }
 .agent-card--amr-promoted:hover:not(.disabled) {
-  border-color: var(--border);
+  border-color: color-mix(in srgb, var(--amber-bg) 56%, var(--border-strong));
+  box-shadow: none;
+}
+.agent-card--amr-promoted .agent-card-main {
+  min-height: 82px;
+}
+.agent-card--amr-promoted .agent-card-select {
+  min-height: 82px;
+  gap: 10px;
+  padding: 13px 18px 13px 12px;
 }
 .agent-card-select--static {
   cursor: default;
+}
+.agent-card--amr-promoted .agent-icon {
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+.agent-card--amr-promoted .agent-card-name--amr {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 8px;
+  overflow: visible;
+  white-space: normal;
+}
+.agent-card--amr-promoted .agent-card-name > span:first-child {
+  overflow: visible;
+  text-overflow: clip;
+}
+.agent-card--amr-promoted .agent-card-title {
+  font-size: 14px;
+  font-weight: 760;
+  color: var(--text-strong);
+}
+.agent-card--amr-promoted .agent-card-benefits {
+  flex-wrap: nowrap;
+  gap: 7px;
+  max-width: 100%;
+}
+.agent-card--amr-promoted .agent-card-benefit {
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: 22px;
+  padding: 0 9px;
+  border-color: color-mix(in srgb, var(--amber-bg) 64%, var(--border-strong));
+  background: color-mix(in srgb, var(--bg-panel) 88%, var(--amber-bg) 12%);
+  color: var(--text);
+  font-size: 10.5px;
+  font-weight: 760;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--bg-panel) 90%, transparent) inset;
+}
+.agent-card--amr-promoted .agent-card-amr-auth {
+  min-width: 110px;
+  border-left: 0;
+  background: transparent;
+  justify-content: flex-end;
+}
+.agent-card--amr-promoted .agent-card-amr-auth .amr-account-control {
+  padding: 0 14px 0 8px;
+}
+.agent-card--amr-promoted .agent-card-amr-auth .amr-account-control__action {
+  min-height: 38px;
+  padding: 0 24px;
+  border-color: var(--text-strong);
+  background: var(--text-strong);
+  color: var(--bg-panel);
+  font-size: 13px;
+  font-weight: 760;
+  box-shadow: none;
+}
+.agent-card--amr-promoted .agent-card-amr-auth .amr-account-control__action:hover:not(:disabled) {
+  border-color: var(--text-strong);
+  background: var(--text-strong);
+  color: var(--bg-panel);
+  box-shadow: none;
+  transform: none;
+}
+@media (max-width: 760px) {
+  .agent-card--amr-promoted .agent-card-main {
+    flex-direction: column;
+  }
+  .agent-card--amr-promoted .agent-card-select {
+    min-height: 0;
+    padding: 18px 18px 14px;
+  }
+  .agent-card--amr-promoted .agent-card-name--amr {
+    gap: 10px;
+  }
+  .agent-card--amr-promoted .agent-card-amr-auth {
+    max-width: none;
+    min-height: 64px;
+    border-top: 1px solid color-mix(in srgb, var(--amber-bg) 64%, var(--border-strong));
+    border-left: 0;
+  }
 }
 
 /* Failed-run AMR nudge: when the chat error card's "Try Open Design AMR" link
@@ -1006,79 +1102,21 @@
    The card's own box-shadow is not clipped by `overflow: hidden`, so the glow
    reads fully even though inner content is clipped. */
 .agent-card--amr-highlight {
-  border-color: var(--accent);
+  border-color: color-mix(in srgb, var(--amber) 42%, var(--border-strong));
   animation: amr-card-pulse 1s cubic-bezier(0.23, 1, 0.32, 1) 2;
 }
 @keyframes amr-card-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--amber) 0%, transparent);
   }
   35% {
-    box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 34%, transparent);
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--amber) 24%, transparent);
   }
 }
-
-/* Authorize-button coachmark: a fake cursor that fades + slides in from the
-   lower-right, landing with its tip on the AMR authorize button, inside a
-   pulsing ring. Anchored to the button (`.amr-auth-anchor`) so it always lines
-   up. `pointer-events: none` keeps the real button clickable; it dismisses the
-   moment the real pointer reaches the button (handled in JS). */
 .amr-auth-anchor {
   position: relative;
   display: inline-flex;
-}
-.amr-coachmark {
-  position: absolute;
-  /* Horizontally centered on the button, sitting low — the hand's fingertip
-     (top of the glyph) then points up into the button. `margin-left` centers
-     the box at `left: 50%` so `transform` stays free for the entrance. */
-  left: 50%;
-  margin-left: -12px;
-  bottom: 7px;
-  width: 24px;
-  height: 24px;
-  pointer-events: none;
-  z-index: 4;
-  animation: amr-coachmark-in 460ms cubic-bezier(0.23, 1, 0.32, 1) both;
-}
-/* Fade + rise straight up into place (bottom → up). */
-@keyframes amr-coachmark-in {
-  0% {
-    opacity: 0;
-    transform: translateY(16px) scale(0.8);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-.amr-coachmark__ring {
-  position: absolute;
-  inset: -3px;
-  border-radius: 50%;
-  border: 2px solid var(--accent);
-  opacity: 0;
-  /* Start pulsing only after the cursor has settled in. */
-  animation: amr-coachmark-ring 1.5s cubic-bezier(0.23, 1, 0.32, 1) 460ms infinite;
-}
-@keyframes amr-coachmark-ring {
-  0% {
-    transform: scale(0.55);
-    opacity: 0;
-  }
-  30% {
-    opacity: 0.65;
-  }
-  100% {
-    transform: scale(1.25);
-    opacity: 0;
-  }
-}
-.amr-coachmark__cursor {
-  position: absolute;
-  inset: 0;
-  filter: drop-shadow(0 1px 2px color-mix(in srgb, var(--text-muted) 45%, transparent));
 }
 .agent-card-main {
   display: flex;
@@ -1126,14 +1164,6 @@
     0 1px 0 color-mix(in srgb, var(--bg-panel) 88%, transparent) inset,
     0 10px 28px color-mix(in srgb, var(--text) 9%, transparent);
 }
-.agent-card.active::before {
-  content: '';
-  position: absolute;
-  inset: 12px auto 12px 0;
-  width: 4px;
-  border-radius: 0 999px 999px 0;
-  background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 56%, var(--selected)));
-}
 .agent-card-installed.active .agent-card-main {
   background:
     linear-gradient(
@@ -1144,7 +1174,7 @@
 }
 .agent-card-installed.active .agent-card-select {
   min-height: 78px;
-  padding: 14px 18px 12px 22px;
+  padding: 14px 18px 12px 18px;
 }
 .agent-card-installed.active .agent-icon {
   border-radius: var(--radius-md);

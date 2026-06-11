@@ -186,8 +186,7 @@ export type SettingsSection =
   | 'about';
 
 // One-shot focus hint when opening the dialog. `'amr'` scrolls the AMR agent
-// card into view on the execution section and plays a highlight (plus a
-// sign-in coachmark when the user has not authorized AMR yet).
+// card into view on the execution section and plays a brief highlight.
 export type SettingsHighlight = 'amr' | null;
 
 interface Props {
@@ -1066,6 +1065,11 @@ export function SettingsDialog({
 }: Props) {
   const { t, locale, setLocale } = useI18n();
   const analytics = useAnalytics();
+  const settingsPreviewMode = useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    return new URLSearchParams(window.location.search).get('odPreview');
+  }, []);
+  const previewByokFailure = settingsPreviewMode === 'byok-failure';
   // Backfill the fixed-origin base URL on mount too, so a config persisted with
   // an empty baseUrl (e.g. selected AIHubMix before this resolution existed)
   // isn't stuck blocking the live model fetch until the user re-selects the tab.
@@ -1150,13 +1154,6 @@ export function SettingsDialog({
   const amrCardRef = useRef<HTMLDivElement | null>(null);
   // Card pulse: a brief attention flash that auto-clears after a few seconds.
   const [amrHighlightActive, setAmrHighlightActive] = useState(false);
-  // Coachmark: persists (unlike the card pulse) until the real pointer reaches
-  // the authorize button — so it won't vanish while the user is still moving
-  // toward it.
-  const [amrCoachmarkArmed, setAmrCoachmarkArmed] = useState(false);
-  // The fake-cursor coachmark dismisses as soon as the real pointer reaches the
-  // authorize button — once the user has found it, the hint has done its job.
-  const [amrCoachmarkDismissed, setAmrCoachmarkDismissed] = useState(false);
   const [agentRescanRunning, setAgentRescanRunning] = useState(false);
   const [agentRescanNotice, setAgentRescanNotice] =
     useState<RescanNotice | null>(null);
@@ -1169,6 +1166,23 @@ export function SettingsDialog({
   const [providerTestState, setProviderTestState] = useState<TestState>({
     status: 'idle',
   });
+  const executionModeForRender: ExecMode = previewByokFailure ? 'api' : cfg.mode;
+  const previewProviderFailureResult = useMemo<ConnectionTestResponse | null>(
+    () =>
+      previewByokFailure
+        ? {
+            ok: false,
+            kind: 'auth_failed',
+            latencyMs: 342,
+            model: cfg.model || 'claude-3-5-sonnet-20241022',
+            status: 401,
+          }
+        : null,
+    [cfg.model, previewByokFailure],
+  );
+  const providerTestStateForRender: TestState = previewProviderFailureResult
+    ? { status: 'done', result: previewProviderFailureResult }
+    : providerTestState;
 
   useEffect(() => {
     onAmrLoginStatusChange?.(amrCardStatus);
@@ -1234,7 +1248,7 @@ export function SettingsDialog({
     // when it sees a signed-in status). Do NOT republish the login-state-change
     // event here — that restarts the pill's poll/pending machine on every focus
     // and, while the external browser is stealing and returning focus during a
-    // login, ping-pongs the action between "Signing in…" and "Authorize".
+    // login, ping-pongs the action between "Signing in…" and "Sign in".
     const resyncAmrStatus = () => {
       if (document.visibilityState === 'hidden') return;
       void fetchVelaLoginStatus().then((next) => {
@@ -1387,22 +1401,16 @@ export function SettingsDialog({
 
   // One-shot AMR-card focus from the failed-run nudge: scroll the card into
   // view (on the next frame, so it wins over the section's scrollTop reset
-  // above) and play a brief highlight + arm the sign-in coachmark. The
-  // coachmark only actually shows when the AMR card reports a signed-out state
-  // (`amrCardStatus?.loggedIn === false`). If the execution pane is in API mode
-  // the AMR card is absent and this no-ops.
+  // above) and play a brief highlight. If the execution pane is in API mode the
+  // AMR card is absent and this no-ops.
   useEffect(() => {
     if (initialHighlight !== 'amr' || activeSection !== 'execution') return;
     let cancelled = false;
     const raf = requestAnimationFrame(() => {
       if (cancelled) return;
       amrCardRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      setAmrCoachmarkDismissed(false);
       setAmrHighlightActive(true);
-      setAmrCoachmarkArmed(true);
     });
-    // Only the card pulse auto-clears; the coachmark persists until the pointer
-    // reaches the authorize button (or the user signs in).
     const clear = setTimeout(() => {
       if (!cancelled) setAmrHighlightActive(false);
     }, 3200);
@@ -1415,8 +1423,8 @@ export function SettingsDialog({
 
   // Config-failure rescue (PR2): when a CLI or BYOK connection test fails,
   // offer the hosted AMR models as the way to keep going. Switches the draft
-  // config to daemon/AMR and replays the same scroll + pulse + coachmark the
-  // failed-run nudge uses, so the user lands directly on the sign-in step.
+  // config to daemon/AMR and replays the same scroll + pulse the failed-run
+  // nudge uses, so the user lands directly on the sign-in step.
   // Gated on `available` because the AMR agent card itself only renders for
   // installed agents — offering the rescue without the card would dead-end.
   const amrRescueAvailable = agents.some((a) => a.id === 'amr' && a.available);
@@ -1427,9 +1435,7 @@ export function SettingsDialog({
     // re-render instead of racing it.
     window.setTimeout(() => {
       amrCardRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      setAmrCoachmarkDismissed(false);
       setAmrHighlightActive(true);
-      setAmrCoachmarkArmed(true);
     }, 80);
     window.setTimeout(() => setAmrHighlightActive(false), 3200);
   }, [analytics.track]);
@@ -1469,6 +1475,7 @@ export function SettingsDialog({
     return () => window.clearTimeout(id);
   }, [agentRescanNotice]);
   useEffect(() => {
+    if (previewByokFailure) return;
     if (providerTestFirstResetRef.current) {
       providerTestFirstResetRef.current = false;
       return;
@@ -1485,6 +1492,7 @@ export function SettingsDialog({
     cfg.baseUrl,
     cfg.model,
     cfg.apiVersion,
+    previewByokFailure,
   ]);
   useEffect(() => {
     if (providerModelsFirstResetRef.current) {
@@ -3353,7 +3361,7 @@ export function SettingsDialog({
                         className="agent-card-select agent-card-select--static"
                         data-testid="settings-agent-select-amr"
                       >
-                        <AgentIcon id={a.id} size={32} />
+                        <AgentIcon id={a.id} size={42} />
                         <div className="agent-card-body">
                           <div className="agent-card-name agent-card-name--amr">
                             <span className="agent-card-title">
@@ -3391,39 +3399,14 @@ export function SettingsDialog({
                         </div>
                       </div>
                       {amrCardStatusReady ? (
-                        <span
-                          className="amr-auth-anchor"
-                          onMouseEnter={() => setAmrCoachmarkDismissed(true)}
-                        >
-                          {amrCoachmarkArmed &&
-                          amrCardStatus?.loggedIn === false &&
-                          !amrCoachmarkDismissed ? (
-                            <span className="amr-coachmark" aria-hidden="true">
-                              <span className="amr-coachmark__ring" />
-                              <svg
-                                className="amr-coachmark__cursor"
-                                width="22"
-                                height="22"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                              >
-                                <path
-                                  d="M9.4 13V8a1.8 1.8 0 0 1 3.6 0v4.6c.35-.55 1-.95 1.75-.95.65 0 1.25.32 1.6.85.32-.5.9-.8 1.55-.8.8 0 1.5.5 1.78 1.2.35-.3.8-.5 1.3-.5 1.1 0 2 .9 2 2v3.05a5.6 5.6 0 0 1-5.6 5.6h-2.5a5 5 0 0 1-3.75-1.7l-4.2-4.75a1.85 1.85 0 0 1 2.65-2.6L9.4 16Z"
-                                  fill="#fff"
-                                  stroke="#1a1a1a"
-                                  strokeWidth="1.1"
-                                  strokeLinejoin="round"
-                                />
-                              </svg>
-                            </span>
-                          ) : null}
+                        <span className="amr-auth-anchor">
                           <AmrLoginPill
                             className="agent-card-amr-auth"
                             hideSignedOutStatus
                             hideSignedInStatus
                             initialStatus={amrCardStatus}
                             skipInitialRefresh
-                            signInLabel={t('settings.amrAuthorize')}
+                            signInLabel={t('settings.amrSignIn')}
                             showConsoleAction={amrCardStatus?.loggedIn === true}
                             amrEntrySourceDetail="settings_amr_authorize"
                             revealPendingCancelAction={amrRevealPendingCancelAction}
@@ -3449,10 +3432,10 @@ export function SettingsDialog({
                 <button
                   type="button"
                   role="tab"
-                  aria-selected={cfg.mode === 'daemon'}
+                  aria-selected={executionModeForRender === 'daemon'}
                   className={
                     'seg-btn seg-btn--inline' +
-                    (cfg.mode === 'daemon' ? ' active' : '')
+                    (executionModeForRender === 'daemon' ? ' active' : '')
                   }
                   disabled={!daemonLive}
                   onClick={() => setMode('daemon')}
@@ -3472,10 +3455,10 @@ export function SettingsDialog({
                 <button
                   type="button"
                   role="tab"
-                  aria-selected={cfg.mode === 'api'}
+                  aria-selected={executionModeForRender === 'api'}
                   className={
                     'seg-btn seg-btn--inline' +
-                    (cfg.mode === 'api' ? ' active' : '')
+                    (executionModeForRender === 'api' ? ' active' : '')
                   }
                   onClick={() => setMode('api')}
                 >
@@ -3483,7 +3466,7 @@ export function SettingsDialog({
                   <span className="seg-meta">{t('settings.modeApi')}</span>
                 </button>
               </div>
-              {cfg.mode === 'api' ? (
+              {executionModeForRender === 'api' ? (
                 <div
                   className="protocol-chips"
                   role="tablist"
@@ -3525,13 +3508,8 @@ export function SettingsDialog({
                   ))}
                 </div>
               ) : null}
-          {cfg.mode === 'daemon' ? (
+          {executionModeForRender === 'daemon' ? (
             <section className="settings-section">
-              <div className="section-head">
-                <div>
-                  <p className="hint">{t('settings.codeAgentHint')}</p>
-                </div>
-              </div>
               {initialAgentScanRunning ? (
                 <div className="agent-scan-card" role="status" aria-live="polite">
                   <div className="agent-scan-card__stage">
@@ -4115,10 +4093,11 @@ export function SettingsDialog({
                     testRunning: t('settings.testRunning'),
                     testTitle: t('settings.testTitle'),
                   }}
-                  providerTestState={providerTestState}
+                  providerTestState={providerTestStateForRender}
                   renderTestMessage={(result) => renderTestMessage(result, 'api')}
                   suppressResultStatus={
-                    providerTestBaseUrlInvalid || providerTestApiKeyAuthFailed
+                    !previewByokFailure &&
+                    (providerTestBaseUrlInvalid || providerTestApiKeyAuthFailed)
                   }
                   suppressReadyState={Boolean(
                     byokPreconditionNotice ||
@@ -4129,11 +4108,6 @@ export function SettingsDialog({
                   onTestProvider={() => handleTestProvider()}
                 />
               </div>
-              {amrRescueAvailable &&
-              providerTestState.status === 'done' &&
-              !providerTestState.result.ok ? (
-                <AmrRescueInlineHint onUseAmr={handleUseAmrRescue} />
-              ) : null}
               {byokPreconditionNotice && !byokPreconditionNotice.field ? (
                 <p
                   className="settings-test-status error"

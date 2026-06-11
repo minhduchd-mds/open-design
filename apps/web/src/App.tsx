@@ -1806,6 +1806,13 @@ function AppInner() {
     setSettingsOpen(true);
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const previewMode = new URLSearchParams(window.location.search).get('odPreview');
+    if (previewMode !== 'byok-failure') return;
+    openSettings('execution');
+  }, [openSettings]);
+
   // Entry point from the failed-run AMR nudge: open Settings on the execution
   // section and flag the AMR agent card for a one-shot scroll-into-view +
   // highlight (and a sign-in coachmark when not yet authorized).
