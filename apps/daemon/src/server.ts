@@ -4578,7 +4578,7 @@ export function applyClaudeStreamJsonRunBookkeeping(
       // execution (claude-code is about to run an internal tool, or we owe a
       // host tool_result). Either way the conversation is still in flight.
       event.stopReason !== 'tool_use') ||
-      event.type === 'usage') &&
+      (event.type === 'usage' && event.stopReason !== 'tool_use')) &&
     (!run.pendingHostAnswers || run.pendingHostAnswers.size === 0);
   if (!cleanTerminalTurn) return;
 
