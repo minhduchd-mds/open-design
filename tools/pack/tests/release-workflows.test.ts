@@ -41,6 +41,10 @@ describe("release workflows", () => {
     const macX64 = sectionBetween(beta, "  build_mac_x64:", "  build_win_x64:");
     const win = sectionBetween(beta, "  build_win_x64:", "  build_linux_x64:");
     const linux = sectionBetween(beta, "  build_linux_x64:", "  publish:");
+    const betaMetadata = sectionBetween(beta, "  metadata:", "  build_mac_arm64:");
+    const previewMetadata = sectionBetween(preview, "  metadata:", "  verify:");
+    const prereleaseMetadata = sectionBetween(prerelease, "  metadata:", "  verify:");
+    const stableMetadata = sectionBetween(stable, "  metadata:", "  verify:");
     const selfHostedMac = sectionBetween(betaSelfHosted, "  build_mac_arm64:", "  build_win_x64:");
     const selfHostedWin = sectionBetween(betaSelfHosted, "  build_win_x64:", "  publish:");
 
@@ -73,6 +77,11 @@ describe("release workflows", () => {
     expect(beta).toContain("tools-release publish-metadata");
     expect(beta).toContain("tools-release verify-metadata");
     expect(beta).toContain("tools-release summary-metadata");
+    for (const metadata of [betaMetadata, previewMetadata, prereleaseMetadata, stableMetadata]) {
+      expect(metadata).toContain("uses: pnpm/action-setup@v5");
+      expect(metadata).toContain("run: pnpm install --frozen-lockfile");
+      expect(metadata.indexOf("run: pnpm install --frozen-lockfile")).toBeLessThan(metadata.indexOf("tools-release prepare"));
+    }
     expect(betaSelfHosted).toContain("mac_arm64_update_metadata_url:");
     expect(betaSelfHosted).toContain("mac_arm64_delivery_mode:");
     expect(betaSelfHosted).toContain('default: "https://s3.nexu.space/od-releases"');
