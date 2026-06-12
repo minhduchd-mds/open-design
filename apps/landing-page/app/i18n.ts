@@ -6745,6 +6745,18 @@ export function localePath(locale: LandingLocaleCode, pathname = '/'): string {
   return `/${locale}${normalized}`;
 }
 
+// Legacy / alias locale prefixes that the catch-all route still emits via
+// `app/_lib/i18n.ts` LOCALES (`/zh-CN/`, `/es-ES/`, `/fa/`, `/hu/`, `/th/`)
+// but which are NOT canonical `LANDING_LOCALES`. The shared header language
+// switcher runs `localePath()` against the current page's raw pathname; on one
+// of these alias pages, leaving the prefix in place would build a doubled,
+// non-existent target like `/zh/zh-CN/blog/`. We strip them (canonicalizing to
+// the default locale) so switching language from `/zh-CN/blog/` lands on an
+// existing URL such as `/blog/` or `/zh/blog/`. Matching is case-insensitive,
+// which also covers the upper-cased `zh-TW` / `pt-BR` variants the catch-all
+// emits for codes whose canonical `LANDING_LOCALES` form is lower-cased.
+const LEGACY_LOCALE_PREFIXES = new Set(['zh-cn', 'es-es', 'fa', 'hu', 'th']);
+
 export function stripLocaleFromPath(pathname = '/'): {
   locale: LandingLocaleCode;
   pathname: string;
@@ -6758,6 +6770,21 @@ export function stripLocaleFromPath(pathname = '/'): {
     const rest = segments.slice(1).join('/');
     return {
       locale: first,
+      pathname: `/${rest}${rest ? '/' : ''}${suffix}`,
+    };
+  }
+
+  // Case-variant of a canonical locale (e.g. `/zh-TW/`) or a legacy alias the
+  // catch-all still emits (`/zh-CN/`, `/fa/`, …). Strip it so the language
+  // switcher canonicalizes the path instead of doubling the prefix.
+  const firstLower = first?.toLowerCase();
+  if (
+    firstLower &&
+    (isLandingLocale(firstLower) || LEGACY_LOCALE_PREFIXES.has(firstLower))
+  ) {
+    const rest = segments.slice(1).join('/');
+    return {
+      locale: isLandingLocale(firstLower) ? firstLower : DEFAULT_LOCALE,
       pathname: `/${rest}${rest ? '/' : ''}${suffix}`,
     };
   }
