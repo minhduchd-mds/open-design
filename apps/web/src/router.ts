@@ -23,7 +23,6 @@ export type Route =
   | { kind: 'home'; view: EntryHomeView }
   | { kind: 'design-system-create' }
   | { kind: 'design-system-detail'; designSystemId: string }
-  | { kind: 'brand-detail'; brandId: string }
   | {
       kind: 'project';
       projectId: string;
@@ -85,9 +84,8 @@ export function parseRoute(pathname: string): Route {
     return { kind: 'home', view: 'design-systems' };
   }
   if (parts[0] === 'brands') {
-    if (parts[1]) {
-      return { kind: 'brand-detail', brandId: decodeURIComponent(parts[1]) };
-    }
+    // The Brands tab shows everything inline in its preview panel; there is no
+    // separate detail route. Any `/brands/...` deep-link resolves to the tab.
     return { kind: 'home', view: 'brands' };
   }
   if (parts[0] === 'automations' || parts[0] === 'tasks') {
@@ -129,9 +127,6 @@ export function buildPath(route: Route): string {
   if (route.kind === 'design-system-create') return '/design-systems/create';
   if (route.kind === 'design-system-detail') {
     return `/design-systems/${encodeURIComponent(route.designSystemId)}`;
-  }
-  if (route.kind === 'brand-detail') {
-    return `/brands/${encodeURIComponent(route.brandId)}`;
   }
   const id = encodeURIComponent(route.projectId);
   const file = route.fileName

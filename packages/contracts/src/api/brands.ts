@@ -46,11 +46,25 @@ export interface BrandVoice {
   vocabulary: { use: string[]; avoid: string[] };
 }
 
+/** A representative brand image harvested from the site (hero, product
+ *  screenshot, illustration/photography sample, og:image). `file` is a path
+ *  relative to the brand/project dir, e.g. "imagery/hero.png". */
+export interface BrandImagerySample {
+  file: string;
+  /** Short category label, e.g. "hero", "product", "illustration". */
+  kind?: string;
+  /** One-line description shown under the thumbnail. */
+  caption?: string;
+}
+
 export interface BrandImagery {
   style: string;
   subjects: string[];
   treatment: string;
   avoid: string[];
+  /** Representative image samples saved under `imagery/`. Optional and
+   *  backward-compatible: brands extracted before this field stay valid. */
+  samples?: BrandImagerySample[];
 }
 
 export interface BrandLayout {

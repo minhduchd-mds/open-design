@@ -10,10 +10,30 @@ import {
   type BrandColor,
   type BrandColorRole,
   type BrandFontSpec,
+  type BrandImagerySample,
 } from '@open-design/contracts';
 
 const isStr = (v: unknown): v is string => typeof v === 'string';
 const strArr = (v: unknown): string[] => (Array.isArray(v) ? v.filter(isStr) : []);
+
+/** Parse the optional `imagery.samples` array. Each entry needs a `file`
+ *  string; `kind`/`caption` are optional. Anything malformed is dropped so a
+ *  sloppy agent output still validates (backward compatible). */
+function imagerySamples(raw: unknown): BrandImagerySample[] {
+  if (!Array.isArray(raw)) return [];
+  const out: BrandImagerySample[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const o = item as Record<string, unknown>;
+    if (!isStr(o.file) || !o.file.trim()) continue;
+    out.push({
+      file: o.file.trim(),
+      ...(isStr(o.kind) && o.kind ? { kind: o.kind } : {}),
+      ...(isStr(o.caption) && o.caption ? { caption: o.caption } : {}),
+    });
+  }
+  return out;
+}
 
 function fontSpec(raw: unknown, fallbackFamily: string): BrandFontSpec {
   const o = (raw ?? {}) as Record<string, unknown>;
@@ -96,6 +116,9 @@ export function validateBrand(raw: unknown, sourceUrl: string): Brand {
       subjects: strArr(imageryRaw.subjects),
       treatment: isStr(imageryRaw.treatment) ? imageryRaw.treatment : '',
       avoid: strArr(imageryRaw.avoid),
+      ...(imagerySamples(imageryRaw.samples).length
+        ? { samples: imagerySamples(imageryRaw.samples) }
+        : {}),
     },
     layout: {
       radius: isStr(layoutRaw.radius) ? layoutRaw.radius : '8px',

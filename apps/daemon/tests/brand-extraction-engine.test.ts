@@ -23,6 +23,10 @@ const SKILLS_ROOT = path.resolve(
   '../../../skills',
 );
 
+// Injected logo harvester that does nothing — keeps the engine tests offline
+// (the real fallback fetches the site's icon assets over the network).
+const NO_LOGO_FALLBACK = async () => ({ changed: false });
+
 // A minimal-but-valid brand.json the agent is expected to have written into the
 // backing project before finalize runs (seven roles, the three required ones).
 const VALID_BRAND = {
@@ -74,6 +78,7 @@ describe('agent-driven brand extraction engine', () => {
       projectsRoot,
       skillsRoot: SKILLS_ROOT,
       db,
+      logoFallback: NO_LOGO_FALLBACK,
     });
 
     // URL is normalized to https and the brand starts in `extracting`.
@@ -120,6 +125,7 @@ describe('agent-driven brand extraction engine', () => {
       projectsRoot,
       skillsRoot: SKILLS_ROOT,
       db,
+      logoFallback: NO_LOGO_FALLBACK,
     });
 
     // Agent writes a partial kit (name + a couple colors, no fonts yet).
@@ -157,6 +163,7 @@ describe('agent-driven brand extraction engine', () => {
       projectsRoot,
       skillsRoot: SKILLS_ROOT,
       db,
+      logoFallback: NO_LOGO_FALLBACK,
     });
 
     // Simulate the agent writing the complete kit into the backing project.
@@ -175,6 +182,7 @@ describe('agent-driven brand extraction engine', () => {
       projectsRoot,
       skillsRoot: SKILLS_ROOT,
       db,
+      logoFallback: NO_LOGO_FALLBACK,
     });
 
     expect(finalized.brand.name).toBe('Acme');
@@ -193,6 +201,10 @@ describe('agent-driven brand extraction engine', () => {
     const html = readFileSync(path.join(projectDir, 'brand.html'), 'utf8');
     expect(html).toContain('"status":"ready"');
     expect(existsSync(path.join(projectDir, 'system', 'artifacts', 'landing.html'))).toBe(true);
+    // The design-system module is wired up: the kit iframe + derived tokens.
+    expect(html).toContain('system/kit.html');
+    expect(existsSync(path.join(projectDir, 'system', 'kit.html'))).toBe(true);
+    expect(html).toMatch(/"colorPrimary":"#/);
   });
 
   it('finalizeBrand fails clearly when the agent has not written brand.json yet', async () => {
@@ -203,6 +215,7 @@ describe('agent-driven brand extraction engine', () => {
       projectsRoot,
       skillsRoot: SKILLS_ROOT,
       db,
+      logoFallback: NO_LOGO_FALLBACK,
     });
 
     await expect(
@@ -215,5 +228,177 @@ describe('agent-driven brand extraction engine', () => {
         db,
       }),
     ).rejects.toThrow(/brand\.json not found/i);
+  });
+
+  it('preview renders the imagery gallery + font tiles from imagery.samples', async () => {
+    const db = openDatabase(tempDir, { dataDir: tempDir });
+    const started = await startBrandExtraction({
+      url: 'acme.com',
+      brandsRoot,
+      projectsRoot,
+      skillsRoot: SKILLS_ROOT,
+      db,
+      logoFallback: NO_LOGO_FALLBACK,
+    });
+
+    const projectDir = path.join(projectsRoot, started.projectId);
+    writeFileSync(
+      path.join(projectDir, 'brand.json'),
+      JSON.stringify({
+        name: 'Acme',
+        sourceUrl: started.sourceUrl,
+        colors: [VALID_BRAND.colors[0], VALID_BRAND.colors[2], VALID_BRAND.colors[5]],
+        typography: VALID_BRAND.typography,
+        imagery: {
+          style: 'bold gradients',
+          samples: [
+            { file: 'imagery/hero.png', kind: 'hero', caption: 'Homepage hero' },
+            { file: 'imagery/product.webp', kind: 'product', caption: 'Product screenshot' },
+          ],
+        },
+      }),
+      'utf8',
+    );
+
+    const preview = await renderBrandPreviewIntoProject({
+      id: started.id,
+      brandsRoot,
+      skillsRoot: SKILLS_ROOT,
+      projectsRoot,
+    });
+    expect(preview.rendered).toBe(true);
+
+    const html = readFileSync(path.join(projectDir, 'brand.html'), 'utf8');
+    // The harvested image paths flow into the embedded payload so the gallery
+    // <img src> resolve under the FileViewer raw route.
+    expect(html).toContain('imagery/hero.png');
+    expect(html).toContain('imagery/product.webp');
+    // The kit template ships the gallery + font-specimen-tile renderers.
+    expect(html).toContain('<div class="gallery">');
+    expect(html).toContain('<div class="fonts">');
+  });
+
+  it('preview falls back to a logo alternate when logo.primary is empty', async () => {
+    const db = openDatabase(tempDir, { dataDir: tempDir });
+    const started = await startBrandExtraction({
+      url: 'acme.com',
+      brandsRoot,
+      projectsRoot,
+      skillsRoot: SKILLS_ROOT,
+      db,
+      logoFallback: NO_LOGO_FALLBACK,
+    });
+
+    const projectDir = path.join(projectsRoot, started.projectId);
+    writeFileSync(
+      path.join(projectDir, 'brand.json'),
+      JSON.stringify({
+        name: 'Acme',
+        sourceUrl: started.sourceUrl,
+        colors: [VALID_BRAND.colors[0], VALID_BRAND.colors[2], VALID_BRAND.colors[5]],
+        logo: { primary: null, alternates: ['logos/favicon.ico'], notes: '' },
+      }),
+      'utf8',
+    );
+
+    await renderBrandPreviewIntoProject({
+      id: started.id,
+      brandsRoot,
+      skillsRoot: SKILLS_ROOT,
+      projectsRoot,
+    });
+
+    const html = readFileSync(path.join(projectDir, 'brand.html'), 'utf8');
+    // The alternate path is embedded so the page can render it instead of the
+    // "No logo found" empty state.
+    expect(html).toContain('logos/favicon.ico');
+  });
+
+  it('startBrandExtraction seeds the deterministic logo fallback into the page', async () => {
+    const db = openDatabase(tempDir, { dataDir: tempDir });
+    // Stub harvester: writes a mark into logos/ and populates logo.primary,
+    // exactly as the real network fallback would, but offline.
+    const stubFallback = async (
+      _url: string,
+      logosDir: string,
+      logo: { primary: string | null; alternates: string[]; notes: string },
+    ) => {
+      mkdirSync(logosDir, { recursive: true });
+      writeFileSync(path.join(logosDir, 'apple-touch-icon.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+      logo.primary = 'logos/apple-touch-icon.png';
+      logo.notes = 'Auto-fetched site icon.';
+      return { changed: true };
+    };
+
+    const started = await startBrandExtraction({
+      url: 'acme.com',
+      brandsRoot,
+      projectsRoot,
+      skillsRoot: SKILLS_ROOT,
+      db,
+      logoFallback: stubFallback,
+    });
+
+    const projectDir = path.join(projectsRoot, started.projectId);
+    expect(existsSync(path.join(projectDir, 'logos', 'apple-touch-icon.png'))).toBe(true);
+    const html = readFileSync(path.join(projectDir, 'brand.html'), 'utf8');
+    // The seeded page already carries a real mark, not "No logo found".
+    expect(html).toContain('logos/apple-touch-icon.png');
+  });
+
+  it('finalizeBrand mirrors imagery/ and renders the gallery on the ready page', async () => {
+    const db = openDatabase(tempDir, { dataDir: tempDir });
+    const started = await startBrandExtraction({
+      url: 'acme.com',
+      brandsRoot,
+      projectsRoot,
+      skillsRoot: SKILLS_ROOT,
+      db,
+      logoFallback: NO_LOGO_FALLBACK,
+    });
+
+    const projectDir = path.join(projectsRoot, started.projectId);
+    // Agent saved a real image + referenced it from imagery.samples.
+    mkdirSync(path.join(projectDir, 'imagery'), { recursive: true });
+    writeFileSync(path.join(projectDir, 'imagery', 'hero.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+    writeFileSync(
+      path.join(projectDir, 'brand.json'),
+      JSON.stringify(
+        {
+          ...VALID_BRAND,
+          sourceUrl: started.sourceUrl,
+          imagery: {
+            style: 'bold gradients',
+            subjects: ['product'],
+            treatment: 'high contrast',
+            avoid: [],
+            samples: [{ file: 'imagery/hero.png', kind: 'hero', caption: 'Homepage hero' }],
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    const finalized = await finalizeBrand({
+      id: started.id,
+      brandsRoot,
+      userDesignSystemsRoot,
+      projectsRoot,
+      skillsRoot: SKILLS_ROOT,
+      db,
+      logoFallback: NO_LOGO_FALLBACK,
+    });
+
+    // Samples survive validation and the image is mirrored into the brand dir
+    // and synced back to the project so the gallery still resolves.
+    expect(finalized.brand.imagery.samples?.[0]?.file).toBe('imagery/hero.png');
+    expect(existsSync(path.join(brandsRoot, started.id, 'imagery', 'hero.png'))).toBe(true);
+    expect(existsSync(path.join(projectDir, 'imagery', 'hero.png'))).toBe(true);
+
+    const html = readFileSync(path.join(projectDir, 'brand.html'), 'utf8');
+    expect(html).toContain('"status":"ready"');
+    expect(html).toContain('imagery/hero.png');
   });
 });

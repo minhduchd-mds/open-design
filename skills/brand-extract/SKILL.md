@@ -71,9 +71,23 @@ your run context — treat "this page" / "the site" as that tab):
      accent.
    - **Typography** — the `@font-face` names and `font-family` declarations for
      display, body, and (if present) mono. Note weights actually used.
-   - **Logo** — inline header `<svg>`, `apple-touch-icon`, favicon, `og:image`.
-     Prefer an SVG wordmark > apple-touch-icon > favicon > og:image. Save the
-     candidate files into `logos/` in this project.
+   - **Logo (save MULTIPLE candidates)** — extract every logo asset you find and
+     save each as a file under `logos/`: the inline header/nav `<svg>` (write the
+     literal `<svg>…</svg>` markup verbatim to `logos/header.svg` — do not just
+     reference it), any `<img>` logo, `apple-touch-icon`, favicon, and
+     `og:image`. Fetch the asset URLs directly — **never leave `logo.primary`
+     empty when the site has any mark**. Set `logo.primary` to the best vector /
+     transparent lockup (SVG wordmark > apple-touch-icon > favicon > og:image)
+     and list the rest in `logo.alternates`; the kit page renders them as
+     switchable thumbnails. (The daemon auto-fetches a favicon/og:image fallback
+     into `logos/` so the page is never logo-less, but that safety net is no
+     substitute for saving the real wordmark.)
+   - **Imagery (save 4–8 representative images)** — download a handful of the
+     brand's real images into `imagery/`: hero/banner art, product or app
+     screenshots, illustration/photography samples, and the `og:image`. List
+     them in `brand.json` as `imagery.samples` (see shape below); the kit page
+     renders them as an Images gallery (a thumbnail grid). Pick varied, on-brand
+     images — not UI chrome or icons.
    - **Voice** — representative headings, taglines, and body copy to ground the
      voice; quote-level fidelity, not generic marketing speak.
 4. Save any self-hosted webfont files you can fetch into `fonts/`.
@@ -143,7 +157,13 @@ not filled yet, which is exactly the live "filling in" experience.
     "mono":    { "family": "JetBrains Mono", "fallbacks": ["monospace"], "weights": [400] }
   },
   "voice": { "adjectives": ["confident", "warm"], "tone": "how the brand speaks", "messagingPillars": ["pillar"], "vocabulary": { "use": ["words it uses"], "avoid": ["words it avoids"] } },
-  "imagery": { "style": "one line", "subjects": ["typical subjects"], "treatment": "how images are treated", "avoid": ["clichés to avoid"] },
+  "imagery": {
+    "style": "one line", "subjects": ["typical subjects"], "treatment": "how images are treated", "avoid": ["clichés to avoid"],
+    "samples": [
+      { "file": "imagery/hero.png", "kind": "hero", "caption": "Homepage hero" },
+      { "file": "imagery/product.png", "kind": "product", "caption": "Product screenshot" }
+    ]
+  },
   "layout": { "radius": "12px", "borderWeight": "1px", "spacing": "8px baseline grid", "postureRules": ["3-5 observed posture rules"] }
 }
 ```
@@ -156,7 +176,10 @@ Hard rules:
   faces with no file, keep the real `family`, put the closest Google Font first
   in `fallbacks`, set `googleFontsUrl`, and note "stand-in for <face>".
 - **Logo:** use the `logos/<file>` paths you saved; never pick a photographic
-  `og:image` as primary unless nothing else exists.
+  `og:image` as primary unless nothing else exists. Never leave `logo.primary`
+  empty when the site has any mark.
+- **Imagery:** save real files under `imagery/` and reference them by their
+  `imagery/<file>` path in `imagery.samples`; 4–8 varied, on-brand images.
 - Do not invent company facts beyond what the copy supports.
 
 **`BRAND.md`** — a prose brand guide an autonomous design agent can follow
@@ -174,12 +197,16 @@ poster, email, newsletter, form), and registers the brand as a reusable
 od brand finalize <brandId> --json
 ```
 
-This also re-renders `brand.html` one last time with the status flipped to
-"Brand ready" and the six **Brand Assets** tiles (landing, deck, poster, email,
-newsletter, form) lit up as live previews — each links to its full
-`system/artifacts/<kind>.html` page so the user can open any of them straight
-from the kit. If finalize reports a validation error, fix `brand.json` and run
-it again. Finish by pointing the user at the completed `brand.html` — the logo,
+This self-hosts any Google Fonts you declared (so the **Fonts** specimen tiles —
+a big "Ag" per family — and the kit render in the real typefaces), mirrors your
+`imagery/` samples into the brand so the **Images** gallery resolves, and
+re-renders `brand.html` one last time with the status flipped to "Brand ready",
+a **Design system** module (the live component kit
+with a Light/Dark toggle plus the derived token chips — colorPrimary, fontSize,
+borderRadius, …), and the six **Brand Assets** tiles (landing, deck, poster,
+email, newsletter, form) lit up as live previews that each link to their full
+`system/artifacts/<kind>.html` page. If finalize reports a validation error, fix
+`brand.json` and run it again. Finish by pointing the user at the completed `brand.html` — the logo,
 palette, typography, voice, and the assets they can now preview — and confirm
 the brand was registered.
 

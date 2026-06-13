@@ -1,19 +1,22 @@
 /* Master-detail Brands layout: a compact brand list on the left and a live
-   preview of the selected brand on the right. The root claims a bounded height
-   so the two panes scroll independently inside the entry scroll container. */
+   preview of the selected brand on the right. The page uses a single scroll
+   context (the entry scroll container); the right preview flows naturally and
+   the left sidebar stays pinned via `position: sticky`. */
 .root {
   display: grid;
   grid-template-columns: 288px minmax(0, 1fr);
+  align-items: start;
   gap: 20px;
   width: 100%;
-  height: calc(100dvh - 168px);
-  min-height: 460px;
 }
 
 /* ── Left sidebar ─────────────────────────────────────────────────── */
 .sidebar {
+  position: sticky;
+  top: var(--entry-topbar-h, 44px);
   display: flex;
   flex-direction: column;
+  max-height: calc(100dvh - var(--entry-topbar-h, 44px) - 48px);
   min-height: 0;
   gap: 12px;
   padding: 16px;
@@ -246,14 +249,13 @@
 }
 
 /* ── Right preview pane ───────────────────────────────────────────── */
+/* No own scroll container: the right content flows naturally and the whole
+   page scrolls through the outer entry scroll container. */
 .preview {
   min-width: 0;
-  min-height: 0;
-  overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--bg-panel);
-  scrollbar-width: thin;
 }
 
 .previewInner {
@@ -527,7 +529,7 @@
   align-items: center;
   justify-content: center;
   gap: 14px;
-  height: 100%;
+  min-height: 420px;
   padding: 40px;
   text-align: center;
 }
@@ -549,17 +551,525 @@
   color: var(--text-muted);
 }
 
+.previewActions {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ── Logo section ─────────────────────────────────────────────────── */
+.logoStage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 158px;
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.logoStageImg {
+  max-width: 100%;
+  max-height: 96px;
+  object-fit: contain;
+}
+
+.logoThumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.logoThumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  padding: 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  cursor: pointer;
+  transition: border-color var(--dur-quick) var(--ease-out);
+}
+
+.logoThumb:hover {
+  border-color: var(--accent);
+}
+
+.logoThumbActive {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.logoThumb img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.logoNotes {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+
+/* ── Typography: big "Ag" specimen tiles ──────────────────────────── */
+.fontTiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.fontTile {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+}
+
+.fontTileAg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 104px;
+  font-size: 56px;
+  line-height: 1;
+  color: var(--text-strong);
+  background: var(--bg);
+}
+
+.fontTileMeta {
+  padding: 9px 12px 11px;
+}
+
+.fontTileName {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text-strong);
+}
+
+.fontTileRole {
+  display: block;
+  margin-top: 1px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+}
+
+/* ── Palette: swatches with role + usage ──────────────────────────── */
+.paletteGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.swatch {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+}
+
+.swatchChip {
+  display: flex;
+  align-items: flex-end;
+  height: 84px;
+  padding: 8px;
+}
+
+.swatchHex {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-transform: uppercase;
+}
+
+.swatchBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 11px 12px;
+}
+
+.swatchName {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text-strong);
+}
+
+.swatchRole {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.swatchUsage {
+  margin-top: 4px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+/* ── Voice & tone ─────────────────────────────────────────────────── */
+.pillars {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13.5px;
+  color: var(--text);
+}
+
+.pillars li {
+  position: relative;
+  padding-left: 14px;
+  line-height: 1.5;
+}
+
+.pillars li::before {
+  content: '—';
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+}
+
+.vocab {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.vocabCol {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.vocabUse,
+.vocabAvoid {
+  font-size: 12px;
+  font-weight: 660;
+}
+
+.vocabUse {
+  color: var(--green, #3d7a4f);
+}
+
+.vocabAvoid {
+  color: var(--red);
+}
+
+.vocabVals {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+/* ── Imagery & layout ─────────────────────────────────────────────── */
+.imageryLine {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.imageryKey {
+  font-weight: 640;
+  color: var(--text-strong);
+}
+
+.imageryKeyAvoid {
+  font-weight: 640;
+  color: var(--red);
+}
+
+.posture {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.postureList {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* ── Imagery samples gallery ──────────────────────────────────────── */
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.shot {
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  transition: border-color var(--dur-quick) var(--ease-out),
+    transform var(--dur-quick) var(--ease-out);
+}
+
+.shot:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.shotFrame {
+  aspect-ratio: 4 / 3;
+  background: var(--bg);
+}
+
+.shotFrame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.shotMeta {
+  padding: 8px 11px 10px;
+}
+
+.shotCap {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.25;
+  color: var(--text-strong);
+}
+
+.shotKind {
+  display: block;
+  margin-top: 1px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+/* ── Design system preview ────────────────────────────────────────── */
+.dsHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dsOpen {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color var(--dur-quick) var(--ease-out);
+}
+
+.dsOpen:hover {
+  color: var(--accent);
+}
+
+.dsFrameWrap {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.dsBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dsTabs {
+  display: flex;
+  gap: 4px;
+}
+
+.dsTab {
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 4px 12px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color var(--dur-quick) var(--ease-out),
+    color var(--dur-quick) var(--ease-out);
+}
+
+.dsTab:hover {
+  color: var(--text-strong);
+}
+
+.dsTabActive,
+.dsTabActive:hover {
+  background: var(--bg-panel);
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.dsCap {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.dsFrame {
+  width: 100%;
+  height: 520px;
+  border: 0;
+  display: block;
+  background: #fff;
+}
+
+.dsTokens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tok {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 11px 5px 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+}
+
+.tokSwatch {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-xs);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.tokText {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.tokKey {
+  font-size: 11px;
+  font-weight: 660;
+  color: var(--text-strong);
+}
+
+.tokHex {
+  font-size: 10px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.tokValue {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: var(--radius-xs);
+  background: var(--accent-tint);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 660;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Brand assets grid ────────────────────────────────────────────── */
+.assets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.asset {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color var(--dur-quick) var(--ease-out),
+    transform var(--dur-quick) var(--ease-out);
+}
+
+.asset:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.assetFrame {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.assetFrame iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 200%;
+  height: 200%;
+  border: 0;
+  transform: scale(0.5);
+  transform-origin: top left;
+  pointer-events: none;
+  background: #fff;
+}
+
+.assetMeta {
+  padding: 11px 13px;
+}
+
+.assetName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
 /* ── Responsive: stack panes on narrow viewports ──────────────────── */
 @media (max-width: 860px) {
   .root {
     grid-template-columns: 1fr;
-    height: auto;
-    min-height: 0;
+  }
+  .sidebar {
+    position: static;
+    max-height: none;
   }
   .list {
     max-height: 320px;
-  }
-  .preview {
-    overflow-y: visible;
   }
 }

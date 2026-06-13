@@ -47,6 +47,8 @@ import { reflowBrandToMemory } from './memory.js';
 import { brandSystemDir, rebuildSystem } from './system.js';
 import { extractJsonBlock, validateBrand } from './validate.js';
 import { BRAND_KIT_FILE, writeBrandKitPreview } from './kit-render.js';
+import { selfHostGoogleFonts } from './fonts.js';
+import { ensureLogoFallback, type LogoFallbackFn } from './logo-fallback.js';
 import {
   createBrandDir,
   deleteBrandDir,
@@ -84,6 +86,9 @@ export interface StartBrandExtractionOptions {
   skillsRoot: string;
   db: Parameters<typeof insertProject>[0];
   randomId?: () => string;
+  /** Override the deterministic logo harvester (tests inject a no-op / stub to
+   *  avoid real network calls). Defaults to the live icon-fetching fallback. */
+  logoFallback?: LogoFallbackFn;
 }
 
 export interface StartBrandExtractionResult {
@@ -128,7 +133,14 @@ export async function startBrandExtraction(
   const url = normalizeUrl(opts.url);
   if (!url) throw new Error('Enter a valid http(s) website URL.');
 
-  const { brandsRoot, projectsRoot, skillsRoot, db, randomId = randomUUID } = opts;
+  const {
+    brandsRoot,
+    projectsRoot,
+    skillsRoot,
+    db,
+    randomId = randomUUID,
+    logoFallback = ensureLogoFallback,
+  } = opts;
   const id = newBrandId(url);
   const projectId = brandProjectId(id);
   const host = hostnameOf(url);
@@ -180,11 +192,25 @@ export async function startBrandExtraction(
   // scaffold the moment the project opens — not just a scrolling chat. It
   // starts as skeletons + "Extracting…" and fills in as the agent writes
   // brand.json and re-runs `od brand preview`.
+  //
+  // Best-effort deterministic logo: fetch the site's icon assets up front so
+  // the live page shows a real mark from the very first paint, instead of "No
+  // logo found", even before the agent saves a logo. Bounded + failure-tolerant
+  // (offline / blocked → empty, the prior behavior).
+  const seedBrand: Record<string, unknown> = { name: host, sourceUrl: url, colors: [], typography: {} };
+  try {
+    const projectDir = resolveProjectDir(projectsRoot, projectId, metadata);
+    const logo = { primary: null as string | null, alternates: [] as string[], notes: '' };
+    const result = await logoFallback(url, path.join(projectDir, 'logos'), logo);
+    if (result.changed) seedBrand.logo = logo;
+  } catch {
+    // Best-effort only — never block project creation on icon fetching.
+  }
   await writeBrandKitPreview({
     skillsRoot,
     projectsRoot,
     projectId,
-    brand: { name: host, sourceUrl: url, colors: [], typography: {} },
+    brand: seedBrand,
     status: 'extracting',
     host,
     metadata,
@@ -218,6 +244,9 @@ export interface FinalizeBrandOptions {
   /** Overrides the brand's recorded backing project. */
   projectId?: string;
   randomId?: () => string;
+  /** Override the deterministic logo harvester (tests inject a no-op / stub to
+   *  avoid real network calls). Defaults to the live icon-fetching fallback. */
+  logoFallback?: LogoFallbackFn;
 }
 
 /**
@@ -230,7 +259,7 @@ export interface FinalizeBrandOptions {
 export async function finalizeBrand(
   opts: FinalizeBrandOptions,
 ): Promise<BrandFinalizeResponse> {
-  const { id, brandsRoot, userDesignSystemsRoot, projectsRoot, db } = opts;
+  const { id, brandsRoot, userDesignSystemsRoot, projectsRoot, db, logoFallback = ensureLogoFallback } = opts;
   const meta = readMeta(brandsRoot, id);
   if (!meta) throw new Error(`brand not found: ${id}`);
   const projectId = opts.projectId ?? meta.projectId ?? brandProjectId(id);
@@ -264,6 +293,33 @@ export async function finalizeBrand(
   writeBrandGuide(brandsRoot, id, guideMd);
   copyProjectDirToBrand(projectsRoot, projectId, brandsRoot, id, 'logos');
   copyProjectDirToBrand(projectsRoot, projectId, brandsRoot, id, 'fonts');
+  copyProjectDirToBrand(projectsRoot, projectId, brandsRoot, id, 'imagery');
+
+  // Deterministic logo safety net: if the agent saved no logo and left
+  // `logo.primary` empty, fetch the site's icon assets server-side so the kit
+  // almost never shows "No logo found". Best-effort — offline just leaves it
+  // empty. Re-persist brand.json so the populated logo flows into the design
+  // system, the synced project files, and memory below.
+  try {
+    const brandDir = resolveBrandFile(brandsRoot, id, []);
+    if (brandDir) {
+      const result = await logoFallback(meta.sourceUrl, path.join(brandDir, 'logos'), brand.logo);
+      if (result.changed) writeBrand(brandsRoot, id, brand);
+    }
+  } catch {
+    // Offline / unreachable origin — keep the (empty) logo and continue.
+  }
+
+  // Self-host any Google Fonts the agent declared (typography.*.googleFontsUrl)
+  // into the brand's fonts/ + manifest.json so the component kit, the exported
+  // brandpack, and the brand.html specimens render in the real typefaces rather
+  // than a fallback. Best-effort: network failures leave the fallback stacks.
+  try {
+    const brandDir = resolveBrandFile(brandsRoot, id, []);
+    if (brandDir) await selfHostGoogleFonts(brand, brandDir);
+  } catch {
+    // Offline / unreachable font CSS — keep going with whatever the agent saved.
+  }
 
   const systemBuild = await rebuildSystem(brandsRoot, id);
 
@@ -427,10 +483,13 @@ function brandExtractionPrompt(input: { url: string; brandId: string; host: stri
     '',
     'Work the branding-agent chain, optimizing for FAST first paint:',
     '',
-    '1. MEASURE — drive the site with agent-browser. Snapshot it, then harvest the real design language: frequency-ranked color literals (background / surface / foreground / muted / border / accent / accent-secondary), the @font-face + font-family declarations, the logo candidates (inline header SVG, apple-touch-icon, favicon, og:image), and representative headings + copy for voice. Save logo files under `logos/` and any self-hosted webfonts under `fonts/` in this project.',
+    '1. MEASURE — drive the site with agent-browser. Snapshot it, then harvest the real design language: frequency-ranked color literals (background / surface / foreground / muted / border / accent / accent-secondary), the @font-face + font-family declarations, and representative headings + copy for voice.',
+    '   - LOGO (extract MULTIPLE candidates): save every logo you can find as a file under `logos/` — the inline header/nav SVG (write the literal `<svg>…</svg>` markup verbatim to `logos/header.svg`, do NOT just reference it), any `<img>` logo, the `apple-touch-icon`, the `favicon`, and the `og:image`. Set `logo.primary` to the best vector/transparent lockup and list the rest in `logo.alternates` (the kit page shows them as switchable thumbnails). NEVER leave `logo.primary` empty when the site has any mark — fetch the asset URLs directly and save real files. (The daemon also auto-fetches a favicon/og:image fallback so the page is never logo-less, but that is a safety net, not a substitute for the real wordmark.)',
+    '   - FONTS: record each real family in `typography` with its `fallbacks` and `weights`. When the family is on Google Fonts, set `googleFontsUrl` so finalize self-hosts it and specimens render for real; otherwise note it is proprietary. The kit page renders a big "Ag" specimen tile per family, so a correct `family` + `googleFontsUrl` makes them show in the real typeface.',
+    '   - IMAGERY (save 4–8 representative images): download a handful of the brand’s real images — hero/banner art, product or app screenshots, illustration/photography samples, and the `og:image` — and save each as a file under `imagery/`. List them in `brand.json` as `imagery.samples: [{ "file": "imagery/<file>", "kind": "hero|product|illustration|photo|og", "caption": "short label" }]`. The kit page renders these as an Images gallery (a thumbnail grid). Fetch the asset URLs directly; pick varied, on-brand images, not chrome/icons.',
     '   - ANTI-BOT WALL: if the page is a Cloudflare / DataDome / "Just a moment…" / "Verify you are human" interstitial instead of the real site, STOP and emit a `<question-form>` asking the user to complete the verification in the browser, then Continue. Do NOT try to bypass it yourself. When the user submits the form, re-snapshot and resume.',
     '',
-    '2. SYNTHESIZE INCREMENTALLY — write `brand.json` into this project AS SOON AS you have the name, a couple of colors, and a logo candidate (do not wait for everything). It must parse as JSON and use exactly the seven color roles (background, surface, foreground, muted, border, accent, accent-secondary), each with `hex` (#rrggbb), `oklch`, `name`, `usage`; plus `name`, `tagline`, `description`, `sourceUrl`, `logo` ({ primary, alternates, notes } with `logos/<file>` paths), `typography` ({ display, body, mono? } each { family, fallbacks[], weights[], googleFontsUrl? }), `voice`, `imagery`, and `layout`. Never invent colors from memory — pick them from what you measured.',
+    '2. SYNTHESIZE INCREMENTALLY — write `brand.json` into this project AS SOON AS you have the name, a couple of colors, and a logo candidate (do not wait for everything). It must parse as JSON and use exactly the seven color roles (background, surface, foreground, muted, border, accent, accent-secondary), each with `hex` (#rrggbb), `oklch`, `name`, `usage`; plus `name`, `tagline`, `description`, `sourceUrl`, `logo` ({ primary, alternates, notes } with `logos/<file>` paths), `typography` ({ display, body, mono? } each { family, fallbacks[], weights[], googleFontsUrl? }), `voice`, `imagery` (incl. `samples` — the `imagery/<file>` images you saved), and `layout`. Never invent colors from memory — pick them from what you measured.',
     '   - After that FIRST write, run `od brand preview ' + input.brandId + '` to render the kit page, and tell the user it is filling in. Then keep measuring, update `brand.json`, and re-run `od brand preview ' + input.brandId + '` after each pass so they watch it complete. Also write `BRAND.md`, a prose brand guide an autonomous design agent can follow.',
     '',
     '3. BUILD & REGISTER — when `brand.json` is complete, run `od brand finalize ' + input.brandId + '` (add `--json` for machine output). That validates it, derives the light/dark/compact design tokens and the six brand-system artifacts (landing, deck, poster, email, newsletter, form), registers the reusable design system, and lights up the Brand Assets tiles on the kit page. Fix `brand.json` and re-run if it reports a validation error.',
@@ -503,6 +562,7 @@ async function syncBrandFilesToProject(input: {
   await copyDirectoryToProject(input.projectsRoot, input.projectId, input.metadata, brandSystemDir(input.brandsRoot, input.brandId), 'system');
   await copyOptionalDirectoryToProject(input.projectsRoot, input.projectId, input.metadata, path.join(brandRoot, 'logos'), 'logos');
   await copyOptionalDirectoryToProject(input.projectsRoot, input.projectId, input.metadata, path.join(brandRoot, 'fonts'), 'fonts');
+  await copyOptionalDirectoryToProject(input.projectsRoot, input.projectId, input.metadata, path.join(brandRoot, 'imagery'), 'imagery');
   await copyOptionalDirectoryToProject(input.projectsRoot, input.projectId, input.metadata, path.join(brandRoot, 'prefetch'), 'prefetch');
 }
 
@@ -558,6 +618,7 @@ function syncBrandSystemToUserDesignSystem(
   copyDirectorySync(brandSystemDir(brandsRoot, brandId), path.join(dir, 'system'));
   copyOptionalDirectorySync(path.join(brandRoot, 'logos'), path.join(dir, 'logos'));
   copyOptionalDirectorySync(path.join(brandRoot, 'fonts'), path.join(dir, 'fonts'));
+  copyOptionalDirectorySync(path.join(brandRoot, 'imagery'), path.join(dir, 'imagery'));
   copyOptionalDirectorySync(path.join(brandRoot, 'prefetch'), path.join(dir, 'prefetch'));
   const brandJson = resolveBrandFile(brandsRoot, brandId, ['brand.json']);
   if (brandJson && isFile(brandJson)) {

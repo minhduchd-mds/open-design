@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@open-design/components';
-import type { BrandFontSpec, BrandSummary } from '@open-design/contracts';
+import type { BrandFontSpec, BrandImagerySample, BrandSummary } from '@open-design/contracts';
 import { useT } from '../i18n';
 import { navigate } from '../router';
+import { projectRawUrl } from '../providers/registry';
 import { NewBrandModal } from './NewBrandModal';
 import styles from './BrandsTab.module.css';
 
@@ -74,10 +75,6 @@ export function BrandsTab() {
     if (!selectedBrandId) return null;
     return (brands ?? []).find((b) => b.meta.id === selectedBrandId) ?? null;
   }, [brands, selectedBrandId]);
-
-  const openBrand = useCallback((id: string) => {
-    navigate({ kind: 'brand-detail', brandId: id });
-  }, []);
 
   const handleCreated = useCallback(
     (_brandId: string, projectId: string, conversationId: string) => {
@@ -154,7 +151,7 @@ export function BrandsTab() {
 
       <section className={styles.preview} data-testid="brands-preview">
         {selected ? (
-          <BrandPreview key={selected.meta.id} summary={selected} onOpen={openBrand} />
+          <BrandPreview key={selected.meta.id} summary={selected} onChanged={refresh} />
         ) : (
           <div className={styles.previewEmpty}>
             <span className={styles.previewEmptyMark} aria-hidden>
@@ -284,16 +281,128 @@ function BrandListItem({ summary, active, onSelect }: ListItemProps) {
 
 interface PreviewProps {
   summary: BrandSummary;
-  onOpen: (id: string) => void;
+  /** Called after a mutation (delete) so the parent can refresh the list. */
+  onChanged: () => void | Promise<void>;
 }
 
-function BrandPreview({ summary, onOpen }: PreviewProps) {
+/** Build a CSS font-family stack from a brand font spec, quoting multi-word
+ *  family names so they parse as a single family. */
+function fontStack(spec: BrandFontSpec): string {
+  const families = [spec.family, ...(spec.fallbacks ?? [])].filter(Boolean);
+  if (families.length === 0) return 'ui-sans-serif, system-ui, sans-serif';
+  return families.map((f) => (/\s/.test(f) ? `'${f}'` : f)).join(', ');
+}
+
+/** Relative-luminance check so swatch hex captions stay legible on the chip. */
+function isLightHex(hex: string): boolean {
+  if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return true;
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return r * 0.299 + g * 0.587 + b * 0.114 > 150;
+}
+
+/** Token subset the design-system chips surface, mirroring the kit renderer. */
+interface BrandTokenSubset {
+  colorPrimary?: string;
+  colorPrimaryBg?: string;
+  colorPrimaryHover?: string;
+  colorPrimaryActive?: string;
+  fontSize?: number;
+  borderRadius?: number;
+}
+
+interface BrandFontManifestFile {
+  family: string;
+  weight: string;
+  style: string;
+  file: string;
+  format: string;
+}
+
+// Load the brand's real typefaces into the document so specimens render for
+// real: append any Google Fonts stylesheets the kit declares, and inject
+// self-hosted @font-face rules from the project's fonts/manifest.json. Both
+// sources are best-effort and tolerant of absence (e.g. a brand with no
+// harvested manifest still renders via googleFontsUrl or fallbacks). All
+// injected nodes are torn down when the brand changes.
+function useBrandFonts(projectId: string | undefined, fonts: BrandFontSpec[]): void {
+  const googleUrls = useMemo(() => {
+    const urls = fonts
+      .map((f) => f.googleFontsUrl)
+      .filter((u): u is string => Boolean(u && /^https:\/\/fonts\.googleapis\.com\//i.test(u)));
+    return Array.from(new Set(urls));
+  }, [fonts]);
+
+  useEffect(() => {
+    const links = googleUrls.map((href) => {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = href;
+      document.head.appendChild(link);
+      return link;
+    });
+    return () => {
+      for (const link of links) link.remove();
+    };
+  }, [googleUrls]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    let cancelled = false;
+    let styleEl: HTMLStyleElement | null = null;
+    void (async () => {
+      try {
+        const resp = await fetch(projectRawUrl(projectId, 'fonts/manifest.json'), {
+          cache: 'no-store',
+        });
+        if (!resp.ok) return;
+        const data = (await resp.json()) as { files?: BrandFontManifestFile[] };
+        const files = Array.isArray(data?.files) ? data.files : [];
+        if (cancelled || files.length === 0) return;
+        const css = files
+          .map((f) => {
+            const url = projectRawUrl(projectId, `fonts/${f.file}`);
+            return [
+              '@font-face {',
+              `  font-family: '${f.family.replace(/'/g, '')}';`,
+              `  src: url('${url}') format('${f.format}');`,
+              `  font-weight: ${f.weight};`,
+              `  font-style: ${f.style};`,
+              '  font-display: swap;',
+              '}',
+            ].join('\n');
+          })
+          .join('\n');
+        styleEl = document.createElement('style');
+        styleEl.dataset.brandFonts = projectId;
+        styleEl.textContent = css;
+        document.head.appendChild(styleEl);
+      } catch {
+        // A missing or malformed manifest is expected for some brands; the
+        // specimens simply fall back to the system stack.
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (styleEl) styleEl.remove();
+    };
+  }, [projectId]);
+}
+
+function BrandPreview({ summary, onChanged }: PreviewProps) {
   const t = useT();
   const { meta, brand } = summary;
   const host = hostnameOf(meta.sourceUrl);
   const name = brand?.name?.trim() || host;
   const extracting = meta.status === 'extracting';
   const failed = meta.status === 'failed';
+  const ready = meta.status === 'ready';
+  const projectId = meta.projectId;
+
+  const [busy, setBusy] = useState(false);
+  const [tokens, setTokens] = useState<BrandTokenSubset | null>(null);
+  const [dsTheme, setDsTheme] = useState<'light' | 'dark'>('light');
 
   const colors = brand?.colors ?? [];
   const fonts = useMemo<{ font: BrandFontSpec; label: string }[]>(() => {
@@ -304,8 +413,125 @@ function BrandPreview({ summary, onOpen }: PreviewProps) {
     if (brand.typography.mono) out.push({ font: brand.typography.mono, label: 'Mono' });
     return out;
   }, [brand]);
+
+  useBrandFonts(
+    projectId,
+    useMemo(() => fonts.map((f) => f.font), [fonts]),
+  );
+
+  // Logo candidates (primary first, then alternates), de-duped. These resolve
+  // under the backing project's raw file route — the same convention the
+  // rendered brand.html uses. Only meaningful once the brand has a project.
+  const logoCandidates = useMemo(() => {
+    const primary = brand?.logo?.primary ?? null;
+    const all = [primary, ...(brand?.logo?.alternates ?? [])].filter(
+      (c): c is string => Boolean(c),
+    );
+    return Array.from(new Set(all));
+  }, [brand]);
+  const [activeLogo, setActiveLogo] = useState(0);
+  useEffect(() => {
+    setActiveLogo(0);
+  }, [meta.id]);
+
+  const samples = useMemo<BrandImagerySample[]>(() => {
+    const list = brand?.imagery?.samples;
+    return Array.isArray(list) ? list.filter((s) => s && s.file) : [];
+  }, [brand]);
+
   const adjectives = brand?.voice?.adjectives ?? [];
-  const aesthetic = brand?.imagery?.style?.trim() || brand?.voice?.tone?.trim() || '';
+  const tone = brand?.voice?.tone?.trim() || '';
+  const pillars = brand?.voice?.messagingPillars ?? [];
+  const vocabUse = brand?.voice?.vocabulary?.use ?? [];
+  const vocabAvoid = brand?.voice?.vocabulary?.avoid ?? [];
+  const imagery = brand?.imagery;
+  const layout = brand?.layout;
+
+  const showSystem = Boolean(ready && projectId);
+
+  // Fetch the six engine tokens the design-system chips show. Best-effort and
+  // gated on a finalized brand (the system/ dir only exists post-finalize).
+  useEffect(() => {
+    if (!showSystem || !projectId) {
+      setTokens(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const resp = await fetch(projectRawUrl(projectId, 'system/tokens.default.json'), {
+          cache: 'no-store',
+        });
+        if (!resp.ok) return;
+        const raw = (await resp.json()) as Record<string, unknown>;
+        if (cancelled) return;
+        const next: BrandTokenSubset = {};
+        if (typeof raw.colorPrimary === 'string') next.colorPrimary = raw.colorPrimary;
+        if (typeof raw.colorPrimaryBg === 'string') next.colorPrimaryBg = raw.colorPrimaryBg;
+        if (typeof raw.colorPrimaryHover === 'string') next.colorPrimaryHover = raw.colorPrimaryHover;
+        if (typeof raw.colorPrimaryActive === 'string') {
+          next.colorPrimaryActive = raw.colorPrimaryActive;
+        }
+        if (typeof raw.fontSize === 'number') next.fontSize = raw.fontSize;
+        if (typeof raw.borderRadius === 'number') next.borderRadius = raw.borderRadius;
+        setTokens(next.colorPrimary ? next : null);
+      } catch {
+        // Token chips are decorative; a missing file just hides them.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showSystem, projectId]);
+
+  const useInChat = useCallback(async () => {
+    if (!meta.designSystemId || busy) return;
+    setBusy(true);
+    try {
+      // The brand registered a `user:<id>` design system; reuse the existing
+      // design-system apply flow by writing the global default into app-config.
+      await fetch('/api/app-config', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ designSystemId: meta.designSystemId }),
+      });
+      navigate({ kind: 'home', view: 'home' });
+    } catch {
+      setBusy(false);
+    }
+  }, [meta.designSystemId, busy]);
+
+  const openProject = useCallback(() => {
+    if (!projectId) return;
+    navigate({ kind: 'project', projectId, fileName: null, conversationId: null });
+  }, [projectId]);
+
+  const deleteBrand = useCallback(async () => {
+    if (busy) return;
+    const ok = window.confirm(t('brandDetail.deleteConfirm').replace('{name}', name));
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await fetch(`/api/brands/${encodeURIComponent(meta.id)}`, { method: 'DELETE' });
+      await onChanged();
+    } catch {
+      setBusy(false);
+    }
+  }, [busy, meta.id, name, onChanged, t]);
+
+  const dsKitFile = dsTheme === 'dark' ? 'system/kit.dark.html' : 'system/kit.html';
+
+  const assetTiles = useMemo(
+    () => [
+      { kind: 'landing', label: 'Landing page', file: 'system/artifacts/landing.html' },
+      { kind: 'deck', label: 'Pitch deck', file: 'system/artifacts/deck.html' },
+      { kind: 'poster', label: 'Poster', file: 'system/artifacts/poster.html' },
+      { kind: 'email', label: 'Email', file: 'system/artifacts/email.html' },
+      { kind: 'newsletter', label: 'Newsletter', file: 'system/artifacts/newsletter.html' },
+      { kind: 'form', label: 'Form page', file: 'system/artifacts/form.html' },
+    ],
+    [],
+  );
 
   return (
     <div className={styles.previewInner}>
@@ -347,13 +573,34 @@ function BrandPreview({ summary, onOpen }: PreviewProps) {
             </a>
           ) : null}
         </div>
-        <Button
-          variant="ghost"
-          onClick={() => onOpen(meta.id)}
-          data-testid="brand-preview-open"
-        >
-          {t('brand.viewDetails')}
-        </Button>
+        <div className={styles.previewActions}>
+          <Button
+            variant="primary"
+            onClick={() => void useInChat()}
+            disabled={busy || !meta.designSystemId}
+            data-testid="brand-preview-use"
+          >
+            {t('brandDetail.useInChat')}
+          </Button>
+          {projectId ? (
+            <Button
+              variant="ghost"
+              onClick={openProject}
+              disabled={busy}
+              data-testid="brand-preview-open-project"
+            >
+              {t('brandDetail.openProject')}
+            </Button>
+          ) : null}
+          <Button
+            variant="ghost"
+            onClick={() => void deleteBrand()}
+            disabled={busy}
+            data-testid="brand-preview-delete"
+          >
+            {t('brandDetail.delete')}
+          </Button>
+        </div>
       </header>
 
       {brand?.description ? (
@@ -363,27 +610,54 @@ function BrandPreview({ summary, onOpen }: PreviewProps) {
         </section>
       ) : null}
 
-      {colors.length > 0 ? (
-        <section className={styles.section} aria-label={t('brandDetail.colors')}>
-          <h3 className={styles.sectionTitle}>{t('brandDetail.colors')}</h3>
-          <div className={styles.colorGrid}>
-            {colors.map((c, i) => (
-              <div key={`${c.role}-${i}`} className={styles.colorCard}>
-                <span className={styles.colorSwatch} style={{ background: c.hex }} />
-                <span className={styles.colorName}>{c.name || c.role}</span>
-                <span className={styles.colorHex}>{c.hex}</span>
-              </div>
-            ))}
+      {projectId && logoCandidates.length > 0 ? (
+        <section className={styles.section} aria-label={t('brandDetail.logo')}>
+          <h3 className={styles.sectionTitle}>{t('brandDetail.logo')}</h3>
+          <div className={styles.logoStage}>
+            <img
+              className={styles.logoStageImg}
+              src={projectRawUrl(projectId, logoCandidates[activeLogo] ?? logoCandidates[0])}
+              alt={name}
+            />
           </div>
+          {logoCandidates.length > 1 ? (
+            <div className={styles.logoThumbs}>
+              {logoCandidates.map((cand, i) => (
+                <button
+                  key={cand}
+                  type="button"
+                  className={`${styles.logoThumb} ${i === activeLogo ? styles.logoThumbActive : ''}`}
+                  onClick={() => setActiveLogo(i)}
+                  aria-pressed={i === activeLogo}
+                >
+                  <img src={projectRawUrl(projectId, cand)} alt="" />
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {brand?.logo?.notes ? <p className={styles.logoNotes}>{brand.logo.notes}</p> : null}
         </section>
       ) : null}
 
       {fonts.length > 0 ? (
-        <section className={styles.section} aria-label={t('brandDetail.fonts')}>
-          <h3 className={styles.sectionTitle}>{t('brandDetail.fonts')}</h3>
+        <section className={styles.section} aria-label={t('brandDetail.typography')}>
+          <h3 className={styles.sectionTitle}>{t('brandDetail.typography')}</h3>
+          <div className={styles.fontTiles}>
+            {fonts.map(({ font, label }) => (
+              <div key={`tile-${label}-${font.family}`} className={styles.fontTile}>
+                <div className={styles.fontTileAg} style={{ fontFamily: fontStack(font) }}>
+                  Ag
+                </div>
+                <div className={styles.fontTileMeta}>
+                  <span className={styles.fontTileName}>{font.family}</span>
+                  <span className={styles.fontTileRole}>{label}</span>
+                </div>
+              </div>
+            ))}
+          </div>
           <div className={styles.fontList}>
             {fonts.map(({ font, label }) => (
-              <div key={`${label}-${font.family}`} className={styles.fontItem}>
+              <div key={`row-${label}-${font.family}`} className={styles.fontItem}>
                 <div className={styles.fontItemHead}>
                   <span className={styles.fontRole}>{label}</span>
                   <span className={styles.fontFamily}>
@@ -393,12 +667,7 @@ function BrandPreview({ summary, onOpen }: PreviewProps) {
                     ) : null}
                   </span>
                 </div>
-                <span
-                  className={styles.fontSpecimen}
-                  style={{
-                    fontFamily: `'${font.family}', ${font.fallbacks.join(', ') || 'sans-serif'}`,
-                  }}
-                >
+                <span className={styles.fontSpecimen} style={{ fontFamily: fontStack(font) }}>
                   {label === 'Mono' ? 'const brand = await extract(url);' : name}
                 </span>
               </div>
@@ -407,29 +676,259 @@ function BrandPreview({ summary, onOpen }: PreviewProps) {
         </section>
       ) : null}
 
-      {adjectives.length > 0 || aesthetic ? (
-        <section className={styles.section} aria-label={t('brandDetail.voice')}>
-          <h3 className={styles.sectionTitle}>{t('brandDetail.voice')}</h3>
-          {adjectives.length > 0 ? (
-            <div className={styles.subsection}>
-              <h4 className={styles.subTitle}>{t('brandDetail.tone')}</h4>
-              <div className={styles.pills}>
-                {adjectives.map((adj, i) => (
-                  <span key={`${adj}-${i}`} className={styles.pill}>
-                    {adj}
+      {colors.length > 0 ? (
+        <section className={styles.section} aria-label={t('brandDetail.palette')}>
+          <h3 className={styles.sectionTitle}>{t('brandDetail.palette')}</h3>
+          <div className={styles.paletteGrid}>
+            {colors.map((c, i) => (
+              <div key={`${c.role}-${i}`} className={styles.swatch}>
+                <span className={styles.swatchChip} style={{ background: c.hex }}>
+                  <span
+                    className={styles.swatchHex}
+                    style={{ color: isLightHex(c.hex) ? 'rgba(0,0,0,.65)' : 'rgba(255,255,255,.9)' }}
+                  >
+                    {c.hex}
                   </span>
-                ))}
+                </span>
+                <div className={styles.swatchBody}>
+                  <span className={styles.swatchName}>{c.name || c.role}</span>
+                  <span className={styles.swatchRole}>{c.role}</span>
+                  {c.usage ? <span className={styles.swatchUsage}>{c.usage}</span> : null}
+                </div>
               </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {adjectives.length > 0 ||
+      tone ||
+      pillars.length > 0 ||
+      vocabUse.length > 0 ||
+      vocabAvoid.length > 0 ? (
+        <section className={styles.section} aria-label={t('brandDetail.voiceTone')}>
+          <h3 className={styles.sectionTitle}>{t('brandDetail.voiceTone')}</h3>
+          {adjectives.length > 0 ? (
+            <div className={styles.pills}>
+              {adjectives.map((adj, i) => (
+                <span key={`${adj}-${i}`} className={styles.pill}>
+                  {adj}
+                </span>
+              ))}
             </div>
           ) : null}
-          {aesthetic ? (
-            <div className={styles.subsection}>
-              <h4 className={styles.subTitle}>{t('brandDetail.aesthetic')}</h4>
-              <p className={styles.aesthetic}>{aesthetic}</p>
+          {tone ? <p className={styles.aesthetic}>{tone}</p> : null}
+          {pillars.length > 0 ? (
+            <ul className={styles.pillars}>
+              {pillars.map((p, i) => (
+                <li key={`pillar-${i}`}>{p}</li>
+              ))}
+            </ul>
+          ) : null}
+          {vocabUse.length > 0 || vocabAvoid.length > 0 ? (
+            <div className={styles.vocab}>
+              {vocabUse.length > 0 ? (
+                <div className={styles.vocabCol}>
+                  <span className={styles.vocabUse}>{t('brandDetail.useLabel')}</span>
+                  <span className={styles.vocabVals}>{vocabUse.join(' · ')}</span>
+                </div>
+              ) : null}
+              {vocabAvoid.length > 0 ? (
+                <div className={styles.vocabCol}>
+                  <span className={styles.vocabAvoid}>{t('brandDetail.avoidLabel')}</span>
+                  <span className={styles.vocabVals}>{vocabAvoid.join(' · ')}</span>
+                </div>
+              ) : null}
             </div>
           ) : null}
         </section>
       ) : null}
+
+      {imagery?.style ||
+      (imagery?.subjects?.length ?? 0) > 0 ||
+      imagery?.treatment ||
+      (imagery?.avoid?.length ?? 0) > 0 ||
+      (layout?.postureRules?.length ?? 0) > 0 ? (
+        <section className={styles.section} aria-label={t('brandDetail.imageryLayout')}>
+          <h3 className={styles.sectionTitle}>{t('brandDetail.imageryLayout')}</h3>
+          {imagery?.style ? <p className={styles.description}>{imagery.style}</p> : null}
+          {(imagery?.subjects?.length ?? 0) > 0 ? (
+            <p className={styles.imageryLine}>
+              <span className={styles.imageryKey}>{t('brandDetail.subjects')}:</span>{' '}
+              {imagery?.subjects.join(', ')}
+            </p>
+          ) : null}
+          {imagery?.treatment ? (
+            <p className={styles.imageryLine}>
+              <span className={styles.imageryKey}>{t('brandDetail.treatment')}:</span>{' '}
+              {imagery.treatment}
+            </p>
+          ) : null}
+          {(imagery?.avoid?.length ?? 0) > 0 ? (
+            <p className={styles.imageryLine}>
+              <span className={styles.imageryKeyAvoid}>{t('brandDetail.avoidLabel')}:</span>{' '}
+              {imagery?.avoid.join(', ')}
+            </p>
+          ) : null}
+          {(layout?.postureRules?.length ?? 0) > 0 ? (
+            <div className={styles.posture}>
+              <h4 className={styles.subTitle}>{t('brandDetail.layoutPosture')}</h4>
+              <ul className={styles.postureList}>
+                {layout?.postureRules.map((r, i) => (
+                  <li key={`posture-${i}`}>{r}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      {projectId && samples.length > 0 ? (
+        <section className={styles.section} aria-label={t('brandDetail.images')}>
+          <h3 className={styles.sectionTitle}>{t('brandDetail.images')}</h3>
+          <div className={styles.gallery}>
+            {samples.map((s, i) => (
+              <figure key={`${s.file}-${i}`} className={styles.shot}>
+                <div className={styles.shotFrame}>
+                  <img
+                    src={projectRawUrl(projectId, s.file)}
+                    alt={s.caption || s.kind || name}
+                    loading="lazy"
+                  />
+                </div>
+                {s.caption || s.kind ? (
+                  <figcaption className={styles.shotMeta}>
+                    <span className={styles.shotCap}>{s.caption || s.kind}</span>
+                    {s.caption && s.kind ? (
+                      <span className={styles.shotKind}>{s.kind}</span>
+                    ) : null}
+                  </figcaption>
+                ) : null}
+              </figure>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {showSystem && projectId ? (
+        <section className={styles.section} aria-label={t('brandDetail.designSystem')}>
+          <div className={styles.dsHead}>
+            <h3 className={styles.sectionTitle}>{t('brandDetail.designSystem')}</h3>
+            <a
+              className={styles.dsOpen}
+              href={projectRawUrl(projectId, 'system/index.html')}
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              {t('brandDetail.openFullSystem')}
+              <ExternalGlyph />
+            </a>
+          </div>
+          <div className={styles.dsFrameWrap}>
+            <div className={styles.dsBar}>
+              <div className={styles.dsTabs}>
+                <button
+                  type="button"
+                  className={`${styles.dsTab} ${dsTheme === 'light' ? styles.dsTabActive : ''}`}
+                  onClick={() => setDsTheme('light')}
+                  aria-pressed={dsTheme === 'light'}
+                >
+                  {t('brandDetail.themeLight')}
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.dsTab} ${dsTheme === 'dark' ? styles.dsTabActive : ''}`}
+                  onClick={() => setDsTheme('dark')}
+                  aria-pressed={dsTheme === 'dark'}
+                >
+                  {t('brandDetail.themeDark')}
+                </button>
+              </div>
+              <span className={styles.dsCap}>system/kit.html</span>
+            </div>
+            <iframe
+              key={dsKitFile}
+              className={styles.dsFrame}
+              src={projectRawUrl(projectId, dsKitFile)}
+              loading="lazy"
+              sandbox=""
+              title={t('brandDetail.designSystem')}
+            />
+          </div>
+          {tokens?.colorPrimary ? (
+            <div className={styles.dsTokens}>
+              <TokenChip label="colorPrimary" hex={tokens.colorPrimary} />
+              {tokens.colorPrimaryBg ? (
+                <TokenChip label="colorPrimaryBg" hex={tokens.colorPrimaryBg} />
+              ) : null}
+              {tokens.colorPrimaryHover ? (
+                <TokenChip label="colorPrimaryHover" hex={tokens.colorPrimaryHover} />
+              ) : null}
+              {tokens.colorPrimaryActive ? (
+                <TokenChip label="colorPrimaryActive" hex={tokens.colorPrimaryActive} />
+              ) : null}
+              {tokens.fontSize != null ? (
+                <ValueChip label="fontSize" value={String(tokens.fontSize)} />
+              ) : null}
+              {tokens.borderRadius != null ? (
+                <ValueChip label="borderRadius" value={String(tokens.borderRadius)} />
+              ) : null}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      {showSystem && projectId ? (
+        <section className={styles.section} aria-label={t('brandDetail.brandAssets')}>
+          <h3 className={styles.sectionTitle}>{t('brandDetail.brandAssets')}</h3>
+          <div className={styles.assets}>
+            {assetTiles.map((a) => (
+              <a
+                key={a.kind}
+                className={styles.asset}
+                href={projectRawUrl(projectId, a.file)}
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                <div className={styles.assetFrame}>
+                  <iframe
+                    src={projectRawUrl(projectId, a.file)}
+                    loading="lazy"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    sandbox=""
+                    title={a.label}
+                  />
+                </div>
+                <div className={styles.assetMeta}>
+                  <span className={styles.assetName}>{a.label}</span>
+                </div>
+              </a>
+            ))}
+          </div>
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+function TokenChip({ label, hex }: { label: string; hex: string }) {
+  return (
+    <div className={styles.tok}>
+      <span className={styles.tokSwatch} style={{ background: hex }} />
+      <span className={styles.tokText}>
+        <span className={styles.tokKey}>{label}</span>
+        <span className={styles.tokHex}>{hex}</span>
+      </span>
+    </div>
+  );
+}
+
+function ValueChip({ label, value }: { label: string; value: string }) {
+  return (
+    <div className={styles.tok}>
+      <span className={styles.tokValue}>{value}</span>
+      <span className={styles.tokKey}>{label}</span>
     </div>
   );
 }

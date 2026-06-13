@@ -13,6 +13,9 @@
   watches the kit fill in as the agent writes brand.json and re-renders.
 -->
 <script id="od-brand-payload" type="application/json">__OD_BRAND_PAYLOAD__</script>
+<!-- Self-hosted @font-face rules (replaced with the brand's fonts/ manifest, or
+     emptied when no webfonts were harvested) so specimens render for real. -->
+<style data-brand-fonts>__OD_BRAND_FONTFACE__</style>
 <style>
   :root {
     --paper: #faf9f5;
@@ -119,6 +122,23 @@
   .posture ul { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: var(--ink-mute); }
   .posture ul li { margin-top: 2px; }
 
+  /* Design system */
+  .ds-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px; }
+  .ds-sub { margin: 2px 0 0; font-size: 13px; color: var(--ink-mute); }
+  .ds-frame-wrap { margin-top: 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,.03); }
+  .ds-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--line-soft); padding: 7px 10px; }
+  .ds-tabs { display: flex; gap: 4px; }
+  .ds-tab { border: 0; background: transparent; cursor: pointer; border-radius: 8px; padding: 4px 11px; font-size: 13px; color: var(--ink-mute); font-family: inherit; }
+  .ds-tab.active { background: var(--surface); color: var(--accent); font-weight: 600; box-shadow: inset 0 0 0 1px var(--line); }
+  .ds-cap { font-size: 11px; color: var(--ink-faint); }
+  .ds-frame { width: 100%; height: 520px; border: 0; display: block; background: #fff; }
+  .ds-tokens { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .tok { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line-soft); background: var(--surface); border-radius: 10px; padding: 5px 11px 5px 5px; box-shadow: 0 1px 2px rgba(0,0,0,.03); }
+  .tok .sw { width: 26px; height: 26px; border-radius: 7px; border: 1px solid rgba(0,0,0,.1); }
+  .tok .val { display: flex; min-width: 26px; height: 26px; align-items: center; justify-content: center; padding: 0 6px; border-radius: 7px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-family: var(--font-mono); font-size: 11px; font-weight: 600; }
+  .tok .k { font-size: 11px; font-weight: 600; line-height: 1.1; }
+  .tok .h { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); line-height: 1.1; }
+
   /* Brand assets */
   .assets { display: grid; gap: 16px; grid-template-columns: 1fr; }
   @media (min-width: 620px) { .assets { grid-template-columns: 1fr 1fr; } }
@@ -132,6 +152,31 @@
   .asset-name { font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .asset-name .open { font-size: 11px; color: var(--accent); }
   .asset-desc { font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
+
+  /* Hero banner — surfaces the first harvested brand image for visual richness */
+  .kit-hero { margin-top: 22px; border: 1px solid var(--line-soft); border-radius: var(--radius); overflow: hidden; background: var(--line-soft); aspect-ratio: 16 / 5; box-shadow: 0 1px 2px rgba(0,0,0,.03); }
+  .kit-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  /* Font specimen tiles — a big "Ag" glyph per real family, in its own face */
+  .fonts { display: grid; gap: 12px; grid-template-columns: repeat(2, 1fr); margin-bottom: 14px; }
+  @media (min-width: 560px) { .fonts { grid-template-columns: repeat(3, 1fr); } }
+  .font-tile { border: 1px solid var(--line-soft); border-radius: 12px; background: var(--surface); overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,.03); }
+  .font-tile .ag { display: flex; align-items: center; justify-content: center; height: 104px; font-size: 56px; line-height: 1; color: var(--ink); background: var(--line-soft); }
+  .font-tile .ft-meta { padding: 9px 11px 11px; }
+  .font-tile .ft-name { font-size: 13px; font-weight: 600; line-height: 1.2; }
+  .font-tile .ft-role { font-size: 11px; color: var(--ink-faint); margin-top: 1px; text-transform: uppercase; letter-spacing: .06em; }
+
+  /* Images gallery — a thumbnail grid of representative brand imagery */
+  .gallery { display: grid; gap: 12px; grid-template-columns: repeat(2, 1fr); }
+  @media (min-width: 560px) { .gallery { grid-template-columns: repeat(3, 1fr); } }
+  @media (min-width: 920px) { .gallery { grid-template-columns: repeat(4, 1fr); } }
+  .shot { border: 1px solid var(--line-soft); border-radius: 12px; background: var(--surface); overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,.03); transition: border-color .14s ease, transform .14s ease; }
+  .shot:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .shot-frame { aspect-ratio: 4 / 3; background: var(--line-soft); }
+  .shot-frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .shot-meta { padding: 8px 10px 10px; }
+  .shot-cap { font-size: 12px; font-weight: 500; line-height: 1.25; }
+  .shot-kind { font-size: 11px; color: var(--ink-faint); margin-top: 1px; }
 
   /* skeleton */
   .skel { background: linear-gradient(90deg, var(--line-soft) 25%, #f6f5ef 37%, var(--line-soft) 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; border-radius: 8px; }
@@ -196,8 +241,13 @@
   function sectionTitle(t) { return '<h2 class="sec-title">' + esc(t) + '</h2>'; }
 
   function logoHtml() {
+    // Resilient candidate list: primary first when present, otherwise fall back
+    // to the alternates so a populated `alternates` still renders a real mark.
+    // De-dupe so the primary doesn't double up as a thumbnail.
     var primary = brand.logo && brand.logo.primary;
-    var cands = [primary].concat(arr(brand.logo && brand.logo.alternates)).filter(Boolean);
+    var cands = [primary].concat(arr(brand.logo && brand.logo.alternates))
+      .filter(Boolean)
+      .filter(function (c, i, a) { return a.indexOf(c) === i; });
     if (!cands.length) {
       return '<div class="logo-empty">' + (extracting
         ? '<div class="skel" style="width:60%;height:48px"></div><span class="muted">Looking for a logo…</span>'
@@ -209,6 +259,54 @@
     var notes = brand.logo && brand.logo.notes ? '<p class="logo-notes">' + esc(brand.logo.notes) + '</p>' : '';
     return '<div class="logo-stage" id="logo-stage" style="background:' + esc(bg) + '">' +
       '<img id="logo-img" src="' + esc(cands[0]) + '" alt="' + esc(brand.name || 'logo') + '"></div>' + thumbs + notes;
+  }
+
+  // Big "Ag" specimen tile per real family (display / body / mono), each set in
+  // its own face via the injected @font-face / googleFontsUrl — matches the
+  // Lovart 字体 tiles. Empty until at least one family is known.
+  function fontTilesHtml() {
+    var tiles = [
+      { role: 'Display', spec: typo.display },
+      { role: 'Body', spec: typo.body },
+    ];
+    if (typo.mono) tiles.push({ role: 'Mono', spec: typo.mono });
+    tiles = tiles.filter(function (t) { return t.spec && t.spec.family; });
+    if (!tiles.length) return '';
+    return '<div class="fonts">' + tiles.map(function (t) {
+      return '<div class="font-tile">' +
+        '<div class="ag" style="font-family:' + fontStack(t.spec) + '">Ag</div>' +
+        '<div class="ft-meta"><div class="ft-name">' + esc(t.spec.family) + '</div>' +
+        '<div class="ft-role">' + esc(t.role) + '</div></div></div>';
+    }).join('') + '</div>';
+  }
+
+  function imagerySamples() {
+    return arr(brand.imagery && brand.imagery.samples).filter(function (s) { return s && s.file; });
+  }
+
+  // Thumbnail grid of representative imagery harvested from the site. Relative
+  // `imagery/<file>` paths resolve under the FileViewer raw URL. Empty (so the
+  // text-only imagery card stays) when no samples were saved.
+  function galleryHtml() {
+    var samples = imagerySamples();
+    if (!samples.length) return '';
+    return '<section class="sec">' + sectionTitle('Images') +
+      '<p class="muted" style="margin:-6px 0 14px">Representative imagery measured from the site.</p>' +
+      '<div class="gallery">' + samples.map(function (s) {
+        var cap = s.caption || s.kind || '';
+        var sub = (s.caption && s.kind) ? s.kind : '';
+        var meta = cap ? '<div class="shot-meta"><div class="shot-cap">' + esc(cap) + '</div>' +
+          (sub ? '<div class="shot-kind">' + esc(sub) + '</div>' : '') + '</div>' : '';
+        return '<div class="shot"><div class="shot-frame">' +
+          '<img src="' + esc(s.file) + '" alt="' + esc(cap || brand.name || '') + '" loading="lazy"></div>' + meta + '</div>';
+      }).join('') + '</div></section>';
+  }
+
+  // Optional hero band: surfaces the first harvested image for visual richness.
+  function heroHtml() {
+    var samples = imagerySamples();
+    if (!samples.length) return '';
+    return '<div class="kit-hero"><img src="' + esc(samples[0].file) + '" alt="' + esc(brand.name || '') + '" loading="lazy"></div>';
   }
 
   function typeHtml() {
@@ -281,6 +379,46 @@
       posture + '</div>';
   }
 
+  function tokenChip(label, hex) {
+    return '<div class="tok"><span class="sw" style="background:' + esc(hex) + '"></span>' +
+      '<span><span class="k">' + esc(label) + '</span><span class="h">' + esc(hex) + '</span></span></div>';
+  }
+  function valueChip(label, value) {
+    return '<div class="tok"><span class="val">' + esc(value) + '</span><span class="k">' + esc(label) + '</span></div>';
+  }
+
+  function designSystemHtml() {
+    var sys = data.system;
+    if (!sys || !sys.kitHref) return '';
+    var t = sys.tokens || {};
+    var tokens = '';
+    if (t.colorPrimary) {
+      tokens = '<div class="ds-tokens">' +
+        tokenChip('colorPrimary', t.colorPrimary) +
+        (t.colorPrimaryBg ? tokenChip('colorPrimaryBg', t.colorPrimaryBg) : '') +
+        (t.colorPrimaryHover ? tokenChip('colorPrimaryHover', t.colorPrimaryHover) : '') +
+        (t.colorPrimaryActive ? tokenChip('colorPrimaryActive', t.colorPrimaryActive) : '') +
+        (t.fontSize != null ? valueChip('fontSize', String(t.fontSize)) : '') +
+        (t.borderRadius != null ? valueChip('borderRadius', String(t.borderRadius)) : '') +
+        '</div>';
+    }
+    var themes = arr(sys.themes).length ? arr(sys.themes).join(' · ') : 'default · dark · compact';
+    var openLink = sys.indexHref ? '<a class="btn" href="' + esc(sys.indexHref) + '" target="_top">Open full system ↗</a>' : '';
+    return '<section class="sec"><div class="ds-head"><div>' +
+        '<h2 class="sec-title">Design system</h2>' +
+        '<p class="ds-sub">Deterministic light / dark / compact tokens and a component kit derived from this one brand seed.</p>' +
+      '</div>' + openLink + '</div>' +
+      '<div class="ds-frame-wrap"><div class="ds-bar">' +
+        '<div class="ds-tabs" id="ds-tabs">' +
+          '<button class="ds-tab active" data-kit="' + esc(sys.kitHref) + '">Light</button>' +
+          (sys.kitDarkHref ? '<button class="ds-tab" data-kit="' + esc(sys.kitDarkHref) + '">Dark</button>' : '') +
+        '</div>' +
+        '<span class="ds-cap">system/kit.html · themes: ' + esc(themes) + '</span>' +
+      '</div>' +
+      '<iframe id="ds-frame" class="ds-frame" src="' + esc(sys.kitHref) + '" loading="lazy" sandbox="" title="Component kit"></iframe></div>' +
+      tokens + '</section>';
+  }
+
   function assetsHtml() {
     if (!assets.length) return '';
     return '<section class="sec">' + sectionTitle('Brand assets') +
@@ -300,7 +438,7 @@
       }).join('') + '</div></section>';
   }
 
-  var systemHref = (data.system && data.system.href) || null;
+  var systemHref = (data.system && data.system.indexHref) || null;
   var brandMdHref = (data.brandMd && data.brandMd.href) || null;
 
   var html = '' +
@@ -313,11 +451,14 @@
       (brandMdHref ? '<a class="btn" href="' + esc(brandMdHref) + '" target="_top">BRAND.md</a>' : '') +
       (systemHref ? '<a class="btn" href="' + esc(systemHref) + '" target="_top">Design system ↗</a>' : '') +
     '</div></header>' +
+    heroHtml() +
     '<div class="sec grid-top"><section><h2 class="sec-title">Logo</h2>' + logoHtml() + '</section>' +
-      '<section><h2 class="sec-title">Typography</h2>' + typeHtml() + '</section></div>' +
+      '<section><h2 class="sec-title">Typography</h2>' + fontTilesHtml() + typeHtml() + '</section></div>' +
     '<section class="sec">' + sectionTitle('Palette') + paletteHtml() + '</section>' +
     '<div class="sec grid-2"><section><h2 class="sec-title">Voice &amp; tone</h2>' + voiceHtml() + '</section>' +
       '<section><h2 class="sec-title">Imagery &amp; layout</h2>' + imageryHtml() + '</section></div>' +
+    galleryHtml() +
+    designSystemHtml() +
     assetsHtml();
 
   document.getElementById('root').innerHTML = html;
@@ -331,6 +472,19 @@
       b.classList.add('active');
     });
   });
+
+  // Design-system Light/Dark kit toggle — swaps the iframe src in place.
+  var dsTabs = document.getElementById('ds-tabs');
+  var dsFrame = document.getElementById('ds-frame');
+  if (dsTabs && dsFrame) {
+    Array.prototype.forEach.call(dsTabs.querySelectorAll('.ds-tab'), function (b) {
+      b.addEventListener('click', function () {
+        dsFrame.src = b.getAttribute('data-kit');
+        Array.prototype.forEach.call(dsTabs.querySelectorAll('.ds-tab'), function (x) { x.classList.remove('active'); });
+        b.classList.add('active');
+      });
+    });
+  }
 
   // While extraction is live, softly reload so the page fills in as the agent
   // updates brand.json + re-runs `od brand preview`. Stops the moment the
