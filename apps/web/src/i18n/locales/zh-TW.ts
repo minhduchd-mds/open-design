@@ -3161,7 +3161,7 @@ export const zhTW: Dict = {
   'settings.resetOnboardingDesc': '重新進行首次設定，包括品牌擷取。',
   'settings.resetOnboardingButton': '重置',
   'onboarding.brandTitle': '擷取你的品牌',
-  'onboarding.brandSubtitle': '貼上你的網站，我們會測量你的顏色、字型和標誌——讓每個設計都像你。',
+  'onboarding.brandSubtitle': '貼上品牌網站，我們會把品牌線索轉成後續可重用的設計脈絡。',
   'onboarding.brandSkip': '暫時略過',
   'onboarding.brandDone': '品牌已擷取',
 };

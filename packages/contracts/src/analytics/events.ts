@@ -437,25 +437,28 @@ export type TrackingChatPanelPageViewSource =
 //
 // CSV row "Onboarding / page_view". Fires once per step exposure inside the
 // welcome flow. The current first-run flow is Connect → About you →
-// Newsletter; the design-system and generation literals remain in the
-// contract for historical rows and a future reintroduction. Each step's `step_index` / `step_name`
-// must match the enum pairs below. `onboarding_session_id` is generated once
-// per session so dashboards can stitch the funnel.
+// Newsletter → Brand extraction; the design-system and generation literals
+// remain in the contract for historical rows and a future reintroduction.
+// Each step's `step_index` / `step_name` must match the enum pairs below.
+// `onboarding_session_id` is generated once per session so dashboards can
+// stitch the funnel.
 export type TrackingOnboardingArea =
   | 'runtime'
   | 'about_you'
   | 'newsletter'
+  | 'brand'
   | 'design_system'
   | 'generation_progress';
 
-// Mixed string enum: numeric steps render as the strings `'1' | '2' | '3'`
+// Mixed string enum: numeric steps render as the strings `'1' | '2' | '3' | '4'`
 // and the generation phase as `'progress'`. Mirrors the v2 doc literally.
-export type TrackingOnboardingStepIndex = '1' | '2' | '3' | 'progress';
+export type TrackingOnboardingStepIndex = '1' | '2' | '3' | '4' | 'progress';
 
 export type TrackingOnboardingStepName =
   | 'connect'
   | 'about_you'
   | 'newsletter'
+  | 'brand_extract'
   | 'design_system'
   | 'generation';
 

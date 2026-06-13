@@ -347,8 +347,8 @@ interface Props {
   onCreateDesignSystem?: () => void;
   // NOTE: first-run onboarding intentionally no longer hosts guided
   // design-system creation. The previous step-3 design-system surface was
-  // replaced by the newsletter step, so EntryShell deliberately does not
-  // accept a `renderDesignSystemCreation` renderer. Guided creation stays
+  // replaced by the newsletter and brand-extraction steps, so EntryShell does
+  // not accept a `renderDesignSystemCreation` renderer. Guided creation stays
   // reachable from the standalone `design-system-create` route and the
   // Design Systems tab; do not re-thread an onboarding renderer here.
   onOpenDesignSystem?: (id: string) => void;
@@ -1159,27 +1159,12 @@ function OnboardingView({
   useEffect(() => {
     const onboardingSessionId = onboardingSessionIdRef.current;
     if (!onboardingSessionId) return;
-    let area: TrackingOnboardingArea;
-    let stepIndex: TrackingOnboardingStepIndex;
-    let stepName: TrackingOnboardingStepName;
-    if (step === 0) {
-      area = 'runtime';
-      stepIndex = '1';
-      stepName = 'connect';
-    } else if (step === 1) {
-      area = 'about_you';
-      stepIndex = '2';
-      stepName = 'about_you';
-    } else {
-      area = 'newsletter';
-      stepIndex = '3';
-      stepName = 'newsletter';
-    }
+    const info = stepInfo(step);
     trackPageView(analytics.track, {
       page_name: 'onboarding',
-      area,
-      step_index: stepIndex,
-      step_name: stepName,
+      area: info.area,
+      step_index: info.stepIndex,
+      step_name: info.stepName,
       onboarding_session_id: onboardingSessionId,
     });
   }, [analytics.track, step]);
@@ -1210,7 +1195,8 @@ function OnboardingView({
   } {
     if (stepIdx === 0) return { area: 'runtime', stepIndex: '1', stepName: 'connect' };
     if (stepIdx === 1) return { area: 'about_you', stepIndex: '2', stepName: 'about_you' };
-    return { area: 'newsletter', stepIndex: '3', stepName: 'newsletter' };
+    if (stepIdx === 2) return { area: 'newsletter', stepIndex: '3', stepName: 'newsletter' };
+    return { area: 'brand', stepIndex: '4', stepName: 'brand_extract' };
   }
   function emitOnboardingClick(
     element: TrackingOnboardingClickElement,
@@ -1305,6 +1291,7 @@ function OnboardingView({
     t('settings.onboardingStepConnect'),
     t('settings.onboardingStepProfile'),
     t('settings.onboardingStepNewsletter'),
+    t('newBrand.extract'),
   ];
   const isLastStep = step === steps.length - 1;
 
@@ -1609,7 +1596,7 @@ function OnboardingView({
   // About-you step (the spec keeps the wire type open-string so a new
   // role / use-case option doesn't force a contract bump).
   //
-  // This now fires from the completion path (the final Newsletter step),
+  // This now fires from the completion path (the final brand-extraction step),
   // so it stamps the About-you step coordinates explicitly instead of
   // reading the live `step` via `emitOnboardingClick`: the event describes
   // the About-you submission, not whatever step the user finished on. The
@@ -2102,6 +2089,31 @@ function OnboardingView({
           {step === 2 ? (
             <div className="onboarding-view__panel onboarding-view__panel--newsletter">
               <OnboardingPanelHeader
+                title={t('settings.onboardingNewsletterTitle')}
+                body={t('settings.onboardingNewsletterBody')}
+              />
+              <label className="onboarding-view__email-field">
+                <span className="onboarding-view__email-label">
+                  {t('newsletter.label')}
+                </span>
+                <input
+                  className="onboarding-view__email-input"
+                  type="email"
+                  autoComplete="email"
+                  inputMode="email"
+                  placeholder={t('newsletter.placeholder')}
+                  value={profile.email}
+                  onChange={(event) =>
+                    setProfile((current) => ({ ...current, email: event.target.value }))
+                  }
+                />
+              </label>
+            </div>
+          ) : null}
+
+          {step === 3 ? (
+            <div className="onboarding-view__panel onboarding-view__panel--newsletter">
+              <OnboardingPanelHeader
                 title={t('onboarding.brandTitle')}
                 body={t('onboarding.brandSubtitle')}
               />
@@ -2166,26 +2178,6 @@ function OnboardingView({
                   </span>
                 ) : null}
               </div>
-              <OnboardingPanelHeader
-                title={t('settings.onboardingNewsletterTitle')}
-                body={t('settings.onboardingNewsletterBody')}
-              />
-              <label className="onboarding-view__email-field">
-                <span className="onboarding-view__email-label">
-                  {t('newsletter.label')}
-                </span>
-                <input
-                  className="onboarding-view__email-input"
-                  type="email"
-                  autoComplete="email"
-                  inputMode="email"
-                  placeholder={t('newsletter.placeholder')}
-                  value={profile.email}
-                  onChange={(event) =>
-                    setProfile((current) => ({ ...current, email: event.target.value }))
-                  }
-                />
-              </label>
             </div>
           ) : null}
 

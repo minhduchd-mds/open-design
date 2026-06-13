@@ -112,130 +112,6 @@ const STARTERS: ReadonlyArray<{
   },
 ];
 
-type MemoryGuideAction = 'profile' | 'brief' | 'review';
-
-const MEMORY_GUIDE_ACTIONS: ReadonlyArray<{
-  id: MemoryGuideAction;
-  step: string;
-  title: string;
-  body: string;
-  cta: string;
-  icon: IconName;
-}> = [
-  {
-    id: 'profile',
-    step: '1',
-    title: 'Create your work profile',
-    body: 'Save who you are, what you work on, and the defaults the assistant should reuse.',
-    cta: 'Add profile memory',
-    icon: 'edit',
-  },
-  {
-    id: 'brief',
-    step: '2',
-    title: 'Rewrite short asks into full briefs',
-    body: 'Before every task, Memory fills in background, preferences, files, and delivery rules.',
-    cta: 'See the rewrite',
-    icon: 'sparkles',
-  },
-  {
-    id: 'review',
-    step: '3',
-    title: 'Confirm what gets learned',
-    body: 'After a task, review useful facts before they shape future chats.',
-    cta: 'Review saved memory',
-    icon: 'check',
-  },
-];
-
-const MEMORY_SCENARIOS: ReadonlyArray<{
-  title: string;
-  label: string;
-  icon: IconName;
-  example: string;
-  payoff: string;
-  draft: Omit<DraftEntry, 'id'>;
-}> = [
-  {
-    title: 'My background',
-    label: 'Profile',
-    icon: 'home',
-    example: '“Help me polish this deck”',
-    payoff: 'Adds your role, audience, domain, and level of detail.',
-    draft: {
-      name: 'My background',
-      description: 'Role, domain, audience, and what I usually work on.',
-      type: 'user',
-      body: '- Role: \n- Company / team: \n- Domain: \n- Audience I usually write for: \n- Current goals: \n\nWhen to use: Any task where the assistant needs to infer intent from a short request.',
-    },
-  },
-  {
-    title: 'Common tasks',
-    label: 'Task patterns',
-    icon: 'kanban',
-    example: '“Do another one like last time”',
-    payoff: 'Reuses the expected workflow, inputs, and final artifact shape.',
-    draft: {
-      name: 'Common tasks',
-      description: 'Repeated workflows I expect the assistant to recognize.',
-      type: 'project',
-      body: '- Repeated task: \n- Usual inputs: \n- Expected output: \n- Done means: \n\nWhen to use: Similar future tasks where I want fewer setup questions.',
-    },
-  },
-  {
-    title: 'Delivery preferences',
-    label: 'Output',
-    icon: 'send',
-    example: '“Make it ready to share”',
-    payoff: 'Applies language, tone, format, file-writing, and validation defaults.',
-    draft: {
-      name: 'Delivery preferences',
-      description: 'How I want work delivered by default.',
-      type: 'feedback',
-      body: '- Language: \n- Tone: \n- Output format: \n- Should edit files directly: yes / no\n- Validation expected: \n\nWhen to use: Any task with a deliverable.',
-    },
-  },
-  {
-    title: 'Active projects',
-    label: 'Project context',
-    icon: 'folder',
-    example: '“Fix the current page”',
-    payoff: 'Remembers the product, repo, active files, design system, and review surface.',
-    draft: {
-      name: 'Active project context',
-      description: 'Current project, important files, and where the result should land.',
-      type: 'project',
-      body: '- Project: \n- Important files / artifacts: \n- Design system or reference style: \n- Review surface: \n- Constraints: \n\nWhen to use: Tasks that mention “current page”, “this file”, or “same project”.',
-    },
-  },
-  {
-    title: 'Feedback meanings',
-    label: 'Taste',
-    icon: 'comment',
-    example: '“This is too messy”',
-    payoff: 'Turns short feedback into concrete fixes instead of asking what you mean.',
-    draft: {
-      name: 'Feedback meanings',
-      description: 'What my repeated feedback phrases usually mean.',
-      type: 'feedback',
-      body: '- When I say “too messy”: reduce competing messages, lower density, and clarify the primary action.\n- When I say “not polished”: improve spacing, hierarchy, typography, and responsive fit.\n- When I say “do not restart”: edit the current artifact in place.\n\nWhen to use: Follow-up critique, UI polish, copy polish, and artifact revision.',
-    },
-  },
-  {
-    title: 'Workflow rules',
-    label: 'Process',
-    icon: 'hammer',
-    example: '“Ship this”',
-    payoff: 'Adds the checks, screenshots, commands, and PR behavior you expect.',
-    draft: {
-      name: 'Workflow rules',
-      description: 'Checks and process rules the assistant should apply for repeat work.',
-      type: 'reference',
-      body: '- For code changes: \n- For UI changes: \n- For docs / strategy changes: \n- Before marking done: \n\nWhen to use: Any task that needs a reliable finish line.',
-    },
-  },
-];
-
 const MEMORY_CONNECTOR_APP_IDS = [
   'notion',
   'figma',
@@ -863,16 +739,9 @@ export function MemorySection({
   const [busy, setBusy] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | MemoryType>('all');
-  // Top-level IA: "Memories" (the store + operations, default) vs. "How it
-  // works" (the two-loop explainer + the pluggable hook toggles). This split
-  // keeps the saved-memory list at the top of the default tab instead of
-  // buried under the explainer.
   const [topTab, setTopTab] = useState<'memories' | 'how'>('memories');
-  // The add/import operations live in a collapsed disclosure under the Memories
-  // tab so the saved list is the immediate content. Scenario/guide CTAs open it.
-  const [addOpen, setAddOpen] = useState(false);
-  // Profile is the foundation the PRE loop expands against, so the add
-  // disclosure defaults to it when opened.
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [advancedModalOpen, setAdvancedModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<MemoryTab>('profile');
   // Brief inline confirmation after a manual save/create/delete. The
   // form vanishes on success and the existing list re-renders, but
@@ -883,7 +752,6 @@ export function MemorySection({
   );
   const editorRef = useRef<HTMLDivElement | null>(null);
   const editorNameRef = useRef<HTMLInputElement | null>(null);
-  const gatewayRef = useRef<HTMLDivElement | null>(null);
   const recordsRef = useRef<HTMLElement | null>(null);
   const editingTarget = editing?.id ?? (editing ? 'new' : null);
   // Recent LLM-extraction attempts, newest first. Driven by a one-shot
@@ -1220,6 +1088,9 @@ export function MemorySection({
   const startEdit = useCallback(async (id: string) => {
     const entry = await fetchMemoryEntry(id);
     if (!entry) return;
+    setTopTab('memories');
+    setAddModalOpen(true);
+    setActiveTab('manual');
     setEditing({
       id: entry.id,
       name: entry.name,
@@ -1230,42 +1101,11 @@ export function MemorySection({
   }, []);
 
   const startNew = useCallback(() => {
+    setTopTab('memories');
+    setAddModalOpen(true);
+    setActiveTab('manual');
     setEditing({ ...EMPTY_DRAFT });
   }, []);
-
-  const onGuideAction = useCallback(
-    (action: MemoryGuideAction) => {
-      if (action === 'profile') {
-        // The structured profile editor owns "create your work profile". Jump
-        // to the Memories tab and open the add disclosure on the Profile pane.
-        setTopTab('memories');
-        setAddOpen(true);
-        setActiveTab('profile');
-        return;
-      }
-      if (action === 'brief') {
-        // The gateway example lives in the How-it-works tab.
-        setTopTab('how');
-        return;
-      }
-      // "Review saved memory" — switch to the Memories tab where the list lives.
-      setTopTab('memories');
-    },
-    [],
-  );
-
-  const onUseScenario = useCallback(
-    (scenario: (typeof MEMORY_SCENARIOS)[number]) => {
-      // Scenarios are taught in How-it-works but seed a real memory, so we hop
-      // to the Memories tab, open the add disclosure, and load the draft. The
-      // editingTarget effect scrolls the editor into view.
-      setTopTab('memories');
-      setAddOpen(true);
-      setActiveTab('manual');
-      setEditing({ ...scenario.draft });
-    },
-    [],
-  );
 
   const cancelEdit = useCallback(() => {
     setEditing(null);
@@ -1529,6 +1369,7 @@ export function MemorySection({
       if (entry) {
         await reload();
         setEditing(null);
+        setAddModalOpen(false);
         fireFlash(wasNew ? 'created' : 'saved');
       }
     } finally {
@@ -1787,8 +1628,8 @@ export function MemorySection({
       <section
         className={`settings-section settings-section-card memory-create-section${enabled ? '' : ' is-disabled'}`}
       >
-      <div className="section-head">
-        <div>
+      <div className="section-head memory-control-head">
+        <div className="memory-control-copy">
           <h3 className="memory-title-row">
             <span>{t('settings.memory')}</span>
             {/*
@@ -1823,18 +1664,68 @@ export function MemorySection({
           </h3>
           <p className="hint">{t('settings.memoryDescription')}</p>
         </div>
-        <label
-          className="toggle-switch"
-          title={t('settings.memoryEnableLabel')}
-          aria-label={t('settings.memoryEnableLabel')}
-        >
-          <input
-            type="checkbox"
-            checked={enabled}
-            onChange={(e) => onToggleEnabled(e.target.checked)}
-          />
-          <span className="toggle-slider" />
-        </label>
+        <div className="memory-header-actions">
+          <div
+            className="memory-top-tabs"
+            role="tablist"
+            aria-label={t('settings.memory')}
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={topTab === 'memories'}
+              className={`memory-top-tab${topTab === 'memories' ? ' active' : ''}`}
+              onClick={() => setTopTab('memories')}
+            >
+              {t('settings.memoryTabMemories')}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={topTab === 'how'}
+              className={`memory-top-tab${topTab === 'how' ? ' active' : ''}`}
+              onClick={() => setTopTab('how')}
+            >
+              {t('settings.memoryTabHow')}
+            </button>
+          </div>
+          <button
+            type="button"
+            className="memory-icon-action"
+            onClick={() => {
+              setTopTab('memories');
+              setAddModalOpen(true);
+            }}
+            title={t('settings.memoryAddDisclosure')}
+            aria-label={t('settings.memoryAddDisclosure')}
+          >
+            <Icon name="plus" size={15} />
+          </button>
+          <button
+            type="button"
+            className="memory-icon-action"
+            onClick={() => {
+              setTopTab('memories');
+              setAdvancedModalOpen(true);
+            }}
+            title="Advanced"
+            aria-label="Advanced"
+          >
+            <Icon name="settings" size={15} />
+          </button>
+          <label
+            className="toggle-switch"
+            title={t('settings.memoryEnableLabel')}
+            aria-label={t('settings.memoryEnableLabel')}
+          >
+            <input
+              type="checkbox"
+              checked={enabled}
+              onChange={(e) => onToggleEnabled(e.target.checked)}
+            />
+            <span className="toggle-slider" />
+          </label>
+        </div>
       </div>
 
       {!enabled ? (
@@ -1851,192 +1742,66 @@ export function MemorySection({
         </div>
       ) : null}
 
-      <div className="memory-top-tabs" role="tablist" aria-label={t('settings.memory')}>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={topTab === 'memories'}
-          className={`memory-top-tab${topTab === 'memories' ? ' active' : ''}`}
-          onClick={() => setTopTab('memories')}
-        >
-          <span className="memory-top-tab-icon" aria-hidden>
-            <Icon name="folder" size={14} />
-          </span>
-          <span className="memory-top-tab-copy">
-            <strong>{t('settings.memoryTabMemories')}</strong>
-            <small>{t('settings.memoryTabMemoriesCaption')}</small>
-          </span>
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={topTab === 'how'}
-          className={`memory-top-tab${topTab === 'how' ? ' active' : ''}`}
-          onClick={() => setTopTab('how')}
-        >
-          <span className="memory-top-tab-icon" aria-hidden>
-            <Icon name="sparkles" size={14} />
-          </span>
-          <span className="memory-top-tab-copy">
-            <strong>{t('settings.memoryTabHow')}</strong>
-            <small>{t('settings.memoryTabHowCaption')}</small>
-          </span>
-        </button>
-      </div>
-
       {topTab === 'how' ? (
-      <div className="memory-how-panel">
-      <div className="memory-work-profile">
-        <div className="memory-work-profile-copy">
-          <span className="memory-kicker">Work profile</span>
-          <h4>Memory turns short requests into complete task briefs.</h4>
-          <p>
-            Save the context you repeat in chats. Before every task, OpenDesign
-            can use it to infer what you mean, reduce setup questions, and send
-            the agent a more complete instruction.
+        <div className="memory-how-panel">
+          <div className="memory-auto-flow">
+            <span>Onboarding</span>
+            <Icon name="chevron-right" size={13} />
+            <span>Brand context</span>
+            <Icon name="chevron-right" size={13} />
+            <span>Chat signals</span>
+            <Icon name="chevron-right" size={13} />
+            <strong>Saved memory</strong>
+          </div>
+          <p className="memory-how-copy">
+            Memory is gathered automatically from profile setup, project and
+            brand extraction, connected apps, and useful facts learned during
+            chats. The saved list below is the review surface; everything else
+            stays quiet unless you open Add or Advanced.
           </p>
+          <MemoryHooksPanel
+            enabled={enabled}
+            flags={hookFlags}
+            onToggle={onToggleHook}
+          />
         </div>
-        <div className="memory-brief-flow" aria-label="Memory task flow">
-          <span>Short ask</span>
-          <Icon name="chevron-right" size={14} />
-          <span>Memory</span>
-          <Icon name="chevron-right" size={14} />
-          <span>Agent-ready brief</span>
-        </div>
-      </div>
-
-      <div className="memory-guide-grid" aria-label="Memory setup steps">
-        {MEMORY_GUIDE_ACTIONS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className="memory-guide-card"
-            onClick={() => onGuideAction(item.id)}
-          >
-            <span className="memory-guide-icon">
-              <Icon name={item.icon} size={15} />
-            </span>
-            <span className="memory-guide-copy">
-              <span className="memory-guide-step">Step {item.step}</span>
-              <strong>{item.title}</strong>
-              <small>{item.body}</small>
-              <span className="memory-guide-cta">{item.cta}</span>
-            </span>
-          </button>
-        ))}
-      </div>
-
-      <div ref={gatewayRef} className="memory-gateway-card">
-        <div className="memory-gateway-head">
-          <div>
-            <span className="memory-kicker">Before every task</span>
-            <h4>Memory Gateway</h4>
-          </div>
-          <span className="memory-source-badge">Automatic when Memory is on</span>
-        </div>
-        <div className="memory-gateway-example">
-          <div>
-            <span className="memory-example-label">You type</span>
-            <p>“Help me fix the homepage. It feels too messy.”</p>
-          </div>
-          <div>
-            <span className="memory-example-label">Agent receives</span>
-            <pre>{`task_type: homepage_refine
-known_context:
-  project: active project and current artifact
-  profile: user's role, audience, and goals
-  feedback_meaning: reduce density and competing CTAs
-delivery:
-  edit the current file in place
-  validate desktop and mobile fit
-ask_user_only_if:
-  target file cannot be determined`}</pre>
-          </div>
-        </div>
-      </div>
-
-      <div className="memory-scenario-section">
-        <div className="memory-subsection-head">
-          <div>
-            <h4>What should Memory remember?</h4>
-            <p className="hint">
-              Start with one scenario. Each template creates a real memory you
-              can edit before saving.
-            </p>
-          </div>
-          <span className="memory-source-badge">
-            {MEMORY_SCENARIOS.length} scenarios
-          </span>
-        </div>
-        <div className="memory-scenario-grid">
-          {MEMORY_SCENARIOS.map((scenario) => {
-            const savedCount = entries.filter(
-              (entry) => entry.type === scenario.draft.type,
-            ).length;
-            return (
-              <button
-                key={scenario.title}
-                type="button"
-                className="memory-scenario-card"
-                onClick={() => onUseScenario(scenario)}
-              >
-                <span className="memory-scenario-topline">
-                  <span className="memory-scenario-icon">
-                    <Icon name={scenario.icon} size={14} />
-                  </span>
-                  <span className="memory-scenario-label">
-                    {scenario.label}
-                  </span>
-                  <span className="memory-scenario-count">
-                    {savedCount} saved
-                  </span>
-                </span>
-                <strong>{scenario.title}</strong>
-                <small>{scenario.example}</small>
-                <span>{scenario.payoff}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/*
-        Pluggable hooks live with the explanation of the loops they control:
-        the PRE rewrite, the structured-profile injection, the POST verify, and
-        chat extraction — all wired through PATCH /api/memory/config with
-        optimistic-set + rollback. The master switch in the header kills
-        everything.
-      */}
-      <MemoryHooksPanel
-        enabled={enabled}
-        flags={hookFlags}
-        onToggle={onToggleHook}
-      />
-      </div>
       ) : null}
 
-      {topTab === 'memories' ? (
-      <div className="memory-add-disclosure">
-        <button
-          type="button"
-          className={`memory-add-summary${addOpen ? ' is-open' : ''}`}
-          aria-expanded={addOpen}
-          aria-label={t('settings.memoryAddDisclosure')}
-          onClick={() => setAddOpen((o) => !o)}
+      {addModalOpen ? (
+      <div
+        className="memory-action-modal-backdrop"
+        role="presentation"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget) {
+            setAddModalOpen(false);
+          }
+        }}
+      >
+        <div
+          className="memory-action-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="memory-add-modal-title"
+          onMouseDown={(event) => event.stopPropagation()}
         >
-          <span className="memory-add-summary-icon" aria-hidden>
-            <Icon name="plus" size={14} />
-          </span>
-          <span className="memory-add-summary-copy">
-            <strong>{t('settings.memoryAddDisclosure')}</strong>
-            <small>{t('settings.memoryAddDisclosureHint')}</small>
-          </span>
-          <span className="memory-add-summary-chevron" aria-hidden>
-            <Icon name="chevron-down" size={14} />
-          </span>
-        </button>
-        {addOpen ? (
-        <div className="memory-add-disclosure-body">
+          <div className="memory-action-modal-head">
+            <div>
+              <h3 id="memory-add-modal-title">
+                {t('settings.memoryAddDisclosure')}
+              </h3>
+              <p>{t('settings.memoryAddDisclosureHint')}</p>
+            </div>
+            <button
+              type="button"
+              className="memory-action-modal-close"
+              onClick={() => setAddModalOpen(false)}
+              aria-label={t('common.close')}
+              title={t('common.close')}
+            >
+              <Icon name="close" size={16} />
+            </button>
+          </div>
+          <div className="memory-action-modal-body">
 
       <div
         className="memory-source-tabs"
@@ -2556,8 +2321,8 @@ ask_user_only_if:
         </div>
       ) : null}
 
+          </div>
         </div>
-        ) : null}
       </div>
       ) : null}
 
@@ -2681,11 +2446,39 @@ ask_user_only_if:
         </div>
       </section>
 
-      <section className="settings-section settings-section-card memory-advanced-section">
-        <details className="memory-advanced">
-          <summary className="memory-details-summary">
-            <span className="memory-details-title">Advanced</span>
-          </summary>
+      {advancedModalOpen ? (
+      <div
+        className="memory-action-modal-backdrop"
+        role="presentation"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget) {
+            setAdvancedModalOpen(false);
+          }
+        }}
+      >
+        <div
+          className="memory-action-modal memory-action-modal--advanced"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="memory-advanced-modal-title"
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <div className="memory-action-modal-head">
+            <div>
+              <h3 id="memory-advanced-modal-title">Advanced</h3>
+              <p>Inspect or edit the underlying memory index.</p>
+            </div>
+            <button
+              type="button"
+              className="memory-action-modal-close"
+              onClick={() => setAdvancedModalOpen(false)}
+              aria-label={t('common.close')}
+              title={t('common.close')}
+            >
+              <Icon name="close" size={16} />
+            </button>
+          </div>
+          <div className="memory-action-modal-body memory-advanced-modal-body">
           <p className="memory-advanced-hint">
             Inspect or edit the underlying memory index.
           </p>
@@ -2828,8 +2621,10 @@ ask_user_only_if:
               </details>
             ) : null}
           </div>
-        </details>
-      </section>
+          </div>
+        </div>
+      </div>
+      ) : null}
       </>
       ) : null}
     </>

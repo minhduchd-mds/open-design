@@ -1135,99 +1135,132 @@
   margin: 8px 0 12px;
 }
 
-/* Top-level IA: a two-tab segmented control under the master toggle. Tab 1
-   "Memories" (the store + operations) is the default; tab 2 "How it works"
-   holds the two-loop explainer and the pluggable hook toggles. */
-.memory-top-tabs {
+.memory-create-section {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 14px 16px;
+}
+
+.memory-control-head {
+  align-items: center;
+  gap: 14px;
+}
+
+.memory-control-copy {
+  min-width: 0;
+}
+
+.memory-header-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: 8px;
-  margin-top: 4px;
+  flex: 0 0 auto;
+}
+
+.memory-top-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 28px;
+  padding: 2px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-pill);
+  background: var(--bg-subtle);
 }
 
 .memory-top-tab {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  min-height: 52px;
-  padding: 9px 12px;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-sm);
-  background: var(--bg-subtle);
+  justify-content: center;
+  min-height: 22px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
   color: var(--text-muted);
-  text-align: left;
+  font-size: 11.5px;
+  font-weight: 620;
+  line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
   transition:
-    background 160ms cubic-bezier(0.23, 1, 0.32, 1),
-    border-color 160ms cubic-bezier(0.23, 1, 0.32, 1),
-    color 160ms cubic-bezier(0.23, 1, 0.32, 1),
-    box-shadow 160ms cubic-bezier(0.23, 1, 0.32, 1);
+    background 140ms cubic-bezier(0.23, 1, 0.32, 1),
+    color 140ms cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 140ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 .memory-top-tab:hover {
-  background: var(--bg-muted);
-  border-color: var(--border);
   color: var(--text);
 }
 
 .memory-top-tab.active {
   background: var(--bg-panel);
-  border-color: color-mix(in oklab, var(--accent) 30%, var(--border-strong));
   color: var(--text);
-  box-shadow:
-    inset 0 0 0 1px color-mix(in oklab, var(--accent) 12%, transparent),
-    var(--shadow-xs);
+  box-shadow: var(--shadow-xs);
 }
 
-.memory-top-tab-icon {
+.memory-icon-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-sm);
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
   background: var(--bg-panel);
   color: var(--text-muted);
-  box-shadow: inset 0 0 0 1px var(--border-soft);
+  cursor: pointer;
+  transition:
+    background 140ms cubic-bezier(0.23, 1, 0.32, 1),
+    border-color 140ms cubic-bezier(0.23, 1, 0.32, 1),
+    color 140ms cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 140ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
-.memory-top-tab.active .memory-top-tab-icon {
-  color: var(--accent);
-  background: color-mix(in oklab, var(--accent) 10%, var(--bg-panel));
+.memory-icon-action:hover,
+.memory-icon-action:focus-visible {
+  border-color: var(--border);
+  background: var(--bg-subtle);
+  color: var(--text);
+  box-shadow: var(--shadow-xs);
 }
 
-.memory-top-tab-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.memory-top-tab-copy strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 12.5px;
-  font-weight: 650;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.memory-top-tab-copy small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--text-muted);
-  font-size: 10.5px;
-  font-weight: 500;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-/* How-it-works tab body — the explainer blocks + hook toggles, stacked. */
 .memory-how-panel {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
+  padding-top: 2px;
+}
+
+.memory-auto-flow {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 6px 9px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-pill);
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  font-size: 11.5px;
+  font-weight: 620;
+  line-height: 1.2;
+}
+
+.memory-auto-flow strong {
+  color: var(--text);
+}
+
+.memory-how-copy {
+  max-width: 780px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  line-height: 1.45;
 }
 
 /* Memories tab — the "Add or import" operations collapse into a disclosure so
@@ -1311,6 +1344,93 @@
   padding: 0 12px 12px;
   border-top: 1px solid var(--border-soft);
   padding-top: 12px;
+}
+
+.memory-action-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  background: color-mix(in srgb, var(--overlay-scrim, rgba(0, 0, 0, 0.42)) 72%, transparent);
+}
+
+.memory-action-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(920px, calc(100vw - 64px));
+  max-height: min(78vh, 780px);
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  background: var(--bg-panel);
+  box-shadow: 0 22px 70px color-mix(in srgb, var(--shadow-color, #000) 22%, transparent);
+}
+
+.memory-action-modal--advanced {
+  width: min(760px, calc(100vw - 64px));
+}
+
+.memory-action-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.memory-action-modal-head h3 {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.memory-action-modal-head p {
+  margin: 3px 0 0;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.memory-action-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: 50%;
+  background: var(--bg-panel);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background 140ms cubic-bezier(0.23, 1, 0.32, 1),
+    border-color 140ms cubic-bezier(0.23, 1, 0.32, 1),
+    color 140ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.memory-action-modal-close:hover,
+.memory-action-modal-close:focus-visible {
+  border-color: var(--border);
+  background: var(--bg-subtle);
+  color: var(--text);
+}
+
+.memory-action-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow: auto;
+  padding: 14px 18px 18px;
+}
+
+.memory-advanced-modal-body {
+  gap: 10px;
 }
 
 .memory-work-profile {
@@ -1697,8 +1817,8 @@
 
 .memory-records-section .library-toolbar.is-row {
   gap: 10px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border-soft);
+  padding-bottom: 4px;
+  border-bottom: 0;
 }
 
 .memory-management-counts {
@@ -1763,7 +1883,7 @@
 
 .memory-records-section .library-group-title {
   display: grid;
-  grid-template-columns: auto auto minmax(24px, 1fr);
+  grid-template-columns: auto auto;
   align-items: center;
   gap: 7px;
   margin: 0 0 1px;
@@ -1772,9 +1892,7 @@
 }
 
 .memory-records-section .library-group-title::after {
-  content: '';
-  height: 1px;
-  background: var(--border-soft);
+  display: none;
 }
 
 .memory-records-section .library-group-count {
@@ -1789,7 +1907,7 @@
   min-height: 58px;
   padding: 10px 12px 10px 14px;
   border-color: var(--border-soft);
-  background: var(--bg-panel);
+  background: color-mix(in oklab, var(--bg-panel) 84%, var(--bg-subtle));
   transition:
     background 140ms cubic-bezier(0.23, 1, 0.32, 1),
     border-color 140ms cubic-bezier(0.23, 1, 0.32, 1);
@@ -2634,6 +2752,16 @@
 }
 
 @media (max-width: 760px) {
+  .memory-control-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .memory-header-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
   .memory-source-tabs,
   .memory-manual-grid,
   .memory-guide-grid,
@@ -2696,6 +2824,16 @@
 
   .memory-card-actions {
     width: 100%;
+  }
+
+  .memory-action-modal-backdrop {
+    padding: 16px;
+  }
+
+  .memory-action-modal,
+  .memory-action-modal--advanced {
+    width: min(100%, calc(100vw - 32px));
+    max-height: calc(100vh - 32px);
   }
 }
 

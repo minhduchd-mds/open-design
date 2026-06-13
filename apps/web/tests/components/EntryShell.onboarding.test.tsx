@@ -627,6 +627,10 @@ describe('EntryShell onboarding Open Design AMR runtime', () => {
     await waitFor(() => {
       expect(document.querySelector('.onboarding-view__email-input')).toBeTruthy();
     });
+    fireEvent.click(screen.getByRole('button', { name: /^Continue$/i }));
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Extract your brand' })).toBeTruthy();
+    });
     fireEvent.click(screen.getByRole('button', { name: /Finish setup/i }));
 
     expect(props.onCompleteOnboarding).toHaveBeenCalledTimes(1);
@@ -651,6 +655,12 @@ describe('EntryShell onboarding Open Design AMR runtime', () => {
           area: 'newsletter',
           step_index: '3',
           step_name: 'newsletter',
+        }),
+        expect.objectContaining({
+          page_name: 'onboarding',
+          area: 'brand',
+          step_index: '4',
+          step_name: 'brand_extract',
         }),
       ]),
     );
@@ -683,7 +693,7 @@ describe('EntryShell onboarding Open Design AMR runtime', () => {
     });
   });
 
-  it('submits the optional newsletter email when finishing the About-you step', async () => {
+  it('submits the optional newsletter email when finishing onboarding', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       void init;
       const url = String(input);
@@ -703,7 +713,7 @@ describe('EntryShell onboarding Open Design AMR runtime', () => {
     globalThis.fetch = fetchMock as typeof fetch;
     renderOnboarding();
 
-    // Connect -> About you -> Newsletter
+    // Connect -> About you -> Newsletter -> Brand
     fireEvent.click(await screen.findByRole('button', { name: /^Continue$/i }));
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'About you' })).toBeTruthy();
@@ -722,6 +732,10 @@ describe('EntryShell onboarding Open Design AMR runtime', () => {
 
     fireEvent.change(emailInput as HTMLInputElement, {
       target: { value: '  Tester@Studio.com  ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^Continue$/i }));
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Extract your brand' })).toBeTruthy();
     });
     fireEvent.click(screen.getByRole('button', { name: /Finish setup/i }));
 
@@ -764,6 +778,10 @@ describe('EntryShell onboarding Open Design AMR runtime', () => {
     await waitFor(() => {
       expect(document.querySelector('.onboarding-view__email-input')).toBeTruthy();
     });
+    fireEvent.click(screen.getByRole('button', { name: /^Continue$/i }));
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Extract your brand' })).toBeTruthy();
+    });
     fireEvent.click(screen.getByRole('button', { name: /Finish setup/i }));
 
     expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/subscribe'))).toBe(false);
@@ -787,11 +805,15 @@ describe('EntryShell onboarding Open Design AMR runtime', () => {
     chooseDropdownOption('Your role', 'Engineer');
 
     // Jump straight to the newsletter step via the clickable stepper,
-    // bypassing the primary Continue CTA. The survey snapshot must still
-    // fire exactly once — on the final Finish — not zero times.
+    // bypassing the primary Continue CTA from About you. The survey snapshot
+    // must still fire exactly once — on the final Finish — not zero times.
     fireEvent.click(screen.getByRole('button', { name: /Stay updated/i }));
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Stay in the loop' })).toBeTruthy();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^Continue$/i }));
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Extract your brand' })).toBeTruthy();
     });
     fireEvent.click(screen.getByRole('button', { name: /Finish setup/i }));
 
@@ -829,10 +851,14 @@ describe('EntryShell onboarding Open Design AMR runtime', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'About you' })).toBeTruthy();
     });
-    // Continue -> Newsletter again, then finish.
+    // Continue -> Newsletter again, then Brand and finish.
     fireEvent.click(screen.getByRole('button', { name: /^Continue$/i }));
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Stay in the loop' })).toBeTruthy();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^Continue$/i }));
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Extract your brand' })).toBeTruthy();
     });
     fireEvent.click(screen.getByRole('button', { name: /Finish setup/i }));
 
@@ -894,6 +920,10 @@ describe('EntryShell onboarding Open Design AMR runtime', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Continue$/i }));
     await waitFor(() => {
       expect(document.querySelector('.onboarding-view__email-input')).toBeTruthy();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^Continue$/i }));
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Extract your brand' })).toBeTruthy();
     });
     fireEvent.click(screen.getByRole('button', { name: /Finish setup/i }));
 

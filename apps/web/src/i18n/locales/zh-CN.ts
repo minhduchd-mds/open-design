@@ -3161,7 +3161,7 @@ export const zhCN: Dict = {
   'settings.resetOnboardingDesc': '重新进行首次设置，包括品牌提取。',
   'settings.resetOnboardingButton': '重置',
   'onboarding.brandTitle': '提取你的品牌',
-  'onboarding.brandSubtitle': '粘贴你的网站，我们会测量你的颜色、字体和标识——让每个设计都像你。',
+  'onboarding.brandSubtitle': '粘贴品牌网站，我们会把品牌线索转成后续可复用的设计上下文。',
   'onboarding.brandSkip': '暂时跳过',
   'onboarding.brandDone': '品牌已提取',
 };

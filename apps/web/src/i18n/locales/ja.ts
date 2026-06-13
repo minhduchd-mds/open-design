@@ -3160,7 +3160,7 @@ export const ja: Dict = {
   'settings.resetOnboardingDesc': 'Replay the first-run setup, including brand extraction.',
   'settings.resetOnboardingButton': 'Reset',
   'onboarding.brandTitle': 'Extract your brand',
-  'onboarding.brandSubtitle': 'Paste your website and we\'ll measure your colors, fonts and logo — so every design looks like you.',
+  'onboarding.brandSubtitle': 'Paste a website and we\'ll turn its brand signals into reusable design context for future work.',
   'onboarding.brandSkip': 'Skip for now',
   'onboarding.brandDone': 'Brand extracted',
 };
