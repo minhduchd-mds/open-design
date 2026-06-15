@@ -856,8 +856,8 @@ describe('EntryShell onboarding Open Design AMR runtime', () => {
           kind: 'success',
           latencyMs: 10,
           models: [
-            { id: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5' },
             { id: 'claude-opus-4-8', label: 'Claude Opus 4.8' },
+            { id: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5' },
           ],
         });
       }
@@ -908,6 +908,63 @@ describe('EntryShell onboarding Open Design AMR runtime', () => {
       baseUrl: 'https://api.anthropic.com',
       model: 'claude-opus-4-8',
       apiProviderBaseUrl: null,
+    });
+  });
+
+  it('automatically fetches BYOK models and tests the selected model in onboarding', async () => {
+    const fetchMock = vi.fn(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/api/integrations/vela/status')) {
+        return jsonResponse({ loggedIn: false, profile: 'prod', user: null, configPath: '/x' });
+      }
+      if (url.endsWith('/api/provider/models') && init?.method === 'POST') {
+        return jsonResponse({
+          ok: true,
+          kind: 'success',
+          latencyMs: 10,
+          models: [
+            { id: 'claude-opus-4-8', label: 'Claude Opus 4.8' },
+            { id: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5' },
+          ],
+        });
+      }
+      if (url.endsWith('/api/test/connection') && init?.method === 'POST') {
+        return jsonResponse({
+          ok: true,
+          kind: 'success',
+          latencyMs: 12,
+          model: 'claude-opus-4-8',
+          sample: 'Connected',
+        });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+    globalThis.fetch = fetchMock as typeof fetch;
+    renderOnboarding();
+
+    fireEvent.click(screen.getByRole('button', { name: /Bring your own key/i }));
+    fireEvent.change(screen.getByLabelText('API key'), { target: { value: 'test-api-key' } });
+    fireEvent.change(screen.getByLabelText('Base URL'), { target: { value: 'https://api.anthropic.com' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('Fetched 2 models.')).toBeTruthy();
+    });
+    await waitFor(() => {
+      expect(screen.getByText(/Connected\. Replied in 12 ms/i)).toBeTruthy();
+    });
+    const providerModelCalls = fetchMock.mock.calls.filter(([url]) =>
+      String(url).endsWith('/api/provider/models'),
+    );
+    const connectionTestCalls = fetchMock.mock.calls.filter(([url]) =>
+      String(url).endsWith('/api/test/connection'),
+    );
+    expect(providerModelCalls).toHaveLength(1);
+    expect(connectionTestCalls).toHaveLength(1);
+    expect(JSON.parse(String(connectionTestCalls[0]?.[1]?.body))).toMatchObject({
+      protocol: 'anthropic',
+      baseUrl: 'https://api.anthropic.com',
+      apiKey: 'test-api-key',
+      model: 'claude-opus-4-8',
     });
   });
 
