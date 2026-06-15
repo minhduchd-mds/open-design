@@ -3,14 +3,19 @@ import { randomUUID } from 'node:crypto';
 import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-
-import { startServer } from '../src/server.js';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 type StartedServer = {
   url: string;
   server: http.Server;
   shutdown?: () => Promise<void> | void;
+};
+
+type ServerModule = {
+  startServer: (options: {
+    port: number;
+    returnServer: boolean;
+  }) => Promise<StartedServer>;
 };
 
 type RunStatus = {
@@ -35,14 +40,24 @@ type RunListBody = {
 
 describe('daemon startup route smoke', () => {
   let started: StartedServer;
+  let dataDir: string;
+  const originalDataDir = process.env.OD_DATA_DIR;
 
   beforeAll(async () => {
-    started = await startServer({ port: 0, returnServer: true }) as StartedServer;
+    dataDir = await mkdtemp(join(tmpdir(), 'od-server-startup-smoke-'));
+    process.env.OD_DATA_DIR = dataDir;
+    vi.resetModules();
+    const { startServer } = await import('../src/server.js') as ServerModule;
+    started = await startServer({ port: 0, returnServer: true });
   });
 
   afterAll(async () => {
     await Promise.resolve(started.shutdown?.());
     await new Promise<void>((resolve) => started.server.close(() => resolve()));
+    await rm(dataDir, { recursive: true, force: true });
+    if (originalDataDir === undefined) delete process.env.OD_DATA_DIR;
+    else process.env.OD_DATA_DIR = originalDataDir;
+    vi.resetModules();
   });
 
   it('registers the main app routes on a real daemon boot', async () => {
