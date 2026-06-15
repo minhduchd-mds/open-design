@@ -2951,7 +2951,6 @@ export function ProjectView({
                       ? parsedArtifact
                       : artifactFromStandaloneHtml(replayedContent);
                     if (!artifactToPersist?.html) return;
-                    recoveredArtifactMessagesRef.current.add(message.id);
                     let nextFiles = await refreshProjectFiles();
                     const beforeFileNames = new Set(
                       message.preTurnFileNames ?? nextFiles.map((f) => f.name),
@@ -2960,6 +2959,9 @@ export function ProjectView({
                     await persistArtifact(artifactToPersist, nextFiles, replayedContent);
                     nextFiles = await refreshProjectFiles();
                     const produced = computeProducedFiles(beforeFileNames, nextFiles) ?? [];
+                    if (produced.length > 0) {
+                      recoveredArtifactMessagesRef.current.add(message.id);
+                    }
                     const producedHtmlToOpen = selectAutoOpenProducedHtml(produced);
                     if (producedHtmlToOpen) requestOpenFile(producedHtmlToOpen);
                     if (latestRunStatus?.status === 'succeeded') setError(null);
