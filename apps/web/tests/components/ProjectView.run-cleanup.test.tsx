@@ -7,6 +7,7 @@ import {
   clearStreamingConversationMarker,
   finalizeActiveAssistantMessagesOnStop,
   findExistingArtifactProjectFile,
+  hasRecoverableArtifactMessage,
   resolveRetryTarget,
   resolveSucceededRunStatus,
   selectPrimaryProjectFile,
@@ -207,6 +208,22 @@ describe('terminal replay artifact recovery', () => {
         { minMtime: runCreatedAt },
       ),
     ).toBe(existingTarget);
+  });
+
+  it('treats standalone HTML terminal assistant messages as recoverable', () => {
+    expect(
+      hasRecoverableArtifactMessage({
+        id: 'msg-standalone-html',
+        role: 'assistant',
+        content:
+          '<!doctype html><html><head><title>Standalone</title></head>' +
+          '<body><h1>Standalone</h1><p>Recovered artifact output.</p></body></html>',
+        createdAt: Date.now(),
+        runId: 'run-standalone-html',
+        runStatus: 'succeeded',
+        producedFiles: [],
+      }),
+    ).toBe(true);
   });
 });
 

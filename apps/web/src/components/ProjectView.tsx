@@ -1875,17 +1875,10 @@ export function ProjectView({
     [project.id, project.designSystemId, project.skillId, requestOpenFile],
   );
 
-  const artifactFromStandaloneHtml = useCallback((sourceText: string): Artifact | null => {
-    const html = recoverStandaloneHtmlDocument(sourceText)
-      ?? recoverHtmlDocumentFromMarkdownFence(sourceText);
-    if (!html) return null;
-    return {
-      identifier: 'response',
-      artifactType: 'text/html',
-      title: 'Response',
-      html,
-    };
-  }, []);
+  const artifactFromStandaloneHtml = useCallback(
+    (sourceText: string): Artifact | null => artifactFromRecoverableSourceText(sourceText),
+    [],
+  );
 
   // Set of project file names that the chat surface uses to decide whether
   // a tool card's path is openable as a tab. Recomputed on every file-list
@@ -2957,7 +2950,7 @@ export function ProjectView({
                   }),
                   true,
                 );
-                if (replayedContent.includes('</artifact>')) {
+                if (artifactFromRecoverableSourceText(replayedContent)) {
                   void (async () => {
                     if (recoveredArtifactMessagesRef.current.has(message.id)) return;
                     const latestRunStatus = await fetchChatRunStatus(runId).catch(() => null);
@@ -6369,7 +6362,7 @@ function isActiveRunStatus(status: ChatMessage['runStatus']): boolean {
   return status === 'queued' || status === 'running';
 }
 
-function hasRecoverableArtifactMessage(message: ChatMessage): boolean {
+export function hasRecoverableArtifactMessage(message: ChatMessage): boolean {
   if (message.role !== 'assistant') return false;
   if (!message.runId) return false;
   if (!isTerminalRunStatus(message.runStatus)) return false;
@@ -6377,7 +6370,40 @@ function hasRecoverableArtifactMessage(message: ChatMessage): boolean {
   const sourceText = message.content.trim().length > 0
     ? message.content
     : textContentFromAgentEvents(message.events);
-  return sourceText.includes('</artifact>');
+  return artifactFromRecoverableSourceText(sourceText) !== null;
+}
+
+function artifactFromRecoverableSourceText(sourceText: string): Artifact | null {
+  const parser = createArtifactParser();
+  let parsedArtifact: Artifact | null = null;
+  let liveHtml = '';
+  for (const ev of [...parser.feed(sourceText), ...parser.flush()]) {
+    if (ev.type === 'artifact:start') {
+      liveHtml = '';
+      parsedArtifact = {
+        identifier: ev.identifier,
+        artifactType: ev.artifactType,
+        title: ev.title,
+        html: '',
+      };
+    } else if (ev.type === 'artifact:chunk') {
+      liveHtml += ev.delta;
+      parsedArtifact = artifactWithHtml(parsedArtifact, ev.identifier, liveHtml);
+    } else if (ev.type === 'artifact:end') {
+      parsedArtifact = artifactWithHtml(parsedArtifact, ev.identifier, ev.fullContent);
+    }
+  }
+  if (parsedArtifact?.html) return parsedArtifact;
+
+  const html = recoverStandaloneHtmlDocument(sourceText)
+    ?? recoverHtmlDocumentFromMarkdownFence(sourceText);
+  if (!html) return null;
+  return {
+    identifier: 'response',
+    artifactType: 'text/html',
+    title: 'Response',
+    html,
+  };
 }
 
 function shouldReplayTerminalRunMessage(message: ChatMessage): boolean {
