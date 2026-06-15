@@ -994,6 +994,12 @@ export function ChatPane({
     () => messages.find((m) => m.role === 'user')?.id,
     [messages],
   );
+  const shouldBalanceFinishedTranscript =
+    !loading &&
+    !streaming &&
+    !displayError &&
+    !hasActiveRunMessage &&
+    messages.length > 0;
   // Map each assistant message id to the user message that follows it (if any)
   // so the chat-side Questions banner can reopen that exact answered form in
   // the right-hand panel later.
@@ -1819,6 +1825,7 @@ export function ChatPane({
                 loading ? 'is-loading' : '',
                 chatLogScrollable ? 'is-scrollable' : '',
                 chatLogScrolling ? 'is-scrolling' : '',
+                shouldBalanceFinishedTranscript ? 'is-balanced-transcript' : '',
               ].filter(Boolean).join(' ')}
               ref={logRef}
               aria-busy={loading}
