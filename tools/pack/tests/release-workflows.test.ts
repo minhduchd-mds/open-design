@@ -109,6 +109,7 @@ describe("release workflows", () => {
     expect(selfHostedMac).toContain("RELEASE_DELIVERY_MODE: ${{ inputs.mac_arm64_delivery_mode }}");
     expect(selfHostedMac).toContain("RELEASE_SIGN_MODE: ${{ inputs.mac_arm64_delivery_mode == 'internal-updater' && 'sign-only' || inputs.mac_arm64_sign_mode }}");
     expect(selfHostedMac).toContain("OD_UPDATE_METADATA_URL: ${{ inputs.release_public_origin }}/betas/latest/metadata.json");
+    expect(selfHostedMac).toContain("RELEASE_CHANNEL: betas");
     expect(betaSelfHosted).toContain("public-notarized mac_arm64_delivery_mode requires mac_arm64_sign_mode=notarize");
     expect(betaSelfHosted).toContain("RELEASE_SIGNED: ${{ inputs.enable_mac_arm64 && (inputs.mac_arm64_delivery_mode == 'internal-updater' || inputs.mac_arm64_sign_mode != 'no') && 'true' || 'false' }}");
     expect(selfHostedMac).toContain("OD_PACKAGED_E2E_MAC_UPDATE_METADATA_URL: ${{ inputs.mac_arm64_update_metadata_url }}");
@@ -129,6 +130,7 @@ describe("release workflows", () => {
     expect(betaSelfHosted).toContain("tools-release summary-metadata");
     expect(win).toContain("-IncludeZip $${{ inputs.win_x64_target == 'all' || inputs.win_x64_target == 'zip' }}");
     expect(selfHostedWin).toContain("OD_UPDATE_METADATA_URL: ${{ inputs.release_public_origin }}/betas/latest/metadata.json");
+    expect(selfHostedWin).toContain("RELEASE_CHANNEL: betas");
     expect(selfHostedWin).toContain("-IncludeZip $${{ inputs.win_x64_target == 'all' || inputs.win_x64_target == 'zip' }}");
     expect(prepareMac).not.toContain("required RELEASE_ASSET_SUFFIX");
     expect(prepareMac).toContain('RELEASE_ASSET_SUFFIX="${RELEASE_ASSET_SUFFIX:-}"');

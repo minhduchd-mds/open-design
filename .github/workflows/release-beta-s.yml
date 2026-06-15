@@ -574,6 +574,7 @@ jobs:
           OD_PACKAGED_E2E_MAC_UPDATE_METADATA_URL: ${{ inputs.mac_arm64_update_metadata_url }}
           OD_PACKAGED_E2E_MAC_UPDATE_VERSION: ${{ inputs.mac_arm64_update_target_version }}
           RELEASE_BUILD_TARGET: ${{ inputs.mac_arm64_target }}
+          RELEASE_CHANNEL: betas
           RELEASE_DELIVERY_MODE: ${{ inputs.mac_arm64_delivery_mode }}
           RELEASE_NAMESPACE: release-betas
           RELEASE_OUTPUTS_PATH: ${{ runner.temp }}/release-build/mac_arm64/outputs.json
@@ -729,6 +730,7 @@ jobs:
           OD_UPDATE_METADATA_URL: ${{ inputs.release_public_origin }}/betas/latest/metadata.json
           OD_PACKAGED_E2E_WIN_UPDATE_METADATA_URL: ${{ inputs.win_x64_update_metadata_url }}
           OD_PACKAGED_E2E_WIN_UPDATE_VERSION: ${{ inputs.win_x64_update_target_version }}
+          RELEASE_CHANNEL: betas
         run: |
           & "C:\Users\runner\.cargo\bin\fnm.exe" exec --using=24 -- pwsh -NoProfile -File tools\release\scripts\build-platform.ps1 `
             -ReleaseTarget win_x64 `
