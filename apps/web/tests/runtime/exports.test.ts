@@ -509,11 +509,15 @@ describe('sandboxed preview Blob exports', () => {
     expect(capturedBlob).toBeDefined();
     const wrapper = await capturedBlob!.text();
     expect(wrapper).toContain('__odPrintReady');
+    expect(wrapper).toContain('__odPrintReadyStarted');
     expect(wrapper).toContain("window.__odPrintReady===true");
+    expect(wrapper).toContain("window.__odPrintReadyStarted===false");
     expect(wrapper).toContain("e.data.type==='OD_PRINT_READY'");
+    expect(wrapper).toContain("e.data.type==='OD_PRINT_READY_STARTED'");
     expect(wrapper).toContain('window.addEventListener(\'message\'');
     expect(wrapper).toContain('document.fonts');
     expect(wrapper).toContain('waitForCssBackgroundImages');
+    expect(wrapper).toContain("setTimeout(doPrint,300)");
     expect(wrapper).toContain('window.print()');
   });
 
