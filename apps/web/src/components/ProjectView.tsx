@@ -2708,11 +2708,25 @@ export function ProjectView({
             const artifactToPersist = parsedArtifact?.html
               ? parsedArtifact
               : artifactFromStandaloneHtml(replayedContent);
+            let recoveredExistingArtifact: ProjectFile | null = null;
             if (artifactToPersist?.html) {
-              await persistArtifact(artifactToPersist, nextFiles, replayedContent);
-              nextFiles = await refreshProjectFiles();
+              const runStartedAt = status.createdAt || message.startedAt || message.createdAt;
+              recoveredExistingArtifact = findExistingArtifactProjectFile(
+                artifactToPersist,
+                nextFiles,
+                { minMtime: runStartedAt },
+              );
+              if (recoveredExistingArtifact) {
+                savedArtifactRef.current = recoveredExistingArtifact.name;
+                requestOpenFile(recoveredExistingArtifact.name);
+              } else {
+                savedArtifactRef.current = null;
+                await persistArtifact(artifactToPersist, nextFiles, replayedContent);
+                nextFiles = await refreshProjectFiles();
+              }
             }
-            const produced = computeProducedFiles(beforeFileNames, nextFiles) ?? [];
+            const diff = computeProducedFiles(beforeFileNames, nextFiles) ?? [];
+            const produced = mergeRecoveredArtifact(diff, recoveredExistingArtifact);
             const producedHtmlToOpen = selectAutoOpenProducedHtml(produced);
             if (producedHtmlToOpen) requestOpenFile(producedHtmlToOpen);
             if (produced.length > 0) {
@@ -2955,10 +2969,28 @@ export function ProjectView({
                     const beforeFileNames = new Set(
                       message.preTurnFileNames ?? nextFiles.map((f) => f.name),
                     );
-                    savedArtifactRef.current = null;
-                    await persistArtifact(artifactToPersist, nextFiles, replayedContent);
-                    nextFiles = await refreshProjectFiles();
-                    const produced = computeProducedFiles(beforeFileNames, nextFiles) ?? [];
+                    const runStartedAt =
+                      latestRunStatus?.createdAt || message.startedAt || message.createdAt;
+                    let recoveredExistingArtifact = findExistingArtifactProjectFile(
+                      artifactToPersist,
+                      nextFiles,
+                      { minMtime: runStartedAt },
+                    );
+                    if (recoveredExistingArtifact) {
+                      savedArtifactRef.current = recoveredExistingArtifact.name;
+                      requestOpenFile(recoveredExistingArtifact.name);
+                    } else {
+                      savedArtifactRef.current = null;
+                      await persistArtifact(artifactToPersist, nextFiles, replayedContent);
+                      nextFiles = await refreshProjectFiles();
+                      recoveredExistingArtifact = findExistingArtifactProjectFile(
+                        artifactToPersist,
+                        nextFiles,
+                        { minMtime: runStartedAt },
+                      );
+                    }
+                    const diff = computeProducedFiles(beforeFileNames, nextFiles) ?? [];
+                    const produced = mergeRecoveredArtifact(diff, recoveredExistingArtifact);
                     if (produced.length > 0) {
                       recoveredArtifactMessagesRef.current.add(message.id);
                     }
@@ -3133,21 +3165,39 @@ export function ProjectView({
             ? parsedArtifact
             : artifactFromStandaloneHtml(sourceText);
           if (!artifactToPersist?.html) continue;
+          const latestRunStatus = await fetchChatRunStatus(runId).catch(() => null);
           let nextFiles = await refreshProjectFiles();
           if (cancelled) return;
           const beforeFileNames = new Set(
             message.preTurnFileNames ?? nextFiles.map((f) => f.name),
           );
-          savedArtifactRef.current = null;
-          await persistArtifact(artifactToPersist, nextFiles, sourceText);
-          nextFiles = await refreshProjectFiles();
+          const runStartedAt =
+            latestRunStatus?.createdAt || message.startedAt || message.createdAt;
+          let recoveredExistingArtifact = findExistingArtifactProjectFile(
+            artifactToPersist,
+            nextFiles,
+            { minMtime: runStartedAt },
+          );
+          if (recoveredExistingArtifact) {
+            savedArtifactRef.current = recoveredExistingArtifact.name;
+            requestOpenFile(recoveredExistingArtifact.name);
+          } else {
+            savedArtifactRef.current = null;
+            await persistArtifact(artifactToPersist, nextFiles, sourceText);
+            nextFiles = await refreshProjectFiles();
+            recoveredExistingArtifact = findExistingArtifactProjectFile(
+              artifactToPersist,
+              nextFiles,
+              { minMtime: runStartedAt },
+            );
+          }
           if (cancelled) return;
-          const produced = computeProducedFiles(beforeFileNames, nextFiles) ?? [];
+          const diff = computeProducedFiles(beforeFileNames, nextFiles) ?? [];
+          const produced = mergeRecoveredArtifact(diff, recoveredExistingArtifact);
           if (produced.length === 0) continue;
           recoveredArtifactMessagesRef.current.add(message.id);
           const producedHtmlToOpen = selectAutoOpenProducedHtml(produced);
           if (producedHtmlToOpen) requestOpenFile(producedHtmlToOpen);
-          const latestRunStatus = await fetchChatRunStatus(runId).catch(() => null);
           updateMessageById(
             message.id,
             (prev) => ({
@@ -6216,10 +6266,10 @@ export function findExistingArtifactProjectFile(
     const pointerTarget = resolveHtmlPointerArtifactTarget({
       content: art.html,
       candidateFileName,
-      projectFiles: currentRunFiles,
+      projectFiles,
     });
     const pointerFile = pointerTarget
-      ? currentRunFiles.find((file) => file.name === pointerTarget || file.path === pointerTarget)
+      ? projectFiles.find((file) => file.name === pointerTarget || file.path === pointerTarget)
       : null;
     if (pointerFile) return pointerFile;
   }

@@ -189,6 +189,25 @@ describe('terminal replay artifact recovery', () => {
     expect(findExistingArtifactProjectFile(replayArtifact, [stale, current], { minMtime: runCreatedAt }))
       .toBe(current);
   });
+
+  it('reuses html pointer targets even when the target predates the current run', () => {
+    const runCreatedAt = 1_000;
+    const pointerArtifact: Artifact = {
+      identifier: 'real-daemon-smoke',
+      artifactType: 'text/html',
+      title: 'Real Daemon Smoke',
+      html: 'See index.html',
+    };
+    const existingTarget = projectFile('index.html', 'html', runCreatedAt - 1);
+
+    expect(
+      findExistingArtifactProjectFile(
+        pointerArtifact,
+        [existingTarget],
+        { minMtime: runCreatedAt },
+      ),
+    ).toBe(existingTarget);
+  });
 });
 
 describe('selectPrimaryProjectFile', () => {
