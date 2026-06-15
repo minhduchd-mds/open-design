@@ -1095,6 +1095,7 @@ export function ProjectView({
   const reattachCancelControllersRef = useRef<Map<string, AbortController>>(new Map());
   const completedReattachRunsRef = useRef<Set<string>>(new Set());
   const recoveredArtifactMessagesRef = useRef<Set<string>>(new Set());
+  const messagesRef = useRef<ChatMessage[]>([]);
   const startingQueuedChatSendIdRef = useRef<string | null>(null);
   const [queuedAutoStartTick, setQueuedAutoStartTick] = useState(0);
   const skillCache = useRef<Map<string, string>>(new Map());
@@ -1128,6 +1129,9 @@ export function ProjectView({
     projectIdRef.current = project.id;
   }, [project.id]);
   useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+  useEffect(() => {
     setChatSeed(null);
     setAutoAuditRepairSeed(null);
     const restored = loadQueuedChatSends(project.id);
@@ -1147,6 +1151,10 @@ export function ProjectView({
   const [creatingConversation, setCreatingConversation] = useState(false);
   const currentConversationHasActiveRun = useMemo(
     () => messages.some((m) => m.role === 'assistant' && isActiveRunStatus(m.runStatus)),
+    [messages],
+  );
+  const currentConversationHasRecoverableArtifact = useMemo(
+    () => messages.some((message) => hasRecoverableArtifactMessage(message)),
     [messages],
   );
   const currentConversationLoading = Boolean(
@@ -3070,6 +3078,7 @@ export function ProjectView({
 
   useEffect(() => {
     if (config.mode !== 'daemon' || !daemonLive || !activeConversationId) return;
+    if (!currentConversationHasRecoverableArtifact) return;
     let cancelled = false;
     let recovering = false;
 
@@ -3077,86 +3086,85 @@ export function ProjectView({
       if (recovering) return;
       recovering = true;
       try {
-      const serverMessages = await listMessages(project.id, activeConversationId).catch(() => []);
-      if (cancelled) return;
-      const recoveryMessages = serverMessages.length > 0 ? serverMessages : messages;
-      for (const message of recoveryMessages) {
+        const serverMessages = await listMessages(project.id, activeConversationId).catch(() => []);
         if (cancelled) return;
-        if (message.role !== 'assistant') continue;
-        if (!message.runId) continue;
-        if (!isTerminalRunStatus(message.runStatus)) continue;
-        if (message.producedFiles?.length) continue;
-        if (recoveredArtifactMessagesRef.current.has(message.id)) continue;
+        const recoveryMessages = serverMessages.length > 0 ? serverMessages : messagesRef.current;
+        for (const message of recoveryMessages) {
+          if (cancelled) return;
+          if (!hasRecoverableArtifactMessage(message)) continue;
+          if (recoveredArtifactMessagesRef.current.has(message.id)) continue;
+          const runId = message.runId;
+          if (!runId) continue;
 
-        const sourceText = message.content.trim().length > 0
-          ? message.content
-          : textContentFromAgentEvents(message.events);
-        if (!sourceText.includes('</artifact>')) continue;
+          const sourceText = message.content.trim().length > 0
+            ? message.content
+            : textContentFromAgentEvents(message.events);
 
-        const parser = createArtifactParser();
-        let parsedArtifact: Artifact | null = null;
-        let liveHtml = '';
-        for (const ev of [...parser.feed(sourceText), ...parser.flush()]) {
-          if (ev.type === 'artifact:start') {
-            liveHtml = '';
-            parsedArtifact = {
-              identifier: ev.identifier,
-              artifactType: ev.artifactType,
-              title: ev.title,
-              html: '',
-            };
-            setArtifact(parsedArtifact);
-          } else if (ev.type === 'artifact:chunk') {
-            liveHtml += ev.delta;
-            parsedArtifact = artifactWithHtml(parsedArtifact, ev.identifier, liveHtml);
-            setArtifact((prev) =>
-              artifactWithHtml(prev, ev.identifier, liveHtml),
-            );
-          } else if (ev.type === 'artifact:end') {
-            parsedArtifact = artifactWithHtml(parsedArtifact, ev.identifier, ev.fullContent);
-            setArtifact((prev) =>
-              prev ? artifactWithHtml(prev, ev.identifier, ev.fullContent) : null,
-            );
+          const parser = createArtifactParser();
+          let parsedArtifact: Artifact | null = null;
+          let liveHtml = '';
+          for (const ev of [...parser.feed(sourceText), ...parser.flush()]) {
+            if (ev.type === 'artifact:start') {
+              liveHtml = '';
+              parsedArtifact = {
+                identifier: ev.identifier,
+                artifactType: ev.artifactType,
+                title: ev.title,
+                html: '',
+              };
+              setArtifact(parsedArtifact);
+            } else if (ev.type === 'artifact:chunk') {
+              liveHtml += ev.delta;
+              parsedArtifact = artifactWithHtml(parsedArtifact, ev.identifier, liveHtml);
+              setArtifact((prev) =>
+                artifactWithHtml(prev, ev.identifier, liveHtml),
+              );
+            } else if (ev.type === 'artifact:end') {
+              parsedArtifact = artifactWithHtml(parsedArtifact, ev.identifier, ev.fullContent);
+              setArtifact((prev) =>
+                prev ? artifactWithHtml(prev, ev.identifier, ev.fullContent) : null,
+              );
+            }
           }
-        }
 
-        const artifactToPersist = parsedArtifact?.html
-          ? parsedArtifact
-          : artifactFromStandaloneHtml(sourceText);
-        if (!artifactToPersist?.html) continue;
-        recoveredArtifactMessagesRef.current.add(message.id);
-        let nextFiles = await refreshProjectFiles();
-        if (cancelled) return;
-        const beforeFileNames = new Set(
-          message.preTurnFileNames ?? nextFiles.map((f) => f.name),
-        );
-        savedArtifactRef.current = null;
-        await persistArtifact(artifactToPersist, nextFiles, sourceText);
-        nextFiles = await refreshProjectFiles();
-        if (cancelled) return;
-        const produced = computeProducedFiles(beforeFileNames, nextFiles) ?? [];
-        const producedHtmlToOpen = selectAutoOpenProducedHtml(produced);
-        if (producedHtmlToOpen) requestOpenFile(producedHtmlToOpen);
-        const latestRunStatus = await fetchChatRunStatus(message.runId).catch(() => null);
-        updateMessageById(
-          message.id,
-          (prev) => ({
-            ...prev,
-            content: sourceText,
-            producedFiles: produced.length > 0 ? produced : prev.producedFiles,
-            runStatus:
-              latestRunStatus?.status === 'succeeded'
-                ? 'succeeded'
-                : prev.runStatus,
-            endedAt: prev.endedAt ?? Date.now(),
-          }),
-          true,
-          { telemetryFinalized: true },
-        );
-        await auditDesignSystemWorkspaceAfterRun(message.id);
-        scheduleConversationMessageRefresh(activeConversationId);
-        onProjectsRefresh();
-      }
+          const artifactToPersist = parsedArtifact?.html
+            ? parsedArtifact
+            : artifactFromStandaloneHtml(sourceText);
+          if (!artifactToPersist?.html) continue;
+          let nextFiles = await refreshProjectFiles();
+          if (cancelled) return;
+          const beforeFileNames = new Set(
+            message.preTurnFileNames ?? nextFiles.map((f) => f.name),
+          );
+          savedArtifactRef.current = null;
+          await persistArtifact(artifactToPersist, nextFiles, sourceText);
+          nextFiles = await refreshProjectFiles();
+          if (cancelled) return;
+          const produced = computeProducedFiles(beforeFileNames, nextFiles) ?? [];
+          if (produced.length === 0) continue;
+          recoveredArtifactMessagesRef.current.add(message.id);
+          const producedHtmlToOpen = selectAutoOpenProducedHtml(produced);
+          if (producedHtmlToOpen) requestOpenFile(producedHtmlToOpen);
+          const latestRunStatus = await fetchChatRunStatus(runId).catch(() => null);
+          updateMessageById(
+            message.id,
+            (prev) => ({
+              ...prev,
+              content: sourceText,
+              producedFiles: produced,
+              runStatus:
+                latestRunStatus?.status === 'succeeded'
+                  ? 'succeeded'
+                  : prev.runStatus,
+              endedAt: prev.endedAt ?? Date.now(),
+            }),
+            true,
+            { telemetryFinalized: true },
+          );
+          await auditDesignSystemWorkspaceAfterRun(message.id);
+          scheduleConversationMessageRefresh(activeConversationId);
+          onProjectsRefresh();
+        }
       } finally {
         recovering = false;
       }
@@ -3176,7 +3184,7 @@ export function ProjectView({
     config.mode,
     activeConversationId,
     project.id,
-    messages,
+    currentConversationHasRecoverableArtifact,
     artifactFromStandaloneHtml,
     refreshProjectFiles,
     persistArtifact,
@@ -6300,6 +6308,17 @@ function isTerminalRunStatus(status: ChatMessage['runStatus']): boolean {
 
 function isActiveRunStatus(status: ChatMessage['runStatus']): boolean {
   return status === 'queued' || status === 'running';
+}
+
+function hasRecoverableArtifactMessage(message: ChatMessage): boolean {
+  if (message.role !== 'assistant') return false;
+  if (!message.runId) return false;
+  if (!isTerminalRunStatus(message.runStatus)) return false;
+  if (message.producedFiles?.length) return false;
+  const sourceText = message.content.trim().length > 0
+    ? message.content
+    : textContentFromAgentEvents(message.events);
+  return sourceText.includes('</artifact>');
 }
 
 function shouldReplayTerminalRunMessage(message: ChatMessage): boolean {
