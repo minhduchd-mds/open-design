@@ -3043,6 +3043,37 @@ describe('FileViewer tweaks toolbar', () => {
     expect(urlFrame.getAttribute('data-od-active')).toBe('true');
   });
 
+  it('keeps the srcDoc iframe mounted across an annotation toggle once prewarmed (no remount/reload)', async () => {
+    const { container } = render(
+      <FileViewer projectId="project-1" projectKind="prototype" file={htmlPreviewFile()}
+        liveHtml='<html><body><main data-od-id="hero">Stay mounted</main></body></html>'
+      />,
+    );
+
+    // Wait for the background prewarm to direct-mount the srcDoc iframe.
+    await waitFor(() => {
+      const f = container.querySelector('iframe[data-od-render-mode="srcdoc"]') as HTMLIFrameElement;
+      expect(f.srcdoc).toContain('Stay mounted');
+    }, { timeout: 3000 });
+
+    // `data-od-render-mode` is a static per-iframe attribute, so this selector
+    // returns the SAME DOM node unless React remounts it (key bump). Toggling
+    // an annotation mode flips URL-load ↔ srcDoc; once direct-mounted the
+    // srcDoc iframe must survive that flip rather than remount + reload — the
+    // thrash users hit toggling Comment ↔ Mark.
+    const before = container.querySelector('iframe[data-od-render-mode="srcdoc"]');
+    clickAgentTool('draw-overlay-toggle');
+    await waitFor(() => {
+      expect((container.querySelector('iframe[data-od-render-mode="srcdoc"]') as HTMLIFrameElement).getAttribute('data-od-active')).toBe('true');
+    });
+    clickAgentTool('draw-overlay-toggle');
+    await waitFor(() => {
+      expect((container.querySelector('iframe[data-od-render-mode="url-load"]') as HTMLIFrameElement).getAttribute('data-od-active')).toBe('true');
+    });
+    const after = container.querySelector('iframe[data-od-render-mode="srcdoc"]');
+    expect(after).toBe(before);
+  });
+
   // The freeze / deferred-flush logic covers every interactive preview mode
   // (`annotationFreezeActive` = Draw || Comment || Inspect; the URL freeze also
   // covers manual Edit). Pin the non-Draw branches so a regression in any one

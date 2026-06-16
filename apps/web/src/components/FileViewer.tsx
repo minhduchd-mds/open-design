@@ -5531,19 +5531,28 @@ function HtmlViewer({
   useEffect(() => {
     if (useUrlLoadPreview) {
       activatedSrcDocTransportHtmlRef.current = null;
-      if (!wasUrlLoadPreviewRef.current) {
+      // Remounting the srcDoc iframe on a render-mode flip resets it to a fresh
+      // lazy shell — needed ONLY for the lazy postMessage-activation path
+      // (#2253 shell-ready handshake). When the srcDoc iframe is direct-mounted
+      // (prewarmed, or an annotation mode), its content lives in the srcdoc
+      // attribute, so a remount would just throw away the warm render and force
+      // a reload. That is exactly the thrash users saw toggling Comment
+      // (URL-load) ↔ Mark (srcDoc): each flip remounted and reloaded. Keep the
+      // iframe alive in the direct-mount case so the toggle is a pure
+      // visibility swap.
+      if (!wasUrlLoadPreviewRef.current && useLazySrcDocTransport) {
         setSrcDocTransportResetKey((key) => key + 1);
       }
       wasUrlLoadPreviewRef.current = true;
       return;
     }
-    if (wasUrlLoadPreviewRef.current) {
+    if (wasUrlLoadPreviewRef.current && useLazySrcDocTransport) {
       setSrcDocTransportResetKey((key) => key + 1);
       activatedSrcDocTransportHtmlRef.current = null;
     }
     wasUrlLoadPreviewRef.current = false;
     activateSrcDocTransport();
-  }, [activateSrcDocTransport, useUrlLoadPreview]);
+  }, [activateSrcDocTransport, useUrlLoadPreview, useLazySrcDocTransport]);
   
   useEffect(() => {
     restorePreviewScrollPosition();
