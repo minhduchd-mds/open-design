@@ -74,7 +74,9 @@ jobs:
           OD_E2E_NAMESPACE: visual-pr-capture-${{ matrix.name }}-${{ github.run_id }}
           OD_PORT: ${{ matrix.daemon_port }}
           OD_WEB_PORT: ${{ matrix.web_port }}
-          OD_VISUAL_OUTPUT_DIR: ui/reports/visual-screenshots/${{ matrix.name }}
+          # Keep screenshots flat because visual-pr-comment downloads all shard
+          # artifacts with merge-multiple and visual-report reads top-level PNGs.
+          OD_VISUAL_OUTPUT_DIR: ui/reports/visual-screenshots
           OD_PLAYWRIGHT_TIMEOUT: 90000
         run: |
           pnpm -C e2e exec tsx scripts/playwright.ts clean
