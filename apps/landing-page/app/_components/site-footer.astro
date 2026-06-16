@@ -24,7 +24,7 @@ const href = (path: string) => localizedHref(path, locale);
 const REPO = 'https://github.com/nexu-io/open-design';
 const DISCORD = 'https://discord.gg/9ptkbbqRu';
 const X_TWITTER = 'https://x.com/nexudotio';
-const YOUTUBE = 'https://www.youtube.com/@opendesignai';
+const YOUTUBE = 'https://www.youtube.com/channel/UChtshixMhvtgBWzoD9R_Qfg';
 
 // Footer columns mirror the top-nav sections. Hrefs are kept in lockstep
 // with header.tsx (USE_CASE_HREFS / agent routes); the labels reuse the
@@ -126,6 +126,8 @@ const l = L[locale as keyof typeof L] ?? L.en;
         <ul>
           <li><a href={href('/about/')}>{l.about}</a></li>
           <li><a href={href('/faq/')}>{l.faq}</a></li>
+          <li><a href={href('/privacy/')}>{l.privacy}</a></li>
+          <li><a href={href('/terms/')}>{l.terms}</a></li>
           <li><a href={REPO} target='_blank' rel='noopener'>{ui.footer.github}</a></li>
           <li><a href={DISCORD} target='_blank' rel='noopener'>{ui.footer.discord}</a></li>
         </ul>

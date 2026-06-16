@@ -167,7 +167,7 @@ const REPO_SKILLS = `${REPO}/tree/main/skills`;
 const REPO_DOCS = `${REPO}#readme`;
 const DISCORD = 'https://discord.gg/9ptkbbqRu';
 const X_TWITTER = 'https://x.com/nexudotio';
-const YOUTUBE = 'https://www.youtube.com/@opendesignai';
+const YOUTUBE = 'https://www.youtube.com/channel/UChtshixMhvtgBWzoD9R_Qfg';
 
 // Footer columns mirror the top-nav sections + `site-footer.astro` (the
 // sub-page footer) so the homepage and every sub-page share one footer
@@ -1127,6 +1127,8 @@ export default function Page({
                 <ul>
                   <li><a href={href('/about/')}>{footL.about}</a></li>
                   <li><a href={href('/faq/')}>{footL.faq}</a></li>
+                  <li><a href={href('/privacy/')}>{footL.privacy}</a></li>
+                  <li><a href={href('/terms/')}>{footL.terms}</a></li>
                   <li><a href={REPO} target='_blank' rel='noopener'>{ui.footer.github}</a></li>
                   <li><a href={DISCORD} target='_blank' rel='noopener'>{ui.footer.discord}</a></li>
                 </ul>
