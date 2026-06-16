@@ -1045,33 +1045,72 @@
       </div>`);
 
     const grid = sh.getElementById('grid');
+    // Crosshair "find on page" glyph, reused per cell.
+    const LOC_SVG =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/></svg>';
+    // Build all cells in the detached shadow tree (no reflow until attach). Each
+    // cell starts as a shimmer placeholder; the IntersectionObserver below swaps
+    // in the real thumbnail only when the cell nears the viewport.
+    const checkboxes = [];
     images.forEach((img, i) => {
-      const cell = document.createElement('label');
+      const cell = document.createElement('div');
       cell.className = 'cell';
+      cell.__odItem = img;
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.dataset.i = String(i);
-      const thumb = document.createElement('img');
-      thumb.src = img.src;
-      thumb.loading = 'lazy';
-      thumb.referrerPolicy = 'no-referrer';
+      checkbox.setAttribute('aria-label', img.alt || `Image ${i + 1}`);
+      const ph = document.createElement('div');
+      ph.className = 'ph';
+      const loc = document.createElement('button');
+      loc.type = 'button';
+      loc.className = 'loc';
+      loc.title = 'Find on page';
+      setHTML(loc, LOC_SVG);
       const dim = document.createElement('span');
       dim.className = 'dim';
-      dim.textContent = `${img.w}×${img.h}`;
-      cell.append(checkbox, thumb, dim);
+      dim.textContent = img.w && img.h ? `${img.w}×${img.h}` : '';
+      cell.append(checkbox, ph, loc, dim);
       grid.appendChild(cell);
+      checkboxes.push(checkbox);
     });
 
     const countEl = sh.getElementById('count');
     const saveBtn = sh.getElementById('save');
-    const checks = () => Array.from(grid.querySelectorAll('input'));
-    function refresh() {
-      const n = checks().filter((c) => c.checked).length;
-      countEl.textContent = `${n} / ${images.length} selected`;
-      saveBtn.textContent = `Save ${n} to Library`;
-      saveBtn.disabled = n === 0;
+    // Track the count incrementally so toggling a checkbox is O(1), not an
+    // O(n) re-scan of the whole grid on every click.
+    let selected = 0;
+    function paintCount() {
+      countEl.textContent = `${selected} / ${images.length} selected`;
+      saveBtn.textContent = `Save ${selected} to Library`;
+      saveBtn.disabled = selected === 0;
     }
-    grid.addEventListener('change', refresh);
+    grid.addEventListener('change', (e) => {
+      if (!(e.target instanceof HTMLInputElement)) return;
+      selected += e.target.checked ? 1 : -1;
+      paintCount();
+    });
+    // Cell click toggles selection; the locate button is carved out so "find on
+    // page" never also (de)selects the image.
+    grid.addEventListener('click', (e) => {
+      const target = e.target instanceof Element ? e.target : null;
+      if (!target) return;
+      const locBtn = target.closest('.loc');
+      if (locBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const cell = locBtn.closest('.cell');
+        if (cell && cell.__odItem) locateImage(cell.__odItem.el);
+        return;
+      }
+      if (target instanceof HTMLInputElement) return; // native toggle fires change
+      const cell = target.closest('.cell');
+      const cb = cell && cell.querySelector('input');
+      if (cb) {
+        cb.checked = !cb.checked;
+        cb.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
 
     sh.getElementById('ov').addEventListener('click', (e) => {
       const a = e.target instanceof Element ? e.target.getAttribute('data-a') : null;
@@ -1080,12 +1119,12 @@
         return;
       }
       if (a === 'close') closeImagePicker();
-      else if (a === 'all') { checks().forEach((c) => (c.checked = true)); refresh(); }
-      else if (a === 'none') { checks().forEach((c) => (c.checked = false)); refresh(); }
+      else if (a === 'all') { checkboxes.forEach((c) => (c.checked = true)); selected = images.length; paintCount(); }
+      else if (a === 'none') { checkboxes.forEach((c) => (c.checked = false)); selected = 0; paintCount(); }
     });
 
     saveBtn.addEventListener('click', async () => {
-      const chosen = checks().filter((c) => c.checked).map((c) => images[Number(c.dataset.i)]);
+      const chosen = checkboxes.filter((c) => c.checked).map((c) => images[Number(c.dataset.i)]);
       if (!chosen.length) return;
       saveBtn.disabled = true;
       saveBtn.textContent = 'Saving…';
@@ -1118,6 +1157,22 @@
     });
 
     document.documentElement.appendChild(imagePickerHost);
+
+    // Lazy-render thumbnails: only cells that scroll within range decode their
+    // image, so opening the picker on a 200+ image page costs a handful of
+    // decodes instead of all of them. `grid` is the scroll container, so it's
+    // the observer root. Each cell is rendered once, then unobserved.
+    imagePickerIO = new IntersectionObserver(
+      (entries, obs) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          obs.unobserve(entry.target);
+          renderCellThumb(entry.target);
+        }
+      },
+      { root: grid, rootMargin: '400px 0px' },
+    );
+    grid.querySelectorAll('.cell').forEach((cell) => imagePickerIO.observe(cell));
   }
 
   // --- region picker (drag a box → crop the visible tab) -------------------
