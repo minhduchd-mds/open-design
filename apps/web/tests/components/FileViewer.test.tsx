@@ -3043,6 +3043,64 @@ describe('FileViewer tweaks toolbar', () => {
     expect(urlFrame.getAttribute('data-od-active')).toBe('true');
   });
 
+  // The freeze / deferred-flush logic covers every interactive preview mode
+  // (`annotationFreezeActive` = Draw || Comment || Inspect; the URL freeze also
+  // covers manual Edit). Pin the non-Draw branches so a regression in any one
+  // can't slip through green. Inspect shares the exact `annotationFreezeActive`
+  // path as Comment and has no toggle in this prototype surface, so Comment
+  // stands in for both.
+  it('holds the preview steady while Comment mode is open instead of live-reloading on a file change', async () => {
+    const { rerender } = render(
+      <FileViewer projectId="project-1" projectKind="prototype" file={htmlPreviewFile({ mtime: 1000 })}
+        liveHtml='<html><body><main data-od-id="hero">Comment V1</main></body></html>'
+      />,
+    );
+    fireEvent.click(screen.getByTestId('board-mode-toggle'));
+    await waitFor(() => {
+      const active = screen.getByTestId('artifact-preview-frame') as HTMLIFrameElement;
+      expect(active.getAttribute('data-od-render-mode')).toBe('srcdoc');
+      expect(active.srcdoc).toContain('Comment V1');
+    });
+
+    rerender(
+      <FileViewer projectId="project-1" projectKind="prototype" file={htmlPreviewFile({ mtime: 999999 })}
+        filesRefreshKey={7}
+        liveHtml='<html><body><main data-od-id="hero">Comment V2</main></body></html>'
+      />,
+    );
+    await Promise.resolve();
+
+    const f = screen.getByTestId('artifact-preview-frame') as HTMLIFrameElement;
+    expect(f.srcdoc).toContain('Comment V1');
+    expect(f.srcdoc).not.toContain('Comment V2');
+  });
+
+  it('holds the preview steady while manual Edit is open instead of live-reloading on a file change', async () => {
+    const { rerender } = render(
+      <FileViewer projectId="project-1" projectKind="prototype" file={htmlPreviewFile({ mtime: 1000 })}
+        liveHtml='<html><body><main data-od-id="hero">Edit V1</main></body></html>'
+      />,
+    );
+    fireEvent.click(screen.getByTestId('manual-edit-mode-toggle'));
+    await waitFor(() => {
+      const active = screen.getByTestId('artifact-preview-frame') as HTMLIFrameElement;
+      expect(active.getAttribute('data-od-render-mode')).toBe('srcdoc');
+      expect(active.srcdoc).toContain('Edit V1');
+    });
+
+    rerender(
+      <FileViewer projectId="project-1" projectKind="prototype" file={htmlPreviewFile({ mtime: 999999 })}
+        filesRefreshKey={7}
+        liveHtml='<html><body><main data-od-id="hero">Edit V2</main></body></html>'
+      />,
+    );
+    await Promise.resolve();
+
+    const f = screen.getByTestId('artifact-preview-frame') as HTMLIFrameElement;
+    expect(f.srcdoc).toContain('Edit V1');
+    expect(f.srcdoc).not.toContain('Edit V2');
+  });
+
   it('preserves URL-loaded preview scroll when opening Draw', async () => {
     vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
       cb(0);
