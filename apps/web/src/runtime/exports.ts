@@ -731,7 +731,7 @@ export type ProjectPdfExportResult = 'desktop' | 'fallback' | 'cancelled';
 
 export async function exportProjectAsPdf(opts: {
   deck: boolean;
-  fallbackPdf: () => void;
+  fallbackPdf: () => void | Promise<void>;
   filePath: string;
   projectId: string;
   title: string;
@@ -752,8 +752,8 @@ export async function exportProjectAsPdf(opts: {
     if (body && body.ok === false) throw new Error(body.error || 'desktop PDF export failed');
     return 'desktop';
   } catch (err) {
-    console.warn('[exportProjectAsPdf] falling back to browser print:', err);
-    opts.fallbackPdf();
+    console.warn('[exportProjectAsPdf] falling back to programmatic PDF:', err);
+    await opts.fallbackPdf();
     return 'fallback';
   }
 }
@@ -957,7 +957,7 @@ export function openSandboxedPreviewInNewTab(
 export async function exportAsPdf(
   html: string,
   title: string,
-  opts?: SrcdocOptions & { sandboxedPreview?: boolean },
+  opts?: SrcdocOptions & { sandboxedPreview?: boolean; onProgress?: ExportProgress },
 ): Promise<void> {
   const sandboxedPreview = opts?.sandboxedPreview ?? true;
   // Generate a per-export nonce so the print-ready handshake is resistant to
@@ -998,7 +998,7 @@ export async function exportAsPdf(
   // build it with jsPDF. No print dialog, no agent. The window.print() popup
   // below is kept only as a last-resort fallback if the capture path throws.
   try {
-    await exportArtifactAsPdf(html, title, { deck: !!opts?.deck });
+    await exportArtifactAsPdf(html, title, { deck: !!opts?.deck, onProgress: opts?.onProgress });
     return;
   } catch (err) {
     console.warn('[exportAsPdf] programmatic PDF failed, falling back to print popup:', err);

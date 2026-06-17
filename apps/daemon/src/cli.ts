@@ -288,6 +288,7 @@ const SUBCOMMAND_MAP = {
   doctor: runDoctor,
   config: runConfig,
   library: runLibrary,
+  figma: runFigma,
 };
 
 if (argv[0] === 'mcp' && argv[1] === 'live-artifacts') {
