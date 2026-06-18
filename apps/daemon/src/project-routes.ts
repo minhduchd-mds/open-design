@@ -1896,7 +1896,7 @@ export function registerProjectArtifactRoutes(app: Express, ctx: RegisterProject
   const { upload } = ctx.uploads;
   const { ARTIFACTS_DIR } = ctx.paths;
   const { path, fs } = ctx.node;
-  const { sanitizeSlug, lintArtifact, renderFindingsForAgent } = ctx.artifacts;
+  const { sanitizeSlug, runArtifactChecks, renderFindingsForAgent } = ctx.artifacts;
   app.post('/api/upload', upload.array('images', 8), (req, res) => {
     const files = ((req.files || []) as any[]).map((f: any) => ({
       name: f.originalname,
@@ -1908,9 +1908,10 @@ export function registerProjectArtifactRoutes(app: Express, ctx: RegisterProject
 
   // Persist a generated artifact (HTML) to disk so the user can re-open it
   // in their browser or hand it off. Returns the on-disk path + a served URL.
-  // The body is also passed through the anti-slop linter; findings are
-  // returned alongside the path so the UI can render a P0/P1 badge and the
-  // chat layer can splice them into a system reminder for the agent.
+  // The body is also passed through the artifact checks (anti-slop, usability,
+  // …); findings are returned alongside the path so the UI can render a P0/P1
+  // badge and the chat layer can splice them into a system reminder for the
+  // agent.
   app.post('/api/artifacts/save', (req, res) => {
     try {
       const { identifier, title, html } = req.body || {};
@@ -1923,7 +1924,7 @@ export function registerProjectArtifactRoutes(app: Express, ctx: RegisterProject
       fs.mkdirSync(dir, { recursive: true });
       const file = path.join(dir, 'index.html');
       fs.writeFileSync(file, html, 'utf8');
-      const findings = lintArtifact(html);
+      const findings = runArtifactChecks(html);
       res.json({
         path: file,
         url: `/artifacts/${path.basename(dir)}/index.html`,
@@ -1943,7 +1944,7 @@ export function registerProjectArtifactRoutes(app: Express, ctx: RegisterProject
       if (typeof html !== 'string' || html.length === 0) {
         return res.status(400).json({ error: 'html required' });
       }
-      const findings = lintArtifact(html);
+      const findings = runArtifactChecks(html);
       res.json({
         findings,
         agentMessage: renderFindingsForAgent(findings),

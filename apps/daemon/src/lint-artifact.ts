@@ -521,7 +521,7 @@ export function renderFindingsForAgent(findings: LintFinding[]): string {
   const sorted = [...findings].sort((a, b) => severity(a) - severity(b));
   const lines = [
     '<artifact-lint>',
-    'The artifact you just produced has the following anti-slop / design-token issues.',
+    'The artifact you just produced has the following quality issues (anti-slop, usability, …).',
     `${findings.filter((f) => f.severity === 'P0').length} P0 (must fix), ${findings.filter((f) => f.severity === 'P1').length} P1 (should fix), ${findings.filter((f) => f.severity === 'P2').length} P2 (nice to have).`,
     'Re-emit a corrected `<artifact>` in your next turn — do not write a separate explanation; the user has the previous version already.',
     '',

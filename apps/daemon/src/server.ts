@@ -308,7 +308,8 @@ import {
   isFinalizeProviderProtocol,
 } from './finalize-design.js';
 import { buildDocumentPreview } from './document-preview.js';
-import { lintArtifact, renderFindingsForAgent } from './lint-artifact.js';
+import { renderFindingsForAgent } from './lint-artifact.js';
+import { runArtifactChecks } from './artifact-checks.js';
 import { loadCraftSections } from './craft.js';
 import { skillCwdAliasSegment, stageActiveSkill } from './cwd-aliases.js';
 import { buildDesktopPdfExportInput } from './pdf-export.js';
@@ -5668,7 +5669,7 @@ export async function startServer({
   };
   const artifactDeps = {
     sanitizeSlug,
-    lintArtifact,
+    runArtifactChecks,
     renderFindingsForAgent,
     validateArtifactManifestInput,
   };
