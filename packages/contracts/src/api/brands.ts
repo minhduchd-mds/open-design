@@ -117,6 +117,10 @@ export interface BrandMeta {
   status: BrandStatus;
   /** Human-readable failure reason when status === "failed". */
   error?: string;
+  /** Backing extraction run that last drove this brand into a terminal failure. */
+  extractionTerminalRunId?: string;
+  /** Original terminal failure reason for that extraction run, preserved across daemon restarts. */
+  extractionTerminalError?: string;
   /** The `user:<id>` design-system id this brand registered, so selecting the
    *  brand in the composer applies it through the existing design-system flow. */
   designSystemId?: string;

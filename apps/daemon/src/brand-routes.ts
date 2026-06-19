@@ -285,20 +285,27 @@ function reconcileBrandMetaStatus(
   meta: BrandMeta,
   context: BrandStatusContext,
 ): BrandMeta {
-  if (meta.status !== 'extracting' || !meta.projectId) return meta;
+  if (!meta.projectId) return meta;
   const status = context.latestByProject.get(meta.projectId);
   if (status && (status.value === 'failed' || status.value === 'canceled')) {
-    const error =
-      status.error
-      ?? (status.value === 'canceled'
-        ? 'Brand extraction was canceled.'
-        : 'Brand extraction failed in the backing project.');
-    return patchMeta(brandsRoot, meta.id, { status: 'failed', error }) ?? {
+    const error = terminalBrandRunError(meta, status);
+    if (!shouldReconcileTerminalBrandRun(meta, status)) return meta;
+    if (meta.status === 'failed' && meta.error === error) return meta;
+    const terminalPatch: Parameters<typeof patchMeta>[2] = {
+      status: 'failed',
+      error,
+      extractionTerminalError: error,
+    };
+    if (status.runId) terminalPatch.extractionTerminalRunId = status.runId;
+    return patchMeta(brandsRoot, meta.id, terminalPatch) ?? {
       ...meta,
       status: 'failed',
       error,
+      extractionTerminalError: error,
+      ...(status.runId ? { extractionTerminalRunId: status.runId } : {}),
     };
   }
+  if (meta.status !== 'extracting') return meta;
   // The backing run paused on a question form (anti-bot wall / clarifying
   // question). Surface it as needs_input WITHOUT persisting — answering the
   // question resumes extraction, so the brand must be free to flip back.
@@ -306,6 +313,27 @@ function reconcileBrandMetaStatus(
     return { ...meta, status: 'needs_input' };
   }
   return meta;
+}
+
+function terminalBrandRunError(meta: BrandMeta, status: BrandRunStatus): string {
+  return (
+    status.error
+    ?? (status.runId && meta.extractionTerminalRunId === status.runId
+      ? meta.extractionTerminalError
+      : undefined)
+    ?? (status.value === 'canceled'
+      ? 'Brand extraction was canceled.'
+      : 'Brand extraction failed in the backing project.')
+  );
+}
+
+function shouldReconcileTerminalBrandRun(meta: BrandMeta, status: BrandRunStatus): boolean {
+  if (meta.status === 'extracting') return true;
+  return Boolean(
+    meta.status === 'ready'
+    && status.runId
+    && meta.extractionTerminalRunId === status.runId,
+  );
 }
 
 function normalizeBrandRunStatus(status: string): string {

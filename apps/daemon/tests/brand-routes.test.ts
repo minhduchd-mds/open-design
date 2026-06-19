@@ -175,6 +175,153 @@ describe('brand routes', () => {
     expect(storedMeta.status).toBe('failed');
   });
 
+  it('keeps terminal backing run failure visible when a stale finalize left the terminal error', async () => {
+    const providerError = 'Provider timed out while reading the target site.';
+    writeBrandFixture('brand-stale-ready', {
+      projectId: 'project-stale-ready',
+      logoPrimary: 'logos/missing.svg',
+      status: 'ready',
+      error: providerError,
+      extractionTerminalRunId: 'run-stale-ready',
+      extractionTerminalError: providerError,
+    });
+    insertProject(db, {
+      id: 'project-stale-ready',
+      name: 'Stale Ready Brand Project',
+      skillId: null,
+      designSystemId: null,
+      createdAt: 1,
+      updatedAt: 1,
+      metadata: { kind: 'brand', brandId: 'brand-stale-ready' },
+    });
+    insertConversation(db, {
+      id: 'conversation-stale-ready',
+      projectId: 'project-stale-ready',
+      title: 'Extract brand',
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    upsertMessage(db, 'conversation-stale-ready', {
+      id: 'message-stale-ready',
+      role: 'assistant',
+      content: 'Timed out.',
+      runId: 'run-stale-ready',
+      runStatus: 'failed',
+      startedAt: 1,
+      endedAt: 2,
+    });
+
+    const detail = await requestJson('/api/brands/brand-stale-ready');
+    const list = await requestJson('/api/brands');
+
+    expect(detail.status).toBe(200);
+    expect(detail.body.meta.status).toBe('failed');
+    expect(detail.body.meta.error).toBe(providerError);
+    expect(list.body.brands.find((brand: any) => brand.meta.id === 'brand-stale-ready')?.meta.status).toBe(
+      'failed',
+    );
+
+    const storedMeta = JSON.parse(readFileSync(path.join(brandsRoot, 'brand-stale-ready', 'meta.json'), 'utf8'));
+    expect(storedMeta.status).toBe('failed');
+    expect(storedMeta.error).toBe(providerError);
+    expect(storedMeta.extractionTerminalRunId).toBe('run-stale-ready');
+    expect(storedMeta.extractionTerminalError).toBe(providerError);
+  });
+
+  it('does not regress a successful retry when the old failed run remains the latest status', async () => {
+    writeBrandFixture('brand-retry-ready', {
+      projectId: 'project-retry-ready',
+      logoPrimary: 'logos/missing.svg',
+      status: 'ready',
+    });
+    insertProject(db, {
+      id: 'project-retry-ready',
+      name: 'Retry Ready Brand Project',
+      skillId: null,
+      designSystemId: null,
+      createdAt: 1,
+      updatedAt: 1,
+      metadata: { kind: 'brand', brandId: 'brand-retry-ready' },
+    });
+    insertConversation(db, {
+      id: 'conversation-retry-ready',
+      projectId: 'project-retry-ready',
+      title: 'Extract brand',
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    upsertMessage(db, 'conversation-retry-ready', {
+      id: 'message-retry-ready-failed',
+      role: 'assistant',
+      content: 'Old extraction failed.',
+      runId: 'run-retry-ready-failed',
+      runStatus: 'failed',
+      startedAt: 1,
+      endedAt: 2,
+    });
+
+    const detail = await requestJson('/api/brands/brand-retry-ready');
+    const list = await requestJson('/api/brands');
+
+    expect(detail.status).toBe(200);
+    expect(detail.body.meta.status).toBe('ready');
+    expect(detail.body.meta.error).toBeUndefined();
+    expect(list.body.brands.find((brand: any) => brand.meta.id === 'brand-retry-ready')?.meta.status).toBe(
+      'ready',
+    );
+
+    const storedMeta = JSON.parse(readFileSync(path.join(brandsRoot, 'brand-retry-ready', 'meta.json'), 'utf8'));
+    expect(storedMeta.status).toBe('ready');
+    expect(storedMeta.error).toBeUndefined();
+    expect(storedMeta.extractionTerminalRunId).toBeUndefined();
+    expect(storedMeta.extractionTerminalError).toBeUndefined();
+  });
+
+  it('does not regress ready brands after a later backing project run is canceled', async () => {
+    writeBrandFixture('brand-ready', {
+      projectId: 'project-ready',
+      logoPrimary: 'logos/missing.svg',
+      status: 'ready',
+    });
+    insertProject(db, {
+      id: 'project-ready',
+      name: 'Ready Brand Project',
+      skillId: null,
+      designSystemId: null,
+      createdAt: 1,
+      updatedAt: 1,
+      metadata: { kind: 'brand', brandId: 'brand-ready' },
+    });
+    insertConversation(db, {
+      id: 'conversation-ready',
+      projectId: 'project-ready',
+      title: 'Iterate ready brand',
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    upsertMessage(db, 'conversation-ready', {
+      id: 'message-ready-canceled',
+      role: 'assistant',
+      content: 'Stopped unrelated follow-up.',
+      runId: 'run-ready-canceled',
+      runStatus: 'canceled',
+      startedAt: 1,
+      endedAt: 2,
+    });
+
+    const detail = await requestJson('/api/brands/brand-ready');
+    const list = await requestJson('/api/brands');
+
+    expect(detail.status).toBe(200);
+    expect(detail.body.meta.status).toBe('ready');
+    expect(detail.body.meta.error).toBeUndefined();
+    expect(list.body.brands.find((brand: any) => brand.meta.id === 'brand-ready')?.meta.status).toBe('ready');
+
+    const storedMeta = JSON.parse(readFileSync(path.join(brandsRoot, 'brand-ready', 'meta.json'), 'utf8'));
+    expect(storedMeta.status).toBe('ready');
+    expect(storedMeta.error).toBeUndefined();
+  });
+
   it('surfaces needs_input when the backing project is awaiting user input', async () => {
     writeBrandFixture('brand-blocked', {
       projectId: 'project-blocked',
@@ -225,7 +372,15 @@ describe('brand routes', () => {
 
   function writeBrandFixture(
     id: string,
-    options: { projectId?: string; logoPrimary: string; logoBody?: string; status?: string },
+    options: {
+      projectId?: string;
+      logoPrimary: string;
+      logoBody?: string;
+      status?: string;
+      error?: string;
+      extractionTerminalRunId?: string;
+      extractionTerminalError?: string;
+    },
   ) {
     const brandDir = path.join(brandsRoot, id);
     mkdirSync(brandDir, { recursive: true });
@@ -237,6 +392,9 @@ describe('brand routes', () => {
         createdAt: 1,
         updatedAt: 1,
         status: options.status ?? 'ready',
+        ...(options.error ? { error: options.error } : {}),
+        ...(options.extractionTerminalRunId ? { extractionTerminalRunId: options.extractionTerminalRunId } : {}),
+        ...(options.extractionTerminalError ? { extractionTerminalError: options.extractionTerminalError } : {}),
         ...(options.projectId ? { projectId: options.projectId } : {}),
       }),
     );
