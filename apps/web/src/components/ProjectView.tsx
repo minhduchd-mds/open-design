@@ -7126,10 +7126,21 @@ export function getSeedableMessagesForNewConversation(messages: ChatMessage[]): 
 }
 
 function compactSeedMessageOverride(message: ChatMessage): SeedConversationMessageOverride {
+  const textEvents = message.events?.filter(
+    (event): event is Extract<NonNullable<ChatMessage['events']>[number], { kind: 'text' }> =>
+      event.kind === 'text',
+  ) ?? [];
+  const compactEvents =
+    textEvents.length > 0
+      ? textEvents
+      : message.role === 'assistant' && message.content.length > 0
+        ? [{ kind: 'text', text: message.content }]
+        : [];
   return {
     id: message.id,
     role: message.role,
     content: message.content,
+    ...(compactEvents.length > 0 ? { events: compactEvents } : {}),
     ...(message.agentId ? { agentId: message.agentId } : {}),
     ...(message.agentName ? { agentName: message.agentName } : {}),
     ...(typeof message.createdAt === 'number' ? { createdAt: message.createdAt } : {}),

@@ -423,6 +423,7 @@ export interface SeedConversationMessageOverride {
   id: string;
   role: ChatRole;
   content: string;
+  events?: PersistedAgentEvent[];
   agentId?: string;
   agentName?: string;
   createdAt?: number;

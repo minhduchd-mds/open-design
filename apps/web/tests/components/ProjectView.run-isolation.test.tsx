@@ -1107,6 +1107,7 @@ describe('ProjectView conversation run isolation', () => {
           expect.objectContaining({
             role: 'assistant',
             content: 'Visible-only successful draft',
+            events: [{ kind: 'text', text: 'Visible-only successful draft' }],
           }),
         ]),
       },
