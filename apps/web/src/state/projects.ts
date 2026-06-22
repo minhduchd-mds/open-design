@@ -420,12 +420,12 @@ export async function saveMessage(
   conversationId: string,
   message: ChatMessage,
   options: SaveMessageOptions = {},
-): Promise<void> {
+): Promise<boolean> {
   try {
     const body = options.telemetryFinalized
       ? { ...message, telemetryFinalized: true }
       : message;
-    await fetch(
+    const resp = await fetch(
       `/api/projects/${encodeURIComponent(projectId)}/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(message.id)}`,
       {
         method: 'PUT',
@@ -434,8 +434,10 @@ export async function saveMessage(
         ...(options.keepalive ? { keepalive: true } : {}),
       },
     );
+    return resp.ok;
   } catch {
     // best-effort persistence — UI keeps the message in-memory either way
+    return false;
   }
 }
 

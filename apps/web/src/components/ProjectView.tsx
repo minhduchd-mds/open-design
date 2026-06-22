@@ -2256,6 +2256,25 @@ export function ProjectView({
     locale,
   ]);
 
+  const persistConversationMessage = useCallback(
+    (conversationId: string, message: ChatMessage, options?: SaveMessageOptions) => {
+      void saveMessage(project.id, conversationId, message, options).then((saved) => {
+        if (!saved) return;
+        const cached = serverMessagesByConversationRef.current.get(conversationId);
+        if (!cached) return;
+        const next = [...cached];
+        const existingIndex = next.findIndex((item) => item.id === message.id);
+        if (existingIndex === -1) {
+          next.push(message);
+        } else {
+          next[existingIndex] = message;
+        }
+        serverMessagesByConversationRef.current.set(conversationId, next);
+      });
+    },
+    [project.id],
+  );
+
   const persistMessage = useCallback(
     (m: ChatMessage, options?: SaveMessageOptions) => {
       if (!activeConversationId) return;
@@ -2268,9 +2287,9 @@ export function ProjectView({
       // a runId — or the run finishes terminally — this guard lets the row
       // through normally.
       if (isPhantomDaemonRunMessage(m)) return;
-      void saveMessage(project.id, activeConversationId, m, options);
+      persistConversationMessage(activeConversationId, m, options);
     },
-    [project.id, activeConversationId],
+    [activeConversationId, persistConversationMessage],
   );
 
   const persistMessageById = useCallback(
@@ -2279,12 +2298,12 @@ export function ProjectView({
       setMessages((curr) => {
         const found = curr.find((m) => m.id === messageId);
         if (found && !isPhantomDaemonRunMessage(found)) {
-          void saveMessage(project.id, activeConversationId, found, options);
+          persistConversationMessage(activeConversationId, found, options);
         }
         return curr;
       });
     },
-    [project.id, activeConversationId],
+    [activeConversationId, persistConversationMessage],
   );
 
   const updateMessageById = useCallback(
@@ -2307,12 +2326,12 @@ export function ProjectView({
         // The runId-arriving update from onRunCreated passes through because
         // the updater sets runId before this check runs.
         if (persist && saved && activeConversationId && !isPhantomDaemonRunMessage(saved)) {
-          void saveMessage(project.id, activeConversationId, saved, persistOptions);
+          persistConversationMessage(activeConversationId, saved, persistOptions);
         }
         return next;
       });
     },
-    [project.id, activeConversationId],
+    [activeConversationId, persistConversationMessage],
   );
 
   const appendConversationMessage = useCallback(
@@ -2328,9 +2347,9 @@ export function ProjectView({
       ) {
         setMessages((curr) => [...curr, message]);
       }
-      if (persist) void saveMessage(project.id, conversationId, message, options);
+      if (persist) persistConversationMessage(conversationId, message, options);
     },
-    [activeConversationId, project.id],
+    [activeConversationId, persistConversationMessage],
   );
 
   const replaceConversationMessage = useCallback(
@@ -2346,9 +2365,9 @@ export function ProjectView({
       ) {
         setMessages((curr) => curr.map((item) => (item.id === message.id ? message : item)));
       }
-      if (persist) void saveMessage(project.id, conversationId, message, options);
+      if (persist) persistConversationMessage(conversationId, message, options);
     },
-    [activeConversationId, project.id],
+    [activeConversationId, persistConversationMessage],
   );
 
   const refreshConversationMessagesFromServer = useCallback(
@@ -4177,7 +4196,7 @@ export function ProjectView({
             latestAssistantMsg = pinnedAssistant;
             // The view may already be on a different project/conversation;
             // pin the daemon run to the original row so returning can reattach.
-            void saveMessage(project.id, runConversationId, pinnedAssistant);
+            persistConversationMessage(runConversationId, pinnedAssistant);
             updateMessageById(assistantId, (prev) => ({ ...prev, runId, runStatus: 'queued' }));
           },
           onRunStatus: (runStatus) => {
@@ -4402,6 +4421,7 @@ export function ProjectView({
       refreshLiveArtifacts,
       readProjectHtml,
       requestOpenFile,
+      persistConversationMessage,
       persistMessage,
       persistMessageById,
       auditDesignSystemWorkspaceAfterRun,
@@ -7082,7 +7102,6 @@ function getSeedableMessagesForNewConversation(messages: ChatMessage[]): ChatMes
   if (
     lastMessage?.role !== 'assistant'
     || lastMessage.runStatus !== 'failed'
-    || lastMessage.resumable !== true
   ) {
     return messages;
   }
@@ -7090,7 +7109,6 @@ function getSeedableMessagesForNewConversation(messages: ChatMessage[]): ChatMes
     failedIndex > 0
     && messages[failedIndex - 1]?.role === 'assistant'
     && messages[failedIndex - 1]?.runStatus === 'failed'
-    && messages[failedIndex - 1]?.resumable === true
   ) {
     failedIndex -= 1;
   }

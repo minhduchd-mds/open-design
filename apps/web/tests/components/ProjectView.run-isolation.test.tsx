@@ -573,6 +573,7 @@ describe('ProjectView conversation run isolation', () => {
     fetchVelaLoginStatus.mockResolvedValue({ loggedIn: false });
     launchAntigravityOauth.mockResolvedValue({ ok: true });
     streamViaDaemon.mockImplementation(async () => {});
+    saveMessage.mockResolvedValue(true);
   });
 
   afterEach(() => {
@@ -777,6 +778,45 @@ describe('ProjectView conversation run isolation', () => {
     );
   });
 
+  it('trims a reloaded trailing failed turn from new-conversation seeds', async () => {
+    const successfulUser: ChatMessage = {
+      id: 'user-success',
+      role: 'user',
+      content: 'Keep the editorial grid and muted palette.',
+      createdAt: 1,
+    };
+    const failedUser: ChatMessage = {
+      id: 'user-failed',
+      role: 'user',
+      content: 'Add a pricing section beneath the hero.',
+      createdAt: 3,
+    };
+    const failedAssistant: ChatMessage = {
+      id: 'assistant-failed',
+      role: 'assistant',
+      content: 'Partial pricing section draft',
+      createdAt: 4,
+      runStatus: 'failed',
+    };
+    conversationAMessages = [successfulUser, succeededAssistant, failedUser, failedAssistant];
+
+    renderProjectView();
+
+    await waitFor(() => expect(screen.getByTestId('active-conversation').textContent).toBe('conv-a'));
+
+    fireEvent.click(screen.getByTestId('new-conversation'));
+
+    await waitFor(() => expect(createConversation).toHaveBeenCalledTimes(1));
+    expect(createConversation).toHaveBeenCalledWith(
+      'project-1',
+      undefined,
+      {
+        seedFromConversationId: 'conv-a',
+        seedTrimAfterMessageId: succeededAssistant.id,
+      },
+    );
+  });
+
   it('keeps failed-tail trimming when the visible conversation outruns the cached server snapshot', async () => {
     const successfulUser: ChatMessage = {
       id: 'user-success',
@@ -918,6 +958,45 @@ describe('ProjectView conversation run isolation', () => {
     await waitFor(() => expect(screen.getByTestId('active-conversation').textContent).toBe('conv-a'));
     await waitFor(() =>
       expect(screen.getByTestId('assistant-summary').textContent).toContain('Updated visible draft'),
+    );
+
+    fireEvent.click(screen.getByTestId('new-conversation'));
+
+    await waitFor(() => expect(createConversation).toHaveBeenCalledTimes(1));
+    expect(createConversation).toHaveBeenCalledWith(
+      'project-1',
+      undefined,
+      { seedFromConversationId: 'conv-a' },
+    );
+  });
+
+  it('keeps the new conversation payload compact after a successful save updates the cache', async () => {
+    conversationAMessages = [succeededAssistant];
+    streamViaDaemon.mockImplementation(async (input: unknown) => {
+      const options = input as {
+        handlers: {
+          onDelta: (delta: string) => void;
+          onDone: () => void;
+        };
+        onRunCreated?: (runId: string) => void;
+        onRunStatus?: (status: NonNullable<ChatMessage['runStatus']>) => void;
+      };
+      options.onRunCreated?.('run-saved-assistant');
+      options.onRunStatus?.('running');
+      options.handlers.onDelta('A large generated page body');
+      options.handlers.onDone();
+    });
+
+    renderProjectView();
+
+    await waitFor(() => expect(screen.getByTestId('active-conversation').textContent).toBe('conv-a'));
+    await waitFor(() => expect(screen.getByTestId('send-message')).toHaveProperty('disabled', false));
+
+    fireEvent.click(screen.getByTestId('send-message'));
+
+    await waitFor(() => expect(streamViaDaemon).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getByTestId('assistant-summary').textContent).toContain('A large generated page body'),
     );
 
     fireEvent.click(screen.getByTestId('new-conversation'));
