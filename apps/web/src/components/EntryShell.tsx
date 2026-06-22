@@ -2588,7 +2588,7 @@ function OnboardingView({
                   disabled={newsletterSubmitting}
                   aria-busy={newsletterSubmitting ? true : undefined}
                 >
-                  <span>{t('onboarding.brandSkip')}</span>
+                  <span>{t('settings.onboardingFinish')}</span>
                 </button>
                 {brandExtractActive ? (
                   <span
