@@ -925,8 +925,9 @@ export async function exportProjectImageDataUrl(opts: {
   deck?: boolean;
 }): Promise<ProjectImageExportResult> {
   const url = `/api/projects/${encodeURIComponent(opts.projectId)}/export/image`;
+  let resp: Response;
   try {
-    const resp = await fetch(url, {
+    resp = await fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -935,25 +936,33 @@ export async function exportProjectImageDataUrl(opts: {
         ...(typeof opts.deck === 'boolean' ? { deck: opts.deck } : {}),
       }),
     });
-    if (!resp.ok) {
-      // 501 = this runtime has no off-screen renderer → caller may fall back.
-      if (resp.status === 501) return { ok: false, unavailable: true };
-      let message = `image export failed (${resp.status})`;
-      try {
-        const err = await resp.json();
-        if (err?.error?.message) message = String(err.error.message);
-      } catch {
-        // non-JSON body; keep the status-based message
-      }
-      return { ok: false, error: message };
+  } catch {
+    // Transport-level failure (offline, daemon down) — genuinely unavailable, so
+    // the caller may fall back to a visible-preview capture.
+    return { ok: false, unavailable: true };
+  }
+  if (!resp.ok) {
+    // 501 = this runtime has no off-screen renderer → caller may fall back.
+    if (resp.status === 501) return { ok: false, unavailable: true };
+    let message = `image export failed (${resp.status})`;
+    try {
+      const err = await resp.json();
+      if (err?.error?.message) message = String(err.error.message);
+    } catch {
+      // non-JSON body; keep the status-based message
     }
+    return { ok: false, error: message };
+  }
+  // A 200 with an unreadable/corrupt payload is a real export failure, NOT
+  // "renderer unavailable" — surface it instead of silently downgrading to the
+  // viewport screenshot.
+  try {
     const blob = await resp.blob();
     const dataUrl = await blobToDataUrl(blob);
     const img = await loadImageFromDataUrl(dataUrl);
     return { ok: true, snapshot: { dataUrl, w: img.naturalWidth, h: img.naturalHeight } };
   } catch {
-    // Network / transport error — treat as unavailable so a web fallback can try.
-    return { ok: false, unavailable: true };
+    return { ok: false, error: 'image export returned an unreadable response' };
   }
 }
 

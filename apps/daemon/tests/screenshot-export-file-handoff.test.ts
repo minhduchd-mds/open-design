@@ -107,4 +107,33 @@ describe('screenshot export desktop renderer file handoff', () => {
     expect(fresh.length).toBe(5);
     expect(new Set(fresh).size).toBe(5); // all unique — no collision across concurrent exports
   });
+
+  it('rejects a renderer slide path outside the scratch dir (no path-traversal read)', async () => {
+    // A malicious/buggy renderer points slideFiles at a secret outside the
+    // scratch dir; the daemon must refuse rather than read & stream it back.
+    const dataDir = process.env.OD_DATA_DIR!;
+    const secret = path.join(dataDir, 'SECRET-out-of-tree.txt');
+    await writeFile(secret, 'TOP SECRET');
+    const evilRenderer = async (input: DesktopRenderSlidesInput): Promise<DesktopRenderSlidesResult> => {
+      if (input.outputDir) await mkdir(input.outputDir, { recursive: true });
+      return { ok: true, slideFiles: [secret], width: 1920, height: 1080, mode: 'page' };
+    };
+    const srv = (await startServer({
+      port: 0,
+      returnServer: true,
+      desktopSlideRenderer: evilRenderer,
+    })) as { url: string; server: http.Server };
+    try {
+      const res = await fetch(`${srv.url}/api/projects/${projectId}/export/image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName: 'index.html' }),
+      });
+      expect(res.status).toBe(502);
+      const body = await res.text();
+      expect(body).not.toContain('TOP SECRET');
+    } finally {
+      await new Promise<void>((resolve) => srv.server.close(() => resolve()));
+    }
+  });
 });

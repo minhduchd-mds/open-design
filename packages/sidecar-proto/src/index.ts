@@ -705,6 +705,15 @@ function normalizeDesktopRenderSlidesInput(input: unknown): DesktopRenderSlidesI
   if (value.stitch != null && typeof value.stitch !== "boolean") {
     throw new Error("desktop render slides stitch must be a boolean");
   }
+  if (value.outputDir != null) {
+    const dir = normalizeNonEmptyString(value.outputDir, "desktop render slides outputDir");
+    // outputDir is a daemon-owned absolute scratch path; reject relative values
+    // so a malformed request can't make desktop main write outside it. Accepts
+    // POSIX (`/…`), Windows drive (`C:\…` / `C:/…`), and UNC (`\\…`) absolutes.
+    if (!/^(\/|[A-Za-z]:[\\/]|\\\\)/.test(dir)) {
+      throw new Error("desktop render slides outputDir must be an absolute path");
+    }
+  }
   return {
     ...(value.baseHref == null ? {} : { baseHref: normalizeNonEmptyString(value.baseHref, "desktop render slides baseHref") }),
     ...(value.deck == null ? {} : { deck: value.deck }),

@@ -502,10 +502,33 @@ export function registerProjectExportRoutes(app: Express, ctx: RegisterProjectEx
         );
       }
       // Prefer the on-disk file handoff; fall back to base64 data URLs for older
-      // desktop builds that don't honor outputDir.
-      const images = hasFiles
-        ? await readSlideFiles(rendered.slideFiles as string[])
-        : decodeSlideDataUrls(rendered.slides as string[]);
+      // desktop builds that don't honor outputDir. Confine the handoff files to
+      // the canonical scratch dir before reading — a malformed renderer response
+      // must not make the daemon read & stream back arbitrary files (path
+      // traversal / symlink escape), since cleanup only removes renderOutputDir.
+      let images: Awaited<ReturnType<typeof readSlideFiles>>;
+      if (hasFiles) {
+        const canonicalDir = await fs.promises.realpath(renderOutputDir).catch(() => renderOutputDir);
+        const safeFiles: string[] = [];
+        for (const candidate of rendered.slideFiles as string[]) {
+          const real =
+            typeof candidate === 'string'
+              ? await fs.promises.realpath(candidate).catch(() => null)
+              : null;
+          if (!real || (real !== canonicalDir && !real.startsWith(canonicalDir + path.sep))) {
+            return sendApiError(
+              res,
+              502,
+              'UPSTREAM_UNAVAILABLE',
+              'renderer returned a slide path outside the export scratch directory',
+            );
+          }
+          safeFiles.push(real);
+        }
+        images = await readSlideFiles(safeFiles);
+      } else {
+        images = decodeSlideDataUrls(rendered.slides as string[]);
+      }
       const tRead = Date.now();
       let buffer: Buffer;
       let contentType: string;

@@ -232,6 +232,14 @@ describe("open-design sidecar contract", () => {
         type: SIDECAR_MESSAGES.RENDER_SLIDES,
       }),
     ).toThrow();
+    // outputDir must be absolute — a relative path is rejected so a malformed
+    // request can't make desktop write outside the daemon scratch dir.
+    expect(() =>
+      normalizeDesktopSidecarMessage({
+        input: { html: "<p>x</p>", outputDir: "export-render/abc" },
+        type: SIDECAR_MESSAGES.RENDER_SLIDES,
+      }),
+    ).toThrow(/absolute path/);
     // Minimal input (only html) round-trips with nothing extra.
     expect(
       normalizeDesktopSidecarMessage({
