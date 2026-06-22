@@ -525,6 +525,30 @@ describe('exportProjectAsPptx', () => {
     expect(await capturedBlob!.text()).toBe('PK-fake-pptx');
   });
 
+  it('honors the server Content-Disposition filename over the local fallback', async () => {
+    // Production always returns a Content-Disposition (title/RFC-5987 based); the
+    // happy-path test above only exercises the no-header fallback. This pins the
+    // branch the download actually uses in the desktop runtime.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response('PK-fake-pptx', {
+            status: 200,
+            headers: {
+              'content-disposition':
+                "attachment; filename=\"Pitch Deck.pptx\"; filename*=UTF-8''Pitch%20Deck.pptx",
+            },
+          }),
+      ),
+    );
+
+    const res = await exportProjectAsPptx({ projectId: 'p', fileName: 'decks/pitch.html', title: 'Pitch Deck' });
+
+    expect(res.ok).toBe(true);
+    expect(capturedFilename).toBe('Pitch Deck.pptx');
+  });
+
   it('routes pdf format to the raster pdf-image endpoint', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('%PDF-fake', { status: 200 })));
 
