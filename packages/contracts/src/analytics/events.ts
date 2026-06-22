@@ -1078,7 +1078,7 @@ export interface HelpPopoverClickProps {
 export interface HomeToolbarClickProps {
   page_name: 'home';
   area: 'toolbar';
-  element: 'star' | 'execution_settings' | 'use_everywhere' | 'settings';
+  element: 'star' | 'execution_settings' | 'use_everywhere' | 'workspace_teams' | 'settings';
 }
 
 export interface ExecutionSettingsPopoverClickProps {

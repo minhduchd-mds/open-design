@@ -65,7 +65,7 @@ import type {
   TrackingCliProviderId,
 } from '@open-design/contracts/analytics';
 import { agentIdToTracking } from '@open-design/contracts/analytics';
-import { useT } from '../i18n';
+import { useT, useI18n } from '../i18n';
 import { navigate, useRoute } from '../router';
 import type {
   AgentInfo,
@@ -180,6 +180,44 @@ function writeStoredRailOpen(open: boolean): void {
 
 const DISCORD_URL = 'https://discord.gg/9ptkbbqRu';
 const X_URL = 'https://x.com/OpenDesignHQ';
+// Marketing landing page that captures Workspace / team-edition interest.
+// Opens in the external browser. In local dev we point at the landing-page dev
+// server (astro dev, port 17574) so the full button → form flow is walkable
+// before the page ships to prod.
+const ENTERPRISE_BASE =
+  process.env.NODE_ENV === 'development'
+    ? 'http://127.0.0.1:17574'
+    : 'https://open-design.ai';
+
+// Map the client's active locale to the landing page's locale segment so the
+// enterprise page opens in the same language the user is already reading.
+// Locales the landing site doesn't ship (th / fa / hu) fall back to default
+// English. Keep in sync with apps/landing-page LANDING_LOCALES — web cannot
+// import landing source directly (app-boundary rule).
+const ENTERPRISE_LOCALE_SEGMENT: Record<string, string> = {
+  'zh-CN': 'zh',
+  'zh-TW': 'zh-tw',
+  ja: 'ja',
+  ko: 'ko',
+  de: 'de',
+  fr: 'fr',
+  ru: 'ru',
+  'es-ES': 'es',
+  'pt-BR': 'pt-br',
+  it: 'it',
+  pl: 'pl',
+  id: 'id',
+  ar: 'ar',
+  tr: 'tr',
+  uk: 'uk',
+};
+
+function enterpriseUrl(locale: string): string {
+  const segment = ENTERPRISE_LOCALE_SEGMENT[locale];
+  return segment
+    ? `${ENTERPRISE_BASE}/${segment}/enterprise/`
+    : `${ENTERPRISE_BASE}/enterprise/`;
+}
 const ONBOARDING_DROPDOWN_OPEN_EVENT = 'open-design:onboarding-dropdown-open';
 
 // The topbar chips (GitHub star, model switcher, Use everywhere)
@@ -471,6 +509,7 @@ export function EntryShell({
   onCompleteOnboarding,
 }: Props) {
   const t = useT();
+  const { locale: uiLocale } = useI18n();
   const discordPresence = useDiscordPresence();
   // Each entry sub-view (home / projects / design-systems) is its own
   // URL now, so the browser back/forward buttons work and a deep link
@@ -755,6 +794,32 @@ export function EntryShell({
             </button>
             <div className="entry-main__topbar-chips entry-main__topbar-chips--icon-only">
               <GithubStarBadge />
+              <a
+                className="entry-workspace-chip od-tooltip"
+                href={enterpriseUrl(uiLocale)}
+                target="_blank"
+                rel="noreferrer noopener"
+                onClick={() => {
+                  trackHomeToolbarClick(analytics.track, {
+                    page_name: 'home',
+                    area: 'toolbar',
+                    element: 'workspace_teams',
+                  });
+                }}
+                data-tooltip={t('entry.workspaceTeamsTitle')}
+                data-tooltip-placement="bottom"
+                aria-label={t('entry.workspaceTeamsAria')}
+                data-testid="entry-workspace-teams"
+              >
+                <Icon
+                  name="sparkles"
+                  size={14}
+                  className="entry-workspace-chip__icon"
+                />
+                <span className="entry-workspace-chip__label">
+                  {t('entry.workspaceTeamsLabel')}
+                </span>
+              </a>
               <a
                 className="entry-discord-badge od-tooltip"
                 href={DISCORD_URL}

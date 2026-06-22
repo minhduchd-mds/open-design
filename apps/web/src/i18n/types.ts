@@ -874,6 +874,9 @@ export interface Dict {
   'entry.loadingWorkspace': string;
   'entry.useEverywhereTitle': string;
   'entry.useEverywhereAria': string;
+  'entry.workspaceTeamsLabel': string;
+  'entry.workspaceTeamsTitle': string;
+  'entry.workspaceTeamsAria': string;
   // Left nav rail (icon-only) — surface labels also serve as tooltips
   'entry.navExpand': string;
   'entry.navCollapse': string;
