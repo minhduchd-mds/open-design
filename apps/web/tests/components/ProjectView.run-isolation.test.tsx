@@ -708,10 +708,7 @@ describe('ProjectView conversation run isolation', () => {
     expect(createConversation).toHaveBeenCalledWith(
       'project-1',
       undefined,
-      {
-        seedFromConversationId: 'conv-a',
-        seedMessages: conversationAMessages,
-      },
+      { seedFromConversationId: 'conv-a' },
     );
   });
 
@@ -775,7 +772,7 @@ describe('ProjectView conversation run isolation', () => {
       undefined,
       {
         seedFromConversationId: 'conv-a',
-        seedMessages: [successfulUser, succeededAssistant],
+        seedTrimAfterMessageId: succeededAssistant.id,
       },
     );
   });
@@ -825,10 +822,7 @@ describe('ProjectView conversation run isolation', () => {
     expect(createConversation).toHaveBeenCalledWith(
       'project-1',
       undefined,
-      {
-        seedFromConversationId: 'conv-a',
-        seedMessages: conversationAMessages,
-      },
+      { seedFromConversationId: 'conv-a' },
     );
   });
 
@@ -1597,7 +1591,8 @@ describe('ProjectView conversation run isolation', () => {
       projectId: project.id,
       title: null,
       createdAt: 10,
-      updatedAt: 10,
+      updatedAt: 12,
+      seededTitlePending: true,
     };
     const seededMessages: ChatMessage[] = [
       {
@@ -1631,7 +1626,7 @@ describe('ProjectView conversation run isolation', () => {
       expect(patchConversation).toHaveBeenCalledWith(
         project.id,
         seededConversation.id,
-        { title: 'Hello From B' },
+        { title: 'Hello From B', seededTitlePending: false },
       ),
     );
   });

@@ -311,6 +311,8 @@ export async function createConversation(
     // point was never persisted (e.g. a run that errored before its assistant
     // message reached the database).
     seedMessages?: ChatMessage[];
+    seedMessageOverrides?: CreateConversationRequest['seedMessageOverrides'];
+    seedTrimAfterMessageId?: string | null;
   },
 ): Promise<Conversation | null> {
   try {
@@ -326,6 +328,12 @@ export async function createConversation(
     }
     if (opts?.seedMessages && opts.seedMessages.length > 0) {
       body.seedMessages = opts.seedMessages;
+    }
+    if (opts?.seedMessageOverrides && opts.seedMessageOverrides.length > 0) {
+      body.seedMessageOverrides = opts.seedMessageOverrides;
+    }
+    if (typeof opts?.seedTrimAfterMessageId === 'string' && opts.seedTrimAfterMessageId) {
+      body.seedTrimAfterMessageId = opts.seedTrimAfterMessageId;
     }
     const resp = await fetch(
       `/api/projects/${encodeURIComponent(projectId)}/conversations`,

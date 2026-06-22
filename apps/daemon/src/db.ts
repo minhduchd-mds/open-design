@@ -78,6 +78,7 @@ function migrate(db: SqliteDb): void {
       project_id TEXT NOT NULL,
       title TEXT,
       session_mode TEXT NOT NULL DEFAULT 'design',
+      seeded_title_pending INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,
       FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
@@ -251,6 +252,9 @@ function migrate(db: SqliteDb): void {
   const conversationCols = db.prepare(`PRAGMA table_info(conversations)`).all() as DbRow[];
   if (!conversationCols.some((c: DbRow) => c.name === 'session_mode')) {
     db.exec(`ALTER TABLE conversations ADD COLUMN session_mode TEXT NOT NULL DEFAULT 'design'`);
+  }
+  if (!conversationCols.some((c: DbRow) => c.name === 'seeded_title_pending')) {
+    db.exec(`ALTER TABLE conversations ADD COLUMN seeded_title_pending INTEGER NOT NULL DEFAULT 0`);
   }
   const messageCols = db.prepare(`PRAGMA table_info(messages)`).all() as DbRow[];
   if (!messageCols.some((c: DbRow) => c.name === 'agent_id')) {
@@ -843,6 +847,7 @@ export function listConversations(db: SqliteDb, projectId: string) {
     .prepare(
       `WITH project_conversations AS (
           SELECT id, project_id AS projectId, title, session_mode AS sessionMode,
+                 seeded_title_pending AS seededTitlePending,
                  created_at AS createdAt, updated_at AS updatedAt
             FROM conversations
            WHERE project_id = ?
@@ -886,7 +891,7 @@ export function listConversations(db: SqliteDb, projectId: string) {
              AND m.run_status IN ('succeeded', 'failed', 'canceled')
            GROUP BY m.conversation_id
         )
-        SELECT c.id, c.projectId, c.title, c.sessionMode, c.createdAt, c.updatedAt,
+        SELECT c.id, c.projectId, c.title, c.sessionMode, c.seededTitlePending, c.createdAt, c.updatedAt,
                COALESCE(mc.messageCount, 0) AS messageCount,
                lr.latestRunStatus, lr.latestRunStartedAt,
                lr.latestRunEndedAt, lr.latestRunEventsJson,
@@ -904,6 +909,7 @@ export function getConversation(db: SqliteDb, id: string) {
   const r = db
     .prepare(
       `SELECT id, project_id AS projectId, title, session_mode AS sessionMode,
+              seeded_title_pending AS seededTitlePending,
               created_at AS createdAt, updated_at AS updatedAt,
               (SELECT COUNT(*) FROM messages WHERE conversation_id = conversations.id) AS messageCount
          FROM conversations WHERE id = ?`,
@@ -930,6 +936,7 @@ function normalizeConversation(r: DbRow) {
     title: r.title ?? null,
     sessionMode: normalizeConversationSessionMode(r.sessionMode),
     messageCount: Number(r.messageCount ?? 0),
+    seededTitlePending: Number(r.seededTitlePending ?? 0) !== 0,
     createdAt: Number(r.createdAt),
     updatedAt: Number(r.updatedAt),
     ...numberProperty('totalDurationMs', r.totalDurationMs),
@@ -1053,13 +1060,14 @@ function latestUsageDurationMs(eventsJson: unknown): number | undefined {
 export function insertConversation(db: SqliteDb, c: DbRow) {
   db.prepare(
     `INSERT INTO conversations
-       (id, project_id, title, session_mode, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+       (id, project_id, title, session_mode, seeded_title_pending, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     c.id,
     c.projectId,
     c.title ?? null,
     normalizeConversationSessionMode(c.sessionMode),
+    c.seededTitlePending ? 1 : 0,
     c.createdAt,
     c.updatedAt,
   );
@@ -1075,12 +1083,15 @@ export function updateConversation(db: SqliteDb, id: string, patch: DbRow) {
     sessionMode: Object.prototype.hasOwnProperty.call(patch, 'sessionMode')
       ? normalizeConversationSessionMode(patch.sessionMode)
       : existing.sessionMode,
+    seededTitlePending: Object.prototype.hasOwnProperty.call(patch, 'seededTitlePending')
+      ? Boolean(patch.seededTitlePending)
+      : existing.seededTitlePending,
     updatedAt: typeof patch.updatedAt === 'number' ? patch.updatedAt : Date.now(),
   };
   db.prepare(
     `UPDATE conversations
-        SET title = ?, session_mode = ?, updated_at = ? WHERE id = ?`,
-  ).run(merged.title ?? null, merged.sessionMode, merged.updatedAt, id);
+        SET title = ?, session_mode = ?, seeded_title_pending = ?, updated_at = ? WHERE id = ?`,
+  ).run(merged.title ?? null, merged.sessionMode, merged.seededTitlePending ? 1 : 0, merged.updatedAt, id);
   return getConversation(db, id);
 }
 

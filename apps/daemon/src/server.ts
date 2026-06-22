@@ -6108,7 +6108,12 @@ export async function startServer({
     if (!getProject(db, req.params.id)) {
       return res.status(404).json({ error: 'project not found' });
     }
-    const { title, seedFromConversationId, forkAfterMessageId } = req.body || {};
+    const {
+      title,
+      seedFromConversationId,
+      forkAfterMessageId,
+      seedTrimAfterMessageId,
+    } = req.body || {};
     const now = Date.now();
     const hasExplicitSessionMode = Boolean(
       req.body && Object.prototype.hasOwnProperty.call(req.body, 'sessionMode'),
@@ -6122,7 +6127,57 @@ export async function startServer({
         ? getConversation(db, seedFromConversationId)
         : null;
     let seedMessages = [];
-    if (sourceConversation && sourceConversation.projectId === req.params.id) {
+    const clientSeedMessages = Array.isArray(req.body?.seedMessages)
+      ? (req.body.seedMessages as any[]).filter(
+          (message) => message && typeof message.role === 'string',
+        )
+      : null;
+    const seedMessageOverrides = Array.isArray(req.body?.seedMessageOverrides)
+      ? (req.body.seedMessageOverrides as any[]).filter(
+          (message) =>
+            message &&
+            typeof message.id === 'string' &&
+            typeof message.role === 'string' &&
+            typeof message.content === 'string',
+        )
+      : null;
+    if (clientSeedMessages && clientSeedMessages.length > 0) {
+      seedMessages = clientSeedMessages;
+      if (requestedForkMessageId) {
+        const forkIndex = seedMessages.findIndex((message) => message.id === requestedForkMessageId);
+        if (forkIndex >= 0) {
+          seedMessages = seedMessages.slice(0, forkIndex + 1);
+        }
+      }
+    } else if (
+      sourceConversation &&
+      sourceConversation.projectId === req.params.id &&
+      (seedMessageOverrides?.length || typeof seedTrimAfterMessageId === 'string')
+    ) {
+      const trimAfterMessageId =
+        typeof seedTrimAfterMessageId === 'string' && seedTrimAfterMessageId
+          ? seedTrimAfterMessageId
+          : null;
+      seedMessages = listMessages(db, seedFromConversationId);
+      if (trimAfterMessageId) {
+        const trimIndex = seedMessages.findIndex((message) => message.id === trimAfterMessageId);
+        if (trimIndex < 0) {
+          return res.status(404).json({ error: 'seed trim message not found' });
+        }
+        seedMessages = seedMessages.slice(0, trimIndex + 1);
+      }
+      if (seedMessageOverrides?.length) {
+        const overridesById = new Map(seedMessageOverrides.map((message) => [message.id, message]));
+        const sourceIds = new Set(seedMessages.map((message) => message.id));
+        seedMessages = seedMessages.map((message) => {
+          const override = overridesById.get(message.id);
+          return override ? { ...message, ...override } : message;
+        });
+        for (const override of seedMessageOverrides) {
+          if (!sourceIds.has(override.id)) seedMessages.push(override);
+        }
+      }
+    } else if (sourceConversation && sourceConversation.projectId === req.params.id) {
       seedMessages = listMessages(db, seedFromConversationId);
       if (requestedForkMessageId) {
         const forkIndex = seedMessages.findIndex((message) => message.id === requestedForkMessageId);
@@ -6145,6 +6200,8 @@ export async function startServer({
       projectId: req.params.id,
       title: typeof title === 'string' ? title.trim() || null : null,
       sessionMode,
+      seededTitlePending:
+        seedMessages.length > 0 && !(typeof title === 'string' && title.trim().length > 0),
       createdAt: now,
       updatedAt: now,
     });

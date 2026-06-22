@@ -1,4 +1,13 @@
-import type { ChatMessage, ChatRunStatus, ChatSessionMode } from './chat.js';
+import type {
+  ChatAttachment,
+  ChatCommentAttachment,
+  ChatMessage,
+  ChatRole,
+  ChatRunStatus,
+  ChatSessionMode,
+} from './chat.js';
+import type { RunContextSelection } from './context.js';
+import type { AppliedPluginSnapshot } from '../plugins/apply.js';
 import type { OrchestratorWorkspace } from './workspaces.js';
 import type {
   ProjectContextConnectorRef,
@@ -227,6 +236,7 @@ export interface Conversation {
   title: string | null;
   sessionMode?: ChatSessionMode;
   messageCount?: number;
+  seededTitlePending?: boolean;
   createdAt: number;
   updatedAt: number;
   totalDurationMs?: number;
@@ -388,11 +398,39 @@ export interface CreateConversationRequest {
    * to copying from `seedFromConversationId` (the original Side Chat path).
    */
   seedMessages?: ChatMessage[];
+  /**
+   * Compact new-chat overlay applied on top of `seedFromConversationId`.
+   * Unlike `seedMessages`, this does not replace the full source transcript;
+   * it trims the copied source at `seedTrimAfterMessageId` and then applies
+   * only the listed message overrides / client-only tail messages.
+   */
+  seedMessageOverrides?: SeedConversationMessageOverride[];
+  /**
+   * Optional last source-message id to keep when seeding from an existing
+   * conversation. Used by the New-chat path to trim a resumable failed tail
+   * without re-sending the full transcript.
+   */
+  seedTrimAfterMessageId?: string | null;
 }
 
 export interface UpdateConversationRequest {
   title?: string | null;
   sessionMode?: ChatSessionMode;
+  seededTitlePending?: boolean;
+}
+
+export interface SeedConversationMessageOverride {
+  id: string;
+  role: ChatRole;
+  content: string;
+  agentId?: string;
+  agentName?: string;
+  createdAt?: number;
+  sessionMode?: ChatSessionMode;
+  runContext?: RunContextSelection;
+  appliedPluginSnapshot?: AppliedPluginSnapshot;
+  attachments?: ChatAttachment[];
+  commentAttachments?: ChatCommentAttachment[];
 }
 
 export interface MessagesResponse {

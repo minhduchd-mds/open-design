@@ -1706,7 +1706,12 @@ export function registerProjectRoutes(app: Express, ctx: RegisterProjectRoutesDe
     if (!getProject(db, req.params.id)) {
       return res.status(404).json({ error: 'project not found' });
     }
-    const { title, seedFromConversationId, forkAfterMessageId } = req.body || {};
+    const {
+      title,
+      seedFromConversationId,
+      forkAfterMessageId,
+      seedTrimAfterMessageId,
+    } = req.body || {};
     const now = Date.now();
     const hasExplicitSessionMode = Boolean(
       req.body && Object.prototype.hasOwnProperty.call(req.body, 'sessionMode'),
@@ -1730,6 +1735,15 @@ export function registerProjectRoutes(app: Express, ctx: RegisterProjectRoutesDe
           (message) => message && typeof message.role === 'string',
         )
       : null;
+    const seedMessageOverrides = Array.isArray(req.body?.seedMessageOverrides)
+      ? (req.body.seedMessageOverrides as any[]).filter(
+          (message) =>
+            message &&
+            typeof message.id === 'string' &&
+            typeof message.role === 'string' &&
+            typeof message.content === 'string',
+        )
+      : null;
     let seedMessages: any[] = [];
     if (clientSeedMessages && clientSeedMessages.length > 0) {
       seedMessages = clientSeedMessages;
@@ -1739,6 +1753,34 @@ export function registerProjectRoutes(app: Express, ctx: RegisterProjectRoutesDe
         );
         if (forkIndex >= 0) {
           seedMessages = seedMessages.slice(0, forkIndex + 1);
+        }
+      }
+    } else if (
+      sourceConversation &&
+      sourceConversation.projectId === req.params.id &&
+      (seedMessageOverrides?.length || typeof seedTrimAfterMessageId === 'string')
+    ) {
+      const trimAfterMessageId =
+        typeof seedTrimAfterMessageId === 'string' && seedTrimAfterMessageId
+          ? seedTrimAfterMessageId
+          : null;
+      seedMessages = listMessages(db, seedFromConversationId);
+      if (trimAfterMessageId) {
+        const trimIndex = seedMessages.findIndex((message) => message.id === trimAfterMessageId);
+        if (trimIndex < 0) {
+          return res.status(404).json({ error: 'seed trim message not found' });
+        }
+        seedMessages = seedMessages.slice(0, trimIndex + 1);
+      }
+      if (seedMessageOverrides?.length) {
+        const overridesById = new Map(seedMessageOverrides.map((message) => [message.id, message]));
+        const sourceIds = new Set(seedMessages.map((message) => message.id));
+        seedMessages = seedMessages.map((message) => {
+          const override = overridesById.get(message.id);
+          return override ? { ...message, ...override } : message;
+        });
+        for (const override of seedMessageOverrides) {
+          if (!sourceIds.has(override.id)) seedMessages.push(override);
         }
       }
     } else if (sourceConversation && sourceConversation.projectId === req.params.id) {
@@ -1764,6 +1806,8 @@ export function registerProjectRoutes(app: Express, ctx: RegisterProjectRoutesDe
       projectId: req.params.id,
       title: typeof title === 'string' ? title.trim() || null : null,
       sessionMode,
+      seededTitlePending:
+        seedMessages.length > 0 && !(typeof title === 'string' && title.trim().length > 0),
       createdAt: now,
       updatedAt: now,
     });

@@ -57,6 +57,7 @@ import { claimRunTurnIndex } from '../analytics/identity';
 import { useCoalescedCallback } from '../hooks/useCoalescedCallback';
 import {
   composeSystemPrompt,
+  type SeedConversationMessageOverride,
   type AudioVoiceOption,
   type MemorySystemPromptResponse,
   type ResearchOptions,
@@ -940,6 +941,7 @@ export function ProjectView({
   const [conversationLoadError, setConversationLoadError] = useState<string | null>(null);
   const [messageLoadRetryNonce, setMessageLoadRetryNonce] = useState(0);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const serverMessagesByConversationRef = useRef<Map<string, ChatMessage[]>>(new Map());
   const [forkingMessageId, setForkingMessageId] = useState<string | null>(null);
   const [activePluginActionPaths, setActivePluginActionPaths] = useState<Set<string>>(() => new Set());
   const [hiddenAssistantPluginActionPaths, setHiddenAssistantPluginActionPaths] = useState<Set<string>>(() => new Set());
@@ -1510,6 +1512,7 @@ export function ProjectView({
         ]);
         if (cancelled) return;
         setMessages(list);
+        serverMessagesByConversationRef.current.set(activeConversationId, list);
         setMessagesInitialized(true);
         setPreviewComments(comments);
         setAttachedComments([]);
@@ -1530,6 +1533,7 @@ export function ProjectView({
         setError(message);
         savedArtifactRef.current = null;
         pendingWritesRef.current.clear();
+        serverMessagesByConversationRef.current.delete(activeConversationId);
         messagesConversationIdRef.current = null;
         setMessagesConversationId(null);
         setFailedMessagesConversationId(activeConversationId);
@@ -2353,6 +2357,7 @@ export function ProjectView({
       try {
         const serverMessages = await listMessages(project.id, conversationId);
         if (messagesConversationIdRef.current !== conversationId) return;
+        serverMessagesByConversationRef.current.set(conversationId, serverMessages);
         setMessages((current) => mergeServerMessagesIntoConversation(current, serverMessages));
         setMessagesInitialized(true);
         setMessagesConversationId(conversationId);
@@ -3603,7 +3608,7 @@ export function ProjectView({
         !retryTarget
         && historyBase.length > 0
         && !currentConversation?.title?.trim()
-        && currentConversation?.createdAt === currentConversation?.updatedAt;
+        && currentConversation?.seededTitlePending === true;
       const isFirstTurn = !retryTarget && (
         historyBase.length === 0 || isSeededUntitledConversation
       );
@@ -3616,13 +3621,25 @@ export function ProjectView({
       // round-trip through the agent.
       if (isFirstTurn) {
         const title = fallbackFirstTurnTitle;
+        const titlePatch = {
+          ...(title ? { title } : {}),
+          ...(isSeededUntitledConversation ? { seededTitlePending: false } : {}),
+        };
         if (title) {
           setConversations((curr) =>
             curr.map((c) =>
-              c.id === runConversationId ? { ...c, title } : c,
+              c.id === runConversationId ? { ...c, title, seededTitlePending: false } : c,
             ),
           );
-          void patchConversation(project.id, runConversationId, { title });
+        } else if (isSeededUntitledConversation) {
+          setConversations((curr) =>
+            curr.map((c) =>
+              c.id === runConversationId ? { ...c, seededTitlePending: false } : c,
+            ),
+          );
+        }
+        if (Object.keys(titlePatch).length > 0) {
+          void patchConversation(project.id, runConversationId, titlePatch);
         }
         const projectName = fallbackProjectName;
         if (
@@ -5149,6 +5166,10 @@ export function ProjectView({
     setConversationLoadError(null);
     try {
       const seedMessages = getSeedableMessagesForNewConversation(messages);
+      const persistedSeedMessages = activeConversationId
+        ? serverMessagesByConversationRef.current.get(activeConversationId) ?? []
+        : [];
+      const seedOverlay = buildSeedOverlayForNewConversation(seedMessages, persistedSeedMessages);
       const seedFromConversationId =
         typeof activeConversationId === 'string'
         && activeConversationId
@@ -5163,7 +5184,12 @@ export function ProjectView({
         seedFromConversationId
           ? {
               seedFromConversationId,
-              seedMessages,
+              ...(seedOverlay.seedTrimAfterMessageId
+                ? { seedTrimAfterMessageId: seedOverlay.seedTrimAfterMessageId }
+                : {}),
+              ...(seedOverlay.seedMessageOverrides.length > 0
+                ? { seedMessageOverrides: seedOverlay.seedMessageOverrides }
+                : {}),
             }
           : undefined,
       );
@@ -7058,6 +7084,61 @@ function getSeedableMessagesForNewConversation(messages: ChatMessage[]): ChatMes
     return messages.slice(0, -2);
   }
   return messages;
+}
+
+function compactSeedMessageOverride(message: ChatMessage): SeedConversationMessageOverride {
+  return {
+    id: message.id,
+    role: message.role,
+    content: message.content,
+    ...(message.agentId ? { agentId: message.agentId } : {}),
+    ...(message.agentName ? { agentName: message.agentName } : {}),
+    ...(typeof message.createdAt === 'number' ? { createdAt: message.createdAt } : {}),
+    ...(message.sessionMode ? { sessionMode: message.sessionMode } : {}),
+    ...(message.runContext ? { runContext: message.runContext } : {}),
+    ...(message.appliedPluginSnapshot ? { appliedPluginSnapshot: message.appliedPluginSnapshot } : {}),
+    ...(message.attachments?.length ? { attachments: message.attachments } : {}),
+    ...(message.commentAttachments?.length ? { commentAttachments: message.commentAttachments } : {}),
+  };
+}
+
+function seedMessageOverrideEquals(
+  left: SeedConversationMessageOverride,
+  right: SeedConversationMessageOverride,
+): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function buildSeedOverlayForNewConversation(
+  visibleMessages: ChatMessage[],
+  persistedMessages: ChatMessage[],
+): {
+  seedMessageOverrides: SeedConversationMessageOverride[];
+  seedTrimAfterMessageId: string | null;
+} {
+  if (visibleMessages.length === 0) {
+    return {
+      seedMessageOverrides: [],
+      seedTrimAfterMessageId: null,
+    };
+  }
+  const persistedById = new Map(
+    persistedMessages.map((message) => [message.id, compactSeedMessageOverride(message)]),
+  );
+  const isTrimmedPersistedPrefix =
+    visibleMessages.length < persistedMessages.length
+    && visibleMessages.every((message, index) => persistedMessages[index]?.id === message.id);
+  const seedTrimAfterMessageId =
+    isTrimmedPersistedPrefix ? (visibleMessages.at(-1)?.id ?? null) : null;
+  const seedMessageOverrides = visibleMessages.flatMap((message) => {
+    const compact = compactSeedMessageOverride(message);
+    const persisted = persistedById.get(message.id);
+    return persisted && seedMessageOverrideEquals(compact, persisted) ? [] : [compact];
+  });
+  return {
+    seedMessageOverrides,
+    seedTrimAfterMessageId,
+  };
 }
 
 type BufferedTextUpdates = ReturnType<typeof createBufferedTextUpdates>;

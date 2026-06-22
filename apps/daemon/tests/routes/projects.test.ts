@@ -250,6 +250,90 @@ describe('GET /api/projects/:id resolvedDir', () => {
     expect(forkMessagesBody.messages[1]?.lastRunEventId).toBeUndefined();
   });
 
+  it('applies compact new-chat seed overlays without re-sending the full transcript', async () => {
+    const projectId = `proj-conv-overlay-${Date.now()}`;
+    const createProjectResp = await fetch(`${baseUrl}/api/projects`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: projectId,
+        name: 'Conversation overlay fixture',
+        skillId: null,
+        designSystemId: null,
+      }),
+    });
+    expect(createProjectResp.status).toBe(200);
+
+    const sourceResp = await fetch(`${baseUrl}/api/projects/${projectId}/conversations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Source', sessionMode: 'chat' }),
+    });
+    expect(sourceResp.status).toBe(200);
+    const sourceBody = (await sourceResp.json()) as { conversation: { id: string } };
+    const sourceId = sourceBody.conversation.id;
+
+    const sourceMessages = [
+      { id: 'overlay-user-1', role: 'user', content: 'first ask' },
+      { id: 'overlay-assistant-1', role: 'assistant', content: 'first answer' },
+      { id: 'overlay-user-2', role: 'user', content: 'second ask' },
+      { id: 'overlay-assistant-2', role: 'assistant', content: 'stale answer', runId: 'run-2' },
+    ];
+    for (const message of sourceMessages) {
+      const saveResp = await fetch(
+        `${baseUrl}/api/projects/${projectId}/conversations/${sourceId}/messages/${message.id}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(message),
+        },
+      );
+      expect(saveResp.status).toBe(200);
+    }
+
+    const overlayResp = await fetch(`${baseUrl}/api/projects/${projectId}/conversations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        seedFromConversationId: sourceId,
+        seedTrimAfterMessageId: 'overlay-user-2',
+        seedMessageOverrides: [
+          {
+            id: 'overlay-user-2',
+            role: 'user',
+            content: 'second ask, revised',
+          },
+          {
+            id: 'overlay-assistant-local',
+            role: 'assistant',
+            content: 'visible local assistant tail',
+          },
+        ],
+      }),
+    });
+    expect(overlayResp.status).toBe(200);
+    const overlayBody = (await overlayResp.json()) as {
+      conversation: { id: string; seededTitlePending?: boolean; title: string | null };
+    };
+    expect(overlayBody.conversation.seededTitlePending).toBe(true);
+    expect(overlayBody.conversation.title).toBeNull();
+
+    const overlayMessagesResp = await fetch(
+      `${baseUrl}/api/projects/${projectId}/conversations/${overlayBody.conversation.id}/messages`,
+    );
+    expect(overlayMessagesResp.status).toBe(200);
+    const overlayMessagesBody = (await overlayMessagesResp.json()) as {
+      messages: Array<{ content: string; runId?: string }>;
+    };
+    expect(overlayMessagesBody.messages.map((message) => message.content)).toEqual([
+      'first ask',
+      'first answer',
+      'second ask, revised',
+      'visible local assistant tail',
+    ]);
+    expect(overlayMessagesBody.messages.at(-1)?.runId).toBeUndefined();
+  });
+
   it('forks from a client-supplied snapshot when the fork point was never persisted', async () => {
     // Regression: forking an assistant turn whose run errored / had its
     // connection reset before the message reached the database used to 404 on
