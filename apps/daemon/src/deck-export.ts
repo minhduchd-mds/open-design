@@ -133,13 +133,27 @@ export async function buildScreenshotPptx(
  * each page sized to its image. Pixel-perfect, raster (not selectable text).
  * Full pages render as JPEG (small); deck slides as PNG (crisp).
  */
+// pdf-lib page sizes are in PDF points (1/72"), NOT pixels. Sizing a page by the
+// captured image's pixel dimensions makes the nominal page size scale with the
+// capture's device pixel ratio (a 2x retina capture would yield a page twice as
+// large as a 1x one). Instead, normalize each page so its longest side is a
+// fixed physical size and its aspect ratio matches the image; the image still
+// embeds at full pixel resolution (crisp), only the page's points are sane.
+// 960pt = a 16:9 slide of 960x540pt, matching PowerPoint's 16:9 page.
+const PDF_PAGE_LONGEST_PT = 960;
+
 export async function buildScreenshotPdf(images: SlideImage[]): Promise<Buffer> {
   if (images.length === 0) throw new Error('no slides to export');
   const pdf = await PDFDocument.create();
   for (const img of images) {
     const image = img.jpeg ? await pdf.embedJpg(img.buffer) : await pdf.embedPng(img.buffer);
-    const page = pdf.addPage([image.width, image.height]);
-    page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
+    const aspect = image.height > 0 ? image.width / image.height : 1;
+    const [width, height] =
+      aspect >= 1
+        ? [PDF_PAGE_LONGEST_PT, PDF_PAGE_LONGEST_PT / aspect]
+        : [PDF_PAGE_LONGEST_PT * aspect, PDF_PAGE_LONGEST_PT];
+    const page = pdf.addPage([width, height]);
+    page.drawImage(image, { x: 0, y: 0, width, height });
   }
   const bytes = await pdf.save();
   return Buffer.from(bytes);

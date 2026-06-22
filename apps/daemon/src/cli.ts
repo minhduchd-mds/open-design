@@ -5814,7 +5814,16 @@ Options:
   }
   if (!resp.ok) return structuredHttpFailure(resp, 'export-failed');
   const buf = Buffer.from(await resp.arrayBuffer());
-  const fallbackName = `${basename(fileName).replace(/\.html?$/i, '') || 'deck'}.${format}`;
+  // When --output is not given, name the file after --title (slugified) if the
+  // caller supplied one, else the source HTML's basename — so
+  // `od export pptx --file deck.html --title "My Deck"` writes `My-Deck.pptx`,
+  // matching the title baked into the document and the server Content-Disposition.
+  const titleSlug =
+    typeof flags.title === 'string'
+      ? flags.title.trim().replace(/[^\w.\-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60)
+      : '';
+  const baseSource = titleSlug || basename(fileName).replace(/\.html?$/i, '');
+  const fallbackName = `${baseSource || 'deck'}.${format}`;
   const outPath = typeof flags.output === 'string' && flags.output.length > 0 ? flags.output : fallbackName;
   writeFileSync(outPath, buf);
   if (flags.json) {

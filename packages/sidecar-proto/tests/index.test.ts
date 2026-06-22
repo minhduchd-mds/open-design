@@ -195,6 +195,59 @@ describe("open-design sidecar contract", () => {
     ).toThrow();
   });
 
+  it("validates desktop render-slides IPC message inputs", () => {
+    expect(
+      normalizeDesktopSidecarMessage({
+        input: {
+          baseHref: "http://127.0.0.1:7456/api/projects/proj/raw/deck/",
+          html: "<!doctype html><section class=\"slide\">One</section>",
+          outputDir: "/data/export-render/abc123",
+          pageImageFormat: "jpeg",
+          stitch: true,
+        },
+        type: SIDECAR_MESSAGES.RENDER_SLIDES,
+      }),
+    ).toEqual({
+      input: {
+        baseHref: "http://127.0.0.1:7456/api/projects/proj/raw/deck/",
+        html: "<!doctype html><section class=\"slide\">One</section>",
+        outputDir: "/data/export-render/abc123",
+        pageImageFormat: "jpeg",
+        stitch: true,
+      },
+      type: "render-slides",
+    });
+    // Minimal input (only html) round-trips with nothing extra.
+    expect(
+      normalizeDesktopSidecarMessage({
+        input: { html: "<p>x</p>" },
+        type: SIDECAR_MESSAGES.RENDER_SLIDES,
+      }),
+    ).toEqual({ input: { html: "<p>x</p>" }, type: "render-slides" });
+    // Invalid: empty html, bad enum, non-boolean stitch, unknown key.
+    expect(() =>
+      normalizeDesktopSidecarMessage({ input: { html: "" }, type: SIDECAR_MESSAGES.RENDER_SLIDES }),
+    ).toThrow();
+    expect(() =>
+      normalizeDesktopSidecarMessage({
+        input: { html: "<p>x</p>", pageImageFormat: "webp" },
+        type: SIDECAR_MESSAGES.RENDER_SLIDES,
+      }),
+    ).toThrow();
+    expect(() =>
+      normalizeDesktopSidecarMessage({
+        input: { html: "<p>x</p>", stitch: "yes" },
+        type: SIDECAR_MESSAGES.RENDER_SLIDES,
+      }),
+    ).toThrow();
+    expect(() =>
+      normalizeDesktopSidecarMessage({
+        input: { html: "<p>x</p>", bogus: 1 },
+        type: SIDECAR_MESSAGES.RENDER_SLIDES,
+      }),
+    ).toThrow();
+  });
+
   it("validates desktop update IPC message inputs", () => {
     expect(
       normalizeDesktopSidecarMessage({

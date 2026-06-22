@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { PDFDocument } from 'pdf-lib';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
@@ -100,6 +101,16 @@ describe('buildScreenshotPdf', () => {
     const pngs = decodeSlideDataUrls([PNG_DATA_URL]);
     const out = await buildScreenshotPdf(pngs);
     expect(out.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+  });
+
+  it('normalizes page size to points (not raw capture pixels, so DPR cannot bloat it)', async () => {
+    const pngs = decodeSlideDataUrls([PNG_DATA_URL]); // a 1x1 px image
+    const out = await buildScreenshotPdf(pngs);
+    const doc = await PDFDocument.load(out);
+    const { width, height } = doc.getPage(0).getSize();
+    // aspect 1 => normalized 960x960 pt (PowerPoint-ish), NOT the 1x1 pixel size.
+    expect(Math.round(width)).toBe(960);
+    expect(Math.round(height)).toBe(960);
   });
 
   it('throws when there are no slides', async () => {
