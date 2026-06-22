@@ -226,6 +226,12 @@ function modelUnavailableDetail(text: string): TrackingRunFailureDetail | null {
     return 'cli_version_incompatible';
   }
   if (/\bmodel is disabled\b/i.test(text)) return 'model_disabled';
+  // A local model server (e.g. LM Studio, reached via opencode's own provider
+  // config) is up but has no model loaded. Not a model we picked wrong — the
+  // user must load a model in the local app first (`lms load`). User-action,
+  // not an engine bug, so it should not sit in the opaque execution_failed
+  // bucket. (#3408 P1)
+  if (/\bno models loaded\b|\blms load\b/i.test(text)) return 'local_model_not_loaded';
   if (/\b(no endpoints found that support tool use|provider routing)\b/i.test(text)) {
     return 'provider_routing_error';
   }

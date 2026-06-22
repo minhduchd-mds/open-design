@@ -1016,4 +1016,16 @@ describe('classifyRunFailure — batch A reclassification out of execution_faile
     );
     expect(result?.failure_category).toBe('auth');
   });
+
+  it('classifies a local model server with no model loaded (LM Studio) as local_model_not_loaded', () => {
+    // opencode pointed at a local LM Studio provider that has no model loaded.
+    // Independent of the model name we pass: the user must load a model first.
+    const result = classify(
+      'AGENT_EXECUTION_FAILED',
+      "No models loaded. Please load a model in the developer page or use the 'lms load' command.",
+    );
+    expect(result?.failure_category).toBe('model_unavailable');
+    expect(result?.failure_detail).toBe('local_model_not_loaded');
+    expect(result?.user_action).toBe('switch_model');
+  });
 });

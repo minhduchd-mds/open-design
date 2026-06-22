@@ -230,6 +230,11 @@ describe('run failure telemetry smoke', () => {
       'a-auth',
       "login fail: Please carry the API secret key in the 'Authorization' field of the request header (1004)",
     );
+    await writeFakeClaude(
+      binDir,
+      'a-lmstudio',
+      "No models loaded. Please load a model in the developer page or use the 'lms load' command.",
+    );
 
     process.env.OD_CHAT_RUN_INACTIVITY_TIMEOUT_MS = '5000';
     delete process.env.POSTHOG_KEY;
@@ -248,6 +253,7 @@ describe('run failure telemetry smoke', () => {
       { bin: 'a-prefill', category: 'prompt_too_large', detail: 'prompt_too_large' },
       { bin: 'a-thread-start', category: 'process_exit', detail: 'agent_protocol_error' },
       { bin: 'a-auth', category: 'auth', detail: 'auth_required' },
+      { bin: 'a-lmstudio', category: 'model_unavailable', detail: 'local_model_not_loaded' },
     ] as const;
 
     for (const item of cases) {

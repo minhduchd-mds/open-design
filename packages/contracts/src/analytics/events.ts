@@ -268,6 +268,7 @@ export type TrackingRunFailureDetail =
   | 'model_not_found'
   | 'model_not_supported'
   | 'model_disabled'
+  | 'local_model_not_loaded'
   | 'cli_version_incompatible'
   | 'prompt_too_large'
   | 'upstream_5xx'
