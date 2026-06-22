@@ -133,8 +133,14 @@ describe('filesystem empty-answer fallback helpers', () => {
     expect(names).toEqual(['index.html', 'theme.css']);
   });
 
-  it('builds a concise normal assistant answer for file-only runs', () => {
-    expect(__forTestFilesystemEmptyAnswerFallbackText(['index.html'])).toBe('已写入 index.html。');
-    expect(__forTestFilesystemEmptyAnswerFallbackText([])).toBe('已写入项目文件。');
+  it('builds a neutral normal assistant answer for file-only runs', () => {
+    expect(__forTestFilesystemEmptyAnswerFallbackText([])).toBe('Wrote project files.');
+    expect(__forTestFilesystemEmptyAnswerFallbackText(['index.html'])).toBe('Wrote index.html.');
+    expect(__forTestFilesystemEmptyAnswerFallbackText(['index.html', 'theme.css'])).toBe(
+      'Wrote index.html and theme.css.'
+    );
+    expect(__forTestFilesystemEmptyAnswerFallbackText(['index.html', 'theme.css', 'app.js', 'data.json'])).toBe(
+      'Wrote index.html, theme.css, app.js, and 4 files total.'
+    );
   });
 });

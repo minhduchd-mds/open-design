@@ -2316,11 +2316,18 @@ export function __forTestFilesystemWriteFileNamesFromRunEvents(events) {
 
 function filesystemEmptyAnswerFallbackText(fileNames) {
   if (!Array.isArray(fileNames) || fileNames.length === 0) {
-    return '已写入项目文件。';
+    return 'Wrote project files.';
   }
-  const shown = fileNames.slice(0, 3).join('、');
-  const suffix = fileNames.length > 3 ? ` 等 ${fileNames.length} 个文件` : '';
-  return `已写入 ${shown}${suffix}。`;
+  const shown = fileNames.slice(0, 3);
+  if (fileNames.length === 1) {
+    return `Wrote ${shown[0]}.`;
+  }
+  if (fileNames.length <= 3) {
+    const last = shown.at(-1);
+    const first = shown.slice(0, -1).join(', ');
+    return `Wrote ${first} and ${last}.`;
+  }
+  return `Wrote ${shown.join(', ')}, and ${fileNames.length} files total.`;
 }
 
 export function __forTestFilesystemEmptyAnswerFallbackText(fileNames) {
