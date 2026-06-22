@@ -3,7 +3,14 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('../src/integrations/vela-errors.js', () => ({
   classifyAmrAccountFailure(text: string) {
     const value = String(text || '').toLowerCase();
-    if (value.includes('insufficient balance')) {
+    // Mirror the real detector's signals exercised by these tests, including
+    // the Chinese vela pre-charge text (see integrations/vela-errors.test.ts).
+    if (
+      value.includes('insufficient balance') ||
+      value.includes('预扣费额度失败') ||
+      value.includes('余额不足') ||
+      value.includes('额度不足')
+    ) {
       return { code: 'AMR_INSUFFICIENT_BALANCE' as const };
     }
     if (value.includes('authentication required') || value.includes('not authenticated') || value.includes('unauthorized')) {
@@ -917,5 +924,43 @@ describe('execution_failed close-reason refinement', () => {
         runtimeCloseEvent('stream_error'),
       ]),
     ).toMatchObject({ failure_category: 'process_exit', failure_detail: 'exit_code' });
+  });
+});
+
+// Reclassify AMR/vela upstream failures that currently fall into the opaque
+// `execution_failed` bucket. These carry the generic `AGENT_EXECUTION_FAILED`
+// error code, and the real cause is only in the (often Chinese) upstream error
+// text, so the English-only detectors miss them. Real production texts were
+// sampled from Langfuse (#3408 P1). Each must land in its true product-view
+// category instead of the engineering-view opaque bucket.
+describe('classifyRunFailure — AMR/vela reclassification out of execution_failed', () => {
+  it('classifies a vela Chinese pre-charge (insufficient balance) failure as insufficient_balance', () => {
+    const result = classify(
+      'AGENT_EXECUTION_FAILED',
+      '预扣费额度失败, 用户[141283]剩余额度: 💰0.040000, 需要预扣费额度: 💰0.060000 (request id: B202606220543379765673248268d9d6vVKaiRPCMA)',
+    );
+    expect(result?.failure_category).toBe('insufficient_balance');
+    expect(result?.failure_detail).toBe('amr_insufficient_balance');
+    expect(result?.user_action).toBe('recharge');
+  });
+
+  it('classifies a Chinese 429 rate-limit text as a retryable rate_limit_429', () => {
+    const result = classify(
+      'AGENT_EXECUTION_FAILED',
+      '429 您的账户已达到速率限制，请您控制请求频率',
+    );
+    expect(result?.failure_category).toBe('rate_limit');
+    expect(result?.failure_detail).toBe('rate_limit_429');
+    expect(result?.retryable).toBe(true);
+  });
+
+  it('classifies a vela "model not in allowed list" rejection as model_unavailable', () => {
+    const result = classify(
+      'AGENT_EXECUTION_FAILED',
+      'API Error: 400 model deepseek-v4-pro-202606 not in allowed list',
+    );
+    expect(result?.failure_category).toBe('model_unavailable');
+    expect(result?.failure_detail).toBe('model_not_found');
+    expect(result?.user_action).toBe('switch_model');
   });
 });

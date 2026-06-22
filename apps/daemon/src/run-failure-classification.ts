@@ -121,6 +121,14 @@ function isHardQuotaText(text: string): boolean {
     .test(text);
 }
 
+// A transient, retryable rate limit (distinct from a hard quota). vela/upstream
+// returns this in Chinese ("速率限制" / "请求频率"), which the English-only
+// quota check above misses, so it currently leaks into execution_failed.
+function isRateLimitText(text: string): boolean {
+  return /(速率限制|控制请求频率|请求(?:过于)?频繁|rate[ _-]?limit|too many requests)/i
+    .test(text);
+}
+
 function isWorkspaceCreditsText(text: string): boolean {
   return /\b(?:your )?workspace is out of credits\b|\badd credits to continue\b|\bask your workspace owner to refill\b/i
     .test(text);
@@ -216,7 +224,7 @@ function modelUnavailableDetail(text: string): TrackingRunFailureDetail | null {
   if (/\b(model .*not supported|requested model is not supported|supported api model names|not supported when using codex)\b/i.test(text)) {
     return 'model_not_supported';
   }
-  if (/\b(model (?:is )?(?:unavailable|not available|unsupported|not found)|selected model is not available|not have access|no access|model .*not found|no healthy deployments)\b/i.test(text)) {
+  if (/\b(model (?:is )?(?:unavailable|not available|unsupported|not found)|selected model is not available|not have access|no access|model .*not found|no healthy deployments|model .*not in (?:the )?allowed list)\b/i.test(text)) {
     return 'model_not_found';
   }
   return null;
@@ -570,7 +578,7 @@ export function classifyRunFailure(
     );
   }
 
-  if (errorCode === 'RATE_LIMITED' || serviceFailure === 'RATE_LIMITED' || isHardQuotaText(text)) {
+  if (errorCode === 'RATE_LIMITED' || serviceFailure === 'RATE_LIMITED' || isHardQuotaText(text) || isRateLimitText(text)) {
     const retryable = retryableHint ?? !isHardQuotaText(text);
     return classification(
       'rate_limit',
