@@ -97,7 +97,16 @@ export interface Brand {
   layout: BrandLayout;
 }
 
-export type BrandStatus = 'extracting' | 'ready' | 'failed';
+/**
+ * Brand lifecycle as surfaced to every brand UI.
+ *   - `extracting`  : the backing extraction run is actively working.
+ *   - `needs_input` : the backing run paused for the user (a question form /
+ *     anti-bot wall). Reversible — flips back to `extracting` once the user
+ *     answers, so it is derived on read and never persisted.
+ *   - `ready`       : a brand kit was finalized + a design system registered.
+ *   - `failed`      : the backing run failed or was canceled/stopped by the user.
+ */
+export type BrandStatus = 'extracting' | 'needs_input' | 'ready' | 'failed';
 
 /** Server-written lifecycle record stored next to brand.json. */
 export interface BrandMeta {
@@ -108,6 +117,10 @@ export interface BrandMeta {
   status: BrandStatus;
   /** Human-readable failure reason when status === "failed". */
   error?: string;
+  /** Backing extraction run that last drove this brand into a terminal failure. */
+  extractionTerminalRunId?: string;
+  /** Original terminal failure reason for that extraction run, preserved across daemon restarts. */
+  extractionTerminalError?: string;
   /** The `user:<id>` design-system id this brand registered, so selecting the
    *  brand in the composer applies it through the existing design-system flow. */
   designSystemId?: string;
@@ -161,19 +174,6 @@ export interface BrandExtractStartResponse {
   conversationId: string;
   /** The normalized source URL the browser tab was opened to. */
   sourceUrl: string;
-  /**
-   * Outcome of the synchronous programmatic-first pass. `ready` means a usable
-   * design system was harvested, synthesized, finalized and registered before
-   * this response returned (the brand page is rendered, NOT a skeleton); callers
-   * can navigate straight into a finished result. `extracting` means phase 1 was
-   * skipped or did not complete (blocked / slow origin) and the brand still needs
-   * the agent to drive it — callers should not present it as a finished system.
-   */
-  status: BrandStatus;
-  /** The `user:<id>` design system registered by phase 1, present when `ready`. */
-  designSystemId?: string;
-  /** Display name of the extracted brand (falls back to the source hostname). */
-  brandName?: string;
 }
 
 /**

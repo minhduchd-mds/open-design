@@ -118,9 +118,9 @@ export function useBrandExtract(): UseBrandExtract {
       brandId: result.id,
       projectId: result.projectId,
       conversationId: result.conversationId,
-      extractStatus: result.status ?? null,
-      designSystemId: result.designSystemId ?? null,
-      brandName: result.brandName ?? null,
+      extractStatus: null,
+      designSystemId: null,
+      brandName: null,
       error: null,
     });
     return result;

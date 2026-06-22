@@ -12,11 +12,13 @@ import {
   anonymizeArtifactId,
   artifactKindToTracking,
   type TrackingProjectKind,
+  type TrackingDeployProvider,
 } from '@open-design/contracts/analytics';
 import { useAnalytics } from '../analytics/provider';
 import { trackIframeLoad } from '../observability/iframe-error';
 import {
   trackArtifactExportResult,
+  trackArtifactDeployResult,
   trackArtifactHeaderClick,
   trackArtifactToolbarClick,
   trackCommentPopoverClick,
@@ -4471,15 +4473,13 @@ function HtmlViewer({
       | 'markdown'
       | 'template'
       | 'share_link'
-      | 'share_page'
-      | 'vercel'
-      | 'cloudflare_pages',
+      | 'share_page',
     fn: () => Promise<unknown> | unknown,
   ) => {
     const requestId = analytics.newRequestId();
     const artifactId = anonymizeArtifactId({ projectId, fileName: file.name });
     const artifactKind = artifactKindToTracking({ fileKind: file.kind ?? null });
-    const trackingFormat = format as Exclude<typeof format, 'image'>;
+    const trackingFormat = format;
     trackShareOptionPopoverClick(
       analytics.track,
       {
@@ -4708,8 +4708,10 @@ function HtmlViewer({
   const [deployment, setDeployment] = useState<WebDeploymentInfo | null>(null);
   const [deploymentsByProvider, setDeploymentsByProvider] = useState<Partial<Record<WebDeployProviderId, WebDeploymentInfo>>>({});
   const [deployModalOpen, setDeployModalOpen] = useState(false);
+  const [deployModalIntent, setDeployModalIntent] = useState<'deploy' | 'social-share'>('deploy');
   const closeDeployModal = useCallback(() => {
     setDeployModalOpen(false);
+    setDeployModalIntent('deploy');
   }, []);
   const [deployConfig, setDeployConfig] = useState<WebDeployConfigResponse | null>(null);
   const [deploying, setDeploying] = useState(false);
@@ -4927,6 +4929,13 @@ function HtmlViewer({
   const [manualEditPageStylesOpen, setManualEditPageStylesOpen] = useState(false);
   const [manualEditPanelPosition, setManualEditPanelPosition] = useState<{ left: number; top: number } | null>(null);
   const selectedManualEditTargetIdRef = useRef<string | null>(null);
+  // Tracks the iframe's in-flight inline text edit. `finishManualEditTextSession`
+  // posts the explicit finish and resolves only after the iframe acks AND the
+  // resulting commit has been applied, so exit/dismiss/cancel never tear down
+  // mid-round-trip and drop the final edit (the #3647 exit-path regression).
+  const manualEditTextSessionIdRef = useRef<string | null>(null);
+  const manualEditTextFinishRef = useRef<(() => void) | null>(null);
+  const manualEditTextCommitInFlightRef = useRef<Promise<unknown> | null>(null);
   const [manualEditDraft, setManualEditDraft] = useState<ManualEditDraft>(() => emptyManualEditDraft());
   const [manualEditHistory, setManualEditHistory] = useState<ManualEditHistoryEntry[]>([]);
   const [manualEditUndone, setManualEditUndone] = useState<ManualEditHistoryEntry[]>([]);
@@ -5045,6 +5054,23 @@ function HtmlViewer({
   const [imageExportPreparedBlob, setImageExportPreparedBlob] = useState<{ format: ImageExportFormat; blob: Blob } | null>(null);
   const imageExportSnapshotDataUrlRef = useRef<string | null>(null);
   const imageExportPrepareIdRef = useRef(0);
+  // Threads the share-popover click → artifact_export_result(image) pair, the
+  // same correlation other export formats get via fireShareExport. The image
+  // export is a separate modal flow, so it owns its own request id / start.
+  const imageExportRequestIdRef = useRef<string | null>(null);
+  const imageExportStartedRef = useRef(0);
+  // Guards against double-emitting the image export result: each modal
+  // session (reset in openImageExportModal) resolves to exactly one
+  // success / failed / cancelled, no matter which exit path runs.
+  const imageExportResolvedRef = useRef(false);
+  // Same click→result correlation for Save as template, which now reports the
+  // export result only after the template is actually saved (not on open).
+  const templateExportRequestIdRef = useRef<string | null>(null);
+  const templateExportStartedRef = useRef(0);
+  // Same one-terminal-result guard as image export: a template session
+  // (reset in openSaveAsTemplateModal) emits exactly one success/failed/
+  // cancelled, whether it ends in a save or a modal dismiss.
+  const templateExportResolvedRef = useRef(false);
   const screenshotInFlightRef = useRef(false);
   const [exportToast, setExportToast] = useState<
     { message: string; tone: 'default' | 'success' | 'error' | 'loading' } | null
@@ -5276,9 +5302,10 @@ function HtmlViewer({
   // never surface and the deck becomes a static, unnavigable preview.
   const looksLikeDeck = useMemo(() => {
     if (!source) return false;
-    return /class\s*=\s*['"][^'"]*\bslide\b/i.test(source);
+    return /class\s*=\s*['"](?:[^'"]*\s)?slide(?:\s|['"])/i.test(source);
   }, [source]);
   const effectiveDeck = isDeck || looksLikeDeck;
+  const showDeckNavigation = effectiveDeck && (slideState === null || slideState.count > 0);
   const livePreviewSource = inlinedSource ?? source;
   // Annotation modes that should hold the preview still while open. Manual
   // Edit is handled by its own freeze just below; these are the non-edit
@@ -6116,6 +6143,9 @@ function HtmlViewer({
       setManualEditPageStylesOpen(false);
       setManualEditPanelPosition(null);
       selectedManualEditTargetIdRef.current = null;
+      manualEditTextSessionIdRef.current = null;
+      manualEditTextFinishRef.current = null;
+      manualEditTextCommitInFlightRef.current = null;
       setManualEditError(null);
       manualEditPendingStyleRef.current = null;
       if (manualEditStyleTimerRef.current) {
@@ -6146,6 +6176,9 @@ function HtmlViewer({
         return;
       }
       if (data.type === 'od-edit-hover') {
+        // While an inline text edit is live, hovering must not surface or switch
+        // any affordance — that instability is the other half of #3646.
+        if (manualEditTextSessionIdRef.current) return;
         // Hover only surfaces a lightweight "edit params" affordance; it must
         // NOT switch the pinned inspector. The panel changes only when the
         // user clicks that affordance (or a container/image body), so moving
@@ -6166,11 +6199,43 @@ function HtmlViewer({
         return;
       }
       if (data.type === 'od-edit-text-commit') {
-        void applyManualEdit({
+        // Keep the apply promise reachable so any teardown (host- or
+        // iframe-initiated) can await it and honor a failed save before tearing
+        // down. It self-clears once resolved, keyed to identity so a newer
+        // commit is never clobbered.
+        const commit = applyManualEdit({
           id: String(data.id),
           kind: 'set-text',
           value: String(data.value),
         }, 'Edit text');
+        manualEditTextCommitInFlightRef.current = commit;
+        void (async () => {
+          try { await commit; } catch { /* failure honored by teardown / surfaced by applyManualEdit */ }
+          if (manualEditTextCommitInFlightRef.current === commit) {
+            manualEditTextCommitInFlightRef.current = null;
+          }
+        })();
+        return;
+      }
+      if (data.type === 'od-edit-text-session') {
+        const sessionId = String(data.id || '');
+        if (data.active) {
+          manualEditTextSessionIdRef.current = sessionId;
+          return;
+        }
+        if (manualEditTextSessionIdRef.current === sessionId) {
+          manualEditTextSessionIdRef.current = null;
+        }
+        const pending = manualEditTextFinishRef.current;
+        if (pending) {
+          // settle() awaits the in-flight commit before resolving the caller's
+          // teardown, so the final edit is never dropped.
+          pending();
+        }
+        // Iframe-driven finishes (Enter / clicking another target) leave the
+        // commit promise in place; it self-clears on resolution, and any later
+        // teardown still awaits it via settlePendingManualEditCommit so a failed
+        // save is never silently torn down.
         return;
       }
     }
@@ -6286,7 +6351,78 @@ function HtmlViewer({
     setManualEditError(null);
   }
 
+  // Ends the iframe's inline text edit and resolves only once it acks (and any
+  // resulting commit has been applied). Callers that tear down edit state must
+  // await this so the final edit is never dropped — the #3647 exit-path bug.
+  // A timeout backstops a detached iframe so teardown can never hang.
+  // Resolves to whether the session ended cleanly: true when there was nothing
+  // to commit or the commit succeeded, false when the pending text commit
+  // failed (applyManualEdit returned false / threw). Callers that tear down
+  // edit state must honor a false result — keep edit mode open and preserve the
+  // error so a failed save never looks like a successful one (#4291 review).
+  function finishManualEditTextSession(commit: boolean): Promise<boolean> {
+    const win = iframeRef.current?.contentWindow;
+    if (!win || !manualEditTextSessionIdRef.current) return Promise.resolve(true);
+    return new Promise<boolean>((resolve) => {
+      let settled = false;
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      const settle = () => {
+        if (settled) return;
+        settled = true;
+        if (timer) { clearTimeout(timer); timer = null; }
+        // Mark the session ended even on the timeout path, so a follow-up
+        // clearManualEditTargetSelection (e.g. from cancel) does not see a live
+        // session and re-finish it with commit:true — turning cancel into save.
+        manualEditTextSessionIdRef.current = null;
+        if (manualEditTextFinishRef.current === settle) manualEditTextFinishRef.current = null;
+        // Wait out the in-flight commit before resolving, so the final edit is
+        // persisted before teardown even if the timeout backstop won the race
+        // against the iframe's ack. The commit clears its own ref on resolution.
+        const commitInFlight = manualEditTextCommitInFlightRef.current;
+        void (async () => {
+          let committed = true;
+          try {
+            // applyManualEdit resolves false when the save fails (or the source
+            // changed externally); surface that so callers can abort teardown.
+            if ((await commitInFlight) === false) committed = false;
+          } catch {
+            committed = false;
+          }
+          resolve(committed);
+        })();
+      };
+      manualEditTextFinishRef.current = settle;
+      win.postMessage({ type: 'od-edit-text-finish', commit }, '*');
+      // Backstop a detached iframe so teardown can never hang; the ack path
+      // clears this timer when it wins.
+      timer = setTimeout(settle, 1500);
+    });
+  }
+
+  // Settles whatever inline text edit is still pending before teardown and
+  // reports whether it committed cleanly: the live session if one is active,
+  // otherwise an in-flight commit left by an iframe-driven finish (Enter /
+  // click-another-target). Returns false on a failed commit so callers keep
+  // edit mode open with the error rather than tearing down through it (#4291).
+  async function settlePendingManualEditCommit(): Promise<boolean> {
+    if (manualEditTextSessionIdRef.current) {
+      return finishManualEditTextSession(true);
+    }
+    const commitInFlight = manualEditTextCommitInFlightRef.current;
+    if (!commitInFlight) return true;
+    try {
+      return (await commitInFlight) !== false;
+    } catch {
+      return false;
+    }
+  }
+
   async function exitManualEditModeAfterFlush(): Promise<boolean> {
+    // A failed text commit must keep edit mode open with its error visible,
+    // rather than tearing down (which would clear the error) and looking saved.
+    if (!(await settlePendingManualEditCommit())) {
+      return false;
+    }
     const ok = await flushManualEditStyleSave();
     if (!ok) return false;
     setManualEditPanelPosition(null);
@@ -6326,8 +6462,15 @@ function HtmlViewer({
   }
 
   async function clearManualEditTargetSelection() {
+    // If an inline edit is still live (e.g. clearing the selection from the
+    // panel mid-edit), commit it first so it is not lost. Keep the selection
+    // and the error if that commit fails.
+    if (!(await settlePendingManualEditCommit())) {
+      return;
+    }
     cancelManualEditStyleDraft();
     selectedManualEditTargetIdRef.current = null;
+    manualEditTextSessionIdRef.current = null;
     setSelectedManualEditTarget(null);
     setManualEditPanelPosition(null);
     setManualEditDraft(emptyManualEditDraft(sourceRef.current ?? ''));
@@ -6339,13 +6482,19 @@ function HtmlViewer({
   // the toolbar toggle's job. Dismiss flushes any in-flight tweak first so
   // nothing is lost; cancel reverts the in-flight unsaved tweak instead.
   async function dismissManualEditPanel() {
+    // Closing the panel must not swallow a failed text commit: keep it open
+    // with the error if the pending edit could not be saved.
+    if (!(await settlePendingManualEditCommit())) {
+      return;
+    }
     const ok = await flushManualEditStyleSave();
     if (!ok) return;
     if (selectedManualEditTarget) void clearManualEditTargetSelection();
     else setManualEditPageStylesOpen(false);
   }
 
-  function cancelManualEditPanel() {
+  async function cancelManualEditPanel() {
+    if (manualEditTextSessionIdRef.current) await finishManualEditTextSession(false);
     if (selectedManualEditTarget) {
       void clearManualEditTargetSelection();
     } else {
@@ -6803,6 +6952,25 @@ function HtmlViewer({
   // from the same artifact output surface as files.
   function openSaveAsTemplateModal() {
     setDownloadMenuOpen(false);
+    // Start the template click→result correlation; the result fires later from
+    // handleSaveAsTemplate once the save actually resolves.
+    const requestId = analytics.newRequestId();
+    templateExportRequestIdRef.current = requestId;
+    templateExportStartedRef.current = performance.now();
+    templateExportResolvedRef.current = false;
+    trackShareOptionPopoverClick(
+      analytics.track,
+      {
+        page_name: 'artifact',
+        area: 'share_option_popover',
+        artifact_id: anonymizeArtifactId({ projectId, fileName: file.name }),
+        artifact_kind: artifactKindToTracking({ fileKind: file.kind ?? null }),
+        element: 'template',
+        project_id: projectId,
+        project_kind: projectKind,
+      },
+      { requestId },
+    );
     const defaultName =
       file.name.replace(/\.html?$/i, '') || t('fileViewer.templateNameDefault');
     setTemplateName(defaultName);
@@ -6811,6 +6979,34 @@ function HtmlViewer({
     setTemplateModalOpen(true);
   }
 
+  // Component-scoped so both the save flow and the modal Cancel button emit
+  // the one terminal result for a template export session.
+  const fireTemplateExportResult = (
+    result: 'success' | 'failed' | 'cancelled',
+    errorCode?: string,
+  ) => {
+    if (templateExportResolvedRef.current) return;
+    templateExportResolvedRef.current = true;
+    const requestId = templateExportRequestIdRef.current ?? analytics.newRequestId();
+    const started = templateExportStartedRef.current || performance.now();
+    trackArtifactExportResult(
+      analytics.track,
+      {
+        page_name: 'artifact',
+        area: 'share_option_popover',
+        artifact_id: anonymizeArtifactId({ projectId, fileName: file.name }),
+        artifact_kind: artifactKindToTracking({ fileKind: file.kind ?? null }),
+        export_format: 'template',
+        result,
+        ...(errorCode ? { error_code: errorCode } : {}),
+        export_duration_ms: Math.round(performance.now() - started),
+        project_id: projectId,
+        project_kind: projectKind,
+      },
+      { requestId },
+    );
+  };
+
   async function handleSaveAsTemplate() {
     const name = templateName.trim();
     if (!name) return;
@@ -6818,6 +7014,11 @@ function HtmlViewer({
     setTemplateNote(null);
     setTemplateSaveError(null);
     let savedName: string | null = null;
+    // Default to failed; flips to success only when the save resolves. The
+    // finally block reports exactly one artifact_export_result(template),
+    // covering the !tpl branch and any thrown error too.
+    let templateOutcome: 'success' | 'failed' = 'failed';
+    let templateErrorCode: string | undefined = 'UNKNOWN';
     try {
       const tpl = await saveTemplate({
         name,
@@ -6826,6 +7027,7 @@ function HtmlViewer({
       });
       if (!tpl) {
         setTemplateSaveError(t('fileViewer.savedTemplateFail'));
+        templateErrorCode = 'SAVE_FAILED';
         return;
       }
       savedName = tpl.name;
@@ -6835,8 +7037,11 @@ function HtmlViewer({
       setTemplateNote(t('fileViewer.savedTemplate', { name: tpl.name }));
       // Show success toast
       setTemplateSavedToast(t('fileViewer.savedTemplate', { name: tpl.name }));
+      templateOutcome = 'success';
+      templateErrorCode = undefined;
     } finally {
       setSavingTemplate(false);
+      fireTemplateExportResult(templateOutcome, templateErrorCode);
       if (savedName) {
         // Auto-clear the note so the menu doesn't keep stale state next open.
         setTimeout(() => setTemplateNote(null), 4000);
@@ -6844,9 +7049,13 @@ function HtmlViewer({
     }
   }
 
-  async function openDeployModal(nextProviderId: WebDeployProviderId = deployProviderId) {
+  async function openDeployModal(
+    nextProviderId: WebDeployProviderId = deployProviderId,
+    intent: 'deploy' | 'social-share' = 'deploy',
+  ) {
     setDeployMenuOpen(false);
     setDeployModalOpen(true);
+    setDeployModalIntent(intent);
     setDeployError(null);
     setDeployActionToast(null);
     setCopiedDeployLink(null);
@@ -6858,7 +7067,7 @@ function HtmlViewer({
     const providerWithDeployment = DEPLOY_PROVIDER_OPTIONS.find(
       (option) => deploymentsByProvider[option.id]?.url?.trim(),
     )?.id;
-    await openDeployModal(providerWithDeployment ?? deployProviderId);
+    await openDeployModal(providerWithDeployment ?? deployProviderId, 'social-share');
   }
 
   async function changeDeployProvider(nextProviderId: WebDeployProviderId) {
@@ -6924,10 +7133,38 @@ function HtmlViewer({
     setDeployError(null);
     setDeployActionToast(null);
     setCopiedDeployLink(null);
+    // Real-deploy analytics: report success only after the provider actually
+    // accepts the publish, failed on any hard error / missing config. This is
+    // distinct from the share-popover "opened" signal (artifact_export_result).
+    const deployStarted = performance.now();
+    const providerForTracking: TrackingDeployProvider =
+      deployProviderId === CLOUDFLARE_PAGES_PROVIDER_ID ? 'cloudflare_pages' : 'vercel';
+    const firstConfigure = !deployConfig?.configured;
+    let savedNewToken = false;
+    const fireDeployResult = (
+      result: 'success' | 'failed' | 'cancelled',
+      errorCode?: string,
+    ) => {
+      trackArtifactDeployResult(analytics.track, {
+        page_name: 'artifact',
+        area: 'deploy_modal',
+        artifact_id: anonymizeArtifactId({ projectId, fileName: file.name }),
+        artifact_kind: artifactKindToTracking({ fileKind: file.kind ?? null }),
+        provider: providerForTracking,
+        result,
+        saved_new_token: savedNewToken,
+        first_configure: firstConfigure,
+        ...(errorCode ? { error_code: errorCode } : {}),
+        deploy_duration_ms: Math.round(performance.now() - deployStarted),
+        project_id: projectId,
+        project_kind: projectKind,
+      });
+    };
     try {
       const cloudflarePagesSelection = buildCloudflarePagesDeploySelection();
       const typedToken = deployToken.trim();
       const hasNewToken = typedToken && typedToken !== deployConfig?.tokenMask;
+      savedNewToken = Boolean(hasNewToken);
       const cloudflareHints = cloudflareConfigHintsFromForm();
       const cloudflareHintsChanged = deployProviderId === CLOUDFLARE_PAGES_PROVIDER_ID && Boolean(
         cloudflareHints?.lastZoneId !== deployConfig?.cloudflarePages?.lastZoneId ||
@@ -6943,7 +7180,12 @@ function HtmlViewer({
         !deployConfig?.configured;
       if (needsConfigSave) {
         const nextConfig = await saveDeployConfig();
-        if (!nextConfig) return;
+        if (!nextConfig) {
+          // saveDeployConfig bailed (missing/invalid token, e.g. user clicked
+          // Deploy without entering a key) — count as a failed deploy attempt.
+          fireDeployResult('failed', 'CONFIG_REQUIRED');
+          return;
+        }
         if (!nextConfig?.configured) {
           const option = getDeployProviderOption(deployProviderId);
           throw new Error(t(option.tokenRequiredKey, { provider: t(option.labelKey) }));
@@ -6958,6 +7200,7 @@ function HtmlViewer({
       setDeployment(next);
       setDeployResult(next);
       if (deployResultState(next.status) !== 'failed') {
+        fireDeployResult('success');
         setDeploySavedToast({
           message: t('fileViewer.deploySuccessToast'),
           details: t('fileViewer.deploySuccessToastDetails', {
@@ -6965,18 +7208,26 @@ function HtmlViewer({
             url: next.url,
           }),
         });
+      } else {
+        fireDeployResult('failed', `STATUS_${next.status ?? 'UNKNOWN'}`);
       }
     } catch (err) {
       const option = getDeployProviderOption(deployProviderId);
       const message = err instanceof Error
         ? err.message
         : t('fileViewer.deployProviderFailed', { provider: t(option.labelKey) });
-      if (message === t(option.tokenRequiredKey, { provider: t(option.labelKey) })) {
+      const tokenRequired =
+        message === t(option.tokenRequiredKey, { provider: t(option.labelKey) });
+      if (tokenRequired) {
         setDeployActionToast(message);
         deployTokenInputRef.current?.focus();
       } else {
         setDeployError(message);
       }
+      fireDeployResult(
+        'failed',
+        tokenRequired ? 'CONFIG_REQUIRED' : err instanceof Error ? err.name : 'UNKNOWN',
+      );
     } finally {
       setDeploying(false);
       setDeployPhase('idle');
@@ -7595,6 +7846,25 @@ function HtmlViewer({
     flushSync(() => {
       setDownloadMenuOpen(false);
     });
+    // Start the image export's own click→result correlation (separate modal
+    // flow, so it can't ride fireShareExport).
+    const requestId = analytics.newRequestId();
+    imageExportRequestIdRef.current = requestId;
+    imageExportStartedRef.current = performance.now();
+    imageExportResolvedRef.current = false;
+    trackShareOptionPopoverClick(
+      analytics.track,
+      {
+        page_name: 'artifact',
+        area: 'share_option_popover',
+        artifact_id: anonymizeArtifactId({ projectId, fileName: file.name }),
+        artifact_kind: artifactKindToTracking({ fileKind: file.kind ?? null }),
+        element: 'image',
+        project_id: projectId,
+        project_kind: projectKind,
+      },
+      { requestId },
+    );
     setImageExportError(null);
     setImageExportPreparedBlob(null);
     imageExportSnapshotDataUrlRef.current = null;
@@ -7609,17 +7879,50 @@ function HtmlViewer({
     void prepareImageExportBlob(format);
   };
 
+  // Component-scoped so both the save flow and the modal Cancel button can
+  // emit the one terminal result for an image export session.
+  const fireImageExportResult = (
+    result: 'success' | 'failed' | 'cancelled',
+    errorCode?: string,
+  ) => {
+    if (imageExportResolvedRef.current) return;
+    imageExportResolvedRef.current = true;
+    const requestId = imageExportRequestIdRef.current ?? analytics.newRequestId();
+    const started = imageExportStartedRef.current || performance.now();
+    trackArtifactExportResult(
+      analytics.track,
+      {
+        page_name: 'artifact',
+        area: 'share_option_popover',
+        artifact_id: anonymizeArtifactId({ projectId, fileName: file.name }),
+        artifact_kind: artifactKindToTracking({ fileKind: file.kind ?? null }),
+        export_format: 'image',
+        result,
+        ...(errorCode ? { error_code: errorCode } : {}),
+        export_duration_ms: Math.round(performance.now() - started),
+        project_id: projectId,
+        project_kind: projectKind,
+      },
+      { requestId },
+    );
+  };
+
   async function handleImageExportSave() {
     const prepared = imageExportPreparedBlob;
     if (!prepared || prepared.format !== imageExportFormat) {
       setImageExportError(t('fileViewer.exportImageFailed'));
+      fireImageExportResult('failed', 'BLOB_NOT_READY');
       return;
     }
     setImageExportBusy(true);
     setImageExportError(null);
     try {
       const target = await prepareImageExportTarget(exportTitle, imageExportFormat, { useNativePicker: false });
-      if (!target) return;
+      if (!target) {
+        // Not a terminal state: the modal stays open so the user can retry or
+        // Cancel. The cancelled result is emitted by the Cancel button.
+        return;
+      }
       const preparedDataUrl = imageExportSnapshotDataUrlRef.current;
       if (target.method === 'download' && imageExportFormat === 'png' && preparedDataUrl) {
         downloadImageDataUrl(preparedDataUrl, target.filename);
@@ -7627,6 +7930,7 @@ function HtmlViewer({
         await target.save(prepared.blob);
       }
       setImageExportModalOpen(false);
+      fireImageExportResult('success');
       setImageExportSavedToast({
         message: target.method === 'picker'
           ? t('fileViewer.exportImageSaved')
@@ -7638,6 +7942,7 @@ function HtmlViewer({
     } catch (err) {
       console.warn('[exportAsImage] failed to save snapshot:', err);
       setImageExportError(t('fileViewer.exportImageFailed'));
+      fireImageExportResult('failed', err instanceof Error ? err.name : 'UNKNOWN');
     } finally {
       setImageExportBusy(false);
     }
@@ -7881,12 +8186,24 @@ function HtmlViewer({
         : t('fileViewer.copyShareLink');
   const shareMenuLabel = t('fileViewer.shareLabel');
   const deployMenuLabel = t('fileViewer.deployModalTitle') || 'Deploy';
+  const isSocialShareDeployModal = deployModalIntent === 'social-share';
+  const deployModalKicker = isSocialShareDeployModal
+    ? t('socialShare.projectSection')
+    : deployProviderLabel;
+  const deployModalTitle = isSocialShareDeployModal
+    ? t('socialShare.publishPageTitle')
+    : t('fileViewer.deployToProvider', { provider: deployProviderLabel });
+  const deployModalSubtitle = isSocialShareDeployModal
+    ? t('socialShare.publishPageSubtitle')
+    : t('fileViewer.deployModalSubtitle');
   const deployButtonLabel =
     deployPhase === 'deploying'
       ? t('fileViewer.deployingToProvider', { provider: deployProviderLabel })
       : deployPhase === 'preparing-link'
         ? t('fileViewer.preparingPublicLink')
-        : deployMenuLabel;
+        : isSocialShareDeployModal
+          ? t('socialShare.publishPageTitle')
+          : deployMenuLabel;
   const copyDeployLabel = (url: string) =>
     copiedDeployLink === url.trim()
       ? t('fileViewer.copied')
@@ -7942,7 +8259,7 @@ function HtmlViewer({
         void dismissManualEditPanel();
       }}
       onCancelDraft={() => {
-        cancelManualEditPanel();
+        void cancelManualEditPanel();
       }}
       onSaveDraft={() => {
         void dismissManualEditPanel();
@@ -8219,7 +8536,7 @@ function HtmlViewer({
               />
             </>
           ) : null}
-          {showPreviewToolbarControls && effectiveDeck ? (
+          {showPreviewToolbarControls && showDeckNavigation ? (
             <span
               className="deck-nav"
               role="group"
@@ -8489,6 +8806,21 @@ function HtmlViewer({
                           role="menuitem"
                           title={shareUnavailableHint}
                           onClick={() => {
+                            // Share-intent-but-blocked signal: user wants a
+                            // share link but nothing is deployed yet.
+                            trackShareOptionPopoverClick(
+                              analytics.track,
+                              {
+                                page_name: 'artifact',
+                                area: 'share_option_popover',
+                                artifact_id: anonymizeArtifactId({ projectId, fileName: file.name }),
+                                artifact_kind: artifactKindToTracking({ fileKind: file.kind ?? null }),
+                                element: 'publish_required_guide',
+                                project_id: projectId,
+                                project_kind: projectKind,
+                              },
+                              { requestId: analytics.newRequestId() },
+                            );
                             setShareGuideToast(shareUnavailableHint);
                           }}
                         >
@@ -8513,13 +8845,11 @@ function HtmlViewer({
                           className="share-menu-item"
                           role="menuitem"
                           onClick={() => {
-                            const format =
-                              option.id === 'cloudflare-pages'
-                                ? 'cloudflare_pages'
-                                : option.id === 'vercel-self'
-                                  ? 'vercel'
-                                  : 'vercel';
-                            fireShareExport(format, () => openDeployModal(option.id));
+                            // Just open the deploy modal. The real publish is
+                            // tracked by artifact_deploy_result from
+                            // deployToSelectedProvider — no "popover opened"
+                            // export event here.
+                            void openDeployModal(option.id);
                           }}
                         >
                           <span className="share-menu-icon">
@@ -8538,7 +8868,10 @@ function HtmlViewer({
                         role="menuitem"
                         onClick={() => {
                           setDeployMenuOpen(false);
-                          fireShareExport('vercel', () => openSocialShareFlow());
+                          // Deploy-then-share also routes through the deploy
+                          // modal; the real publish is tracked by
+                          // artifact_deploy_result, not an export event.
+                          void openSocialShareFlow();
                         }}
                       >
                         <span className="share-menu-icon">
@@ -8690,9 +9023,7 @@ function HtmlViewer({
                     role="menuitem"
                     disabled={savingTemplate}
                     onClick={() => {
-                      fireShareExport('template', () => {
-                        openSaveAsTemplateModal();
-                      });
+                      openSaveAsTemplateModal();
                     }}
                   >
                     <span className="share-menu-icon"><RemixIcon name="file-copy-line" size={15} /></span>
@@ -9125,6 +9456,9 @@ function HtmlViewer({
                 className="ghost-link button-like"
                 disabled={imageExportBusy}
                 onClick={() => {
+                  // User dismissed the image export modal without saving —
+                  // close the ui_click(image)→result funnel as cancelled.
+                  fireImageExportResult('cancelled', 'MODAL_DISMISSED');
                   setImageExportModalOpen(false);
                   setImageExportError(null);
                 }}
@@ -9184,6 +9518,9 @@ function HtmlViewer({
                 className="ghost-link button-like"
                 disabled={savingTemplate}
                 onClick={() => {
+                  // Dismissed without saving — close the ui_click(template)→
+                  // result funnel as cancelled.
+                  fireTemplateExportResult('cancelled', 'MODAL_DISMISSED');
                   setTemplateModalOpen(false);
                   setTemplateSaveError(null);
                 }}
@@ -9216,9 +9553,9 @@ function HtmlViewer({
           <div className="modal deploy-modal deploy-flow-modal" role="dialog" aria-modal="true">
             <div className="deploy-flow-modal__scroll">
               <div className="modal-head">
-                <div className="kicker">{deployProviderLabel}</div>
-                <h2>{t('fileViewer.deployToProvider', { provider: deployProviderLabel })}</h2>
-                <p className="subtitle">{t('fileViewer.deployModalSubtitle')}</p>
+                <div className="kicker">{deployModalKicker}</div>
+                <h2>{deployModalTitle}</h2>
+                <p className="subtitle">{deployModalSubtitle}</p>
               </div>
               <div className="deploy-form">
                 <div className={`deploy-social-share${activeProjectSocialShare ? '' : ' is-locked'}${socialShareBlockedState ? ` is-${socialShareBlockedState}` : ''}`}>

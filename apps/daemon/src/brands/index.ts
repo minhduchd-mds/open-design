@@ -25,7 +25,6 @@ import type {
   BrandDetailResponse,
   BrandFinalizeResponse,
   BrandMeta,
-  BrandStatus,
   BrandSummary,
   ProjectMetadata,
 } from '@open-design/contracts';
@@ -36,7 +35,7 @@ import {
   linkUserDesignSystemProject,
   updateUserDesignSystem,
   type UserDesignSystemInput,
-} from '../design-systems.js';
+} from '../design-systems/index.js';
 import {
   getProject,
   insertConversation,
@@ -116,6 +115,17 @@ export interface StartBrandExtractionOptions {
    *  extraction (tests inject a stub to stay offline). Defaults to the live
    *  network prefetch. */
   prefetch?: PrefetchFn;
+  /** Upper bound on how long the start response will WAIT for the synchronous
+   *  programmatic finalize before returning and letting it finish in the
+   *  background. Fast origins still finalize within the budget (the instant
+   *  "aha"); slow / blocked origins return immediately on a skeleton and the
+   *  finalize continues in the background. Defaults to
+   *  `BRAND_PROGRAMMATIC_SYNC_BUDGET_MS`. */
+  programmaticSyncBudgetMs?: number;
+  /** Test/observability hook invoked with the background programmatic-extraction
+   *  promise whenever the start response returns before that work settles, so
+   *  callers (tests) can await completion deterministically. */
+  onBackgroundExtraction?: (settled: Promise<unknown>) => void;
 }
 
 export interface StartBrandExtractionResult {
@@ -123,12 +133,6 @@ export interface StartBrandExtractionResult {
   projectId: string;
   conversationId: string;
   sourceUrl: string;
-  /** `ready` when the synchronous programmatic pass finalized + registered a
-   *  design system before returning; `extracting` when it was skipped or did
-   *  not complete and the agent still needs to drive the extraction. */
-  status: BrandStatus;
-  designSystemId?: string;
-  brandName?: string;
 }
 
 /** Normalize a user-typed URL: prepend https:// when no scheme is present;
@@ -201,7 +205,10 @@ export async function startBrandExtraction(
     brandSourceUrl: url,
   };
   const name = `${host} Design System`;
-  const pendingPrompt = brandExtractionPrompt({ url, brandId: id, host });
+  const runProgrammatic = Boolean(opts.userDesignSystemsRoot);
+  const pendingPrompt = runProgrammatic
+    ? brandExtractionFallbackPrompt({ url, brandId: id, host })
+    : brandExtractionPrompt({ url, brandId: id, host });
   insertProject(db, {
     id: projectId,
     name,
@@ -235,7 +242,6 @@ export async function startBrandExtraction(
   // network harvest here would only add latency. Otherwise (legacy / tests),
   // run the bounded parallel seed harvest so the first paint already shows a
   // real logo / palette / fonts / cover imagery before the agent measures.
-  const runProgrammatic = Boolean(opts.userDesignSystemsRoot);
   const seedBrand: Record<string, unknown> = { name: host, sourceUrl: url, colors: [], typography: {} };
   if (!runProgrammatic) {
     try {
@@ -282,7 +288,6 @@ export async function startBrandExtraction(
   // agent's auto-sent prompt then runs as the async AI enrichment pass. Bounded
   // and best-effort: a slow / blocked site (or any failure) leaves the brand
   // `extracting` and the agent drives the extraction from the scaffold instead.
-  let finalized: BrandFinalizeResponse | null = null;
   if (runProgrammatic && opts.userDesignSystemsRoot) {
     const programmaticOptions: RunProgrammaticExtractionOptions = {
       id,
@@ -298,28 +303,44 @@ export async function startBrandExtraction(
     };
     if (opts.dataDir) programmaticOptions.dataDir = opts.dataDir;
     if (opts.prefetch) programmaticOptions.prefetch = opts.prefetch;
-    try {
-      finalized = await withTimeout(
-        runProgrammaticExtraction(programmaticOptions),
-        PROGRAMMATIC_EXTRACT_TIMEOUT_MS,
-      );
-    } catch (err) {
+
+    // The full programmatic finalize (harvest + synthesize + register) keeps
+    // running to completion — but the start response only WAITS for it up to a
+    // short budget. A fast origin finalizes within the budget so the caller
+    // still lands on a ready, applyable design system (the instant "aha"); a
+    // slow / blocked origin returns immediately on the "Extracting…" skeleton
+    // and the finalize sediments the design system in the background, after
+    // which the next `GET /api/brands/:id` (or a `preview`/`finalize` call)
+    // reflects it. Best-effort: a failure leaves the brand `extracting` for the
+    // agent to drive. PROGRAMMATIC_EXTRACT_TIMEOUT_MS still caps the background
+    // work so a hanging origin can never leak a forever-pending promise.
+    const settled = withTimeout(
+      runProgrammaticExtraction(programmaticOptions),
+      PROGRAMMATIC_EXTRACT_TIMEOUT_MS,
+    ).catch((err) => {
       console.warn(`[brand] programmatic extraction failed for ${id} — falling back to agent`, err);
-    }
+      return null;
+    });
+    const budget = opts.programmaticSyncBudgetMs ?? BRAND_PROGRAMMATIC_SYNC_BUDGET_MS;
+    const finishedInBudget = await Promise.race([
+      settled.then(() => true),
+      sleep(budget).then(() => false),
+    ]);
+    if (!finishedInBudget) opts.onBackgroundExtraction?.(settled);
   }
 
-  // `ready` only when phase 1 actually finalized + registered a design system,
-  // so the caller can tell a finished result from the `extracting` scaffold and
-  // decide whether to present it as done or hand off to the agent.
-  return {
-    id,
-    projectId,
-    conversationId,
-    sourceUrl: url,
-    status: finalized ? 'ready' : 'extracting',
-    ...(finalized?.designSystemId ? { designSystemId: finalized.designSystemId } : {}),
-    brandName: finalized?.brand?.name ?? host,
-  };
+  return { id, projectId, conversationId, sourceUrl: url };
+}
+
+/** How long `startBrandExtraction` waits for the synchronous programmatic
+ *  finalize before returning and letting it complete in the background. Tuned
+ *  to keep navigation snappy: fast sites still finalize in time for the instant
+ *  "aha", slow ones never block the user from entering the project. */
+const BRAND_PROGRAMMATIC_SYNC_BUDGET_MS = 1_200;
+
+/** Resolve after `ms`. */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** Upper bound on the synchronous programmatic-first extraction so a slow or
@@ -566,6 +587,9 @@ async function finalizeBrandCore(opts: FinalizeBrandCoreOptions): Promise<BrandF
 
   patchMeta(brandsRoot, id, {
     status: 'ready',
+    error: undefined,
+    extractionTerminalRunId: undefined,
+    extractionTerminalError: undefined,
     designSystemId,
     systemFiles: systemBuild.files,
     projectId,
@@ -614,8 +638,8 @@ export interface RunProgrammaticExtractionOptions {
  * "aha". The async AI enrichment pass then refines it to full fidelity and
  * re-finalizes in place (reusing the same `user:<id>` design system).
  *
- * Best-effort: a fully blocked / unreachable origin (prefetch returns null)
- * yields `null` and the brand stays `extracting`, so the AI pass can take over.
+ * Best-effort: a blocked, too-thin, or unreachable origin yields `null` and
+ * the brand stays `extracting`, so the AI pass can take over.
  */
 export async function runProgrammaticExtraction(
   opts: RunProgrammaticExtractionOptions,
@@ -626,10 +650,19 @@ export async function runProgrammaticExtraction(
 
   const material = await prefetch(meta.sourceUrl, brandDir);
   if (!material) return null;
+  if (material.blocked || material.thin) return null;
 
   const brand = brandFromMaterial(material, meta.sourceUrl);
   const guideMd = brandGuideMd(brand);
-  return finalizeBrandCore({ ...opts, brand, guideMd });
+  const finalized = await finalizeBrandCore({ ...opts, brand, guideMd });
+  updateProject(opts.db, opts.projectId, {
+    pendingPrompt: brandExtractionPrompt({
+      url: meta.sourceUrl,
+      brandId: id,
+      host: hostnameOf(meta.sourceUrl),
+    }),
+  });
+  return finalized;
 }
 
 export interface RenderBrandPreviewOptions {
@@ -739,6 +772,27 @@ function brandExtractionPrompt(input: { url: string; brandId: string; host: stri
     '3. REBUILD & RE-REGISTER — when `brand.json` is enriched, run `od brand finalize ' + input.brandId + '` (add `--json` for machine output). That re-validates it, re-derives the light/dark/compact design tokens and the six design-system artifacts (landing, deck, poster, email, newsletter, form), and UPDATES the already-registered design system in place (same id — never a duplicate), so every template that already uses it picks up the sharper result. Fix `brand.json` and re-run if it reports a validation error.',
     '',
     'Finish by pointing the user at the enriched brand.html (logo, palette, typography, voice) and the design-system assets they can now preview, and confirm the design system was updated.',
+  ].join('\n');
+}
+
+/** Prompt used while the programmatic harvest is not known-good yet. It must
+ * not claim the design system is already ready: blocked/thin sites stay on
+ * this path and need the agent to do the initial extraction from the scaffold. */
+function brandExtractionFallbackPrompt(input: { url: string; brandId: string; host: string }): string {
+  return [
+    `This is a DESIGN SYSTEM EXTRACTION task for ${input.host}.`,
+    `Source URL: ${input.url}`,
+    `Brand id: ${input.brandId}`,
+    '',
+    'The daemon opened a live extraction scaffold (`brand.html`) in the project, but a ready design system is NOT guaranteed yet. Treat the page as an empty/in-progress workspace until you have measured the target site and written `brand.json`; do not assume a registered `brand.json` or design system already exists.',
+    '',
+    'Use the `brand-extract` skill and the `agent-browser` tool to drive and observe the target site. Measure before you synthesize: capture the real colors, fonts, logo candidates, representative imagery, voice, and layout posture. If the page is an anti-bot verification interstitial, emit a `<question-form>` asking the user to complete verification in the browser, then continue after they respond.',
+    '',
+    'Write `brand.json` as soon as you have the name, a couple of measured colors, and a logo candidate, then run `od brand preview ' + input.brandId + '` so the scaffold fills in progressively. Keep updating `brand.json`, `BRAND.md`, saved `logos/`, fonts, and `imagery/` samples as you measure each field group.',
+    '',
+    'When the kit is complete and validates, run `od brand finalize ' + input.brandId + '` (add `--json` for machine output). Fix validation errors and re-run finalize until the brand is registered and the design-system assets are ready.',
+    '',
+    'Finish by pointing the user at the completed brand.html and the reusable design-system assets.',
   ].join('\n');
 }
 

@@ -10,7 +10,7 @@ import { runConnectorsToolCli } from './tools-connectors-cli.js';
 import { runDesignSystemsToolCli } from './tools-design-systems-cli.js';
 import { DESIGN_SYSTEMS_USAGE, isDesignSystemsHelpArg } from './design-systems-cli-help.js';
 import { BRAND_USAGE, isBrandHelpArg } from './brands-cli-help.js';
-import { parseDesignSystemRenameArgs } from './design-system-rename-args.js';
+import { parseDesignSystemRenameArgs } from './design-systems/rename-args.js';
 import { runLiveArtifactsToolCli } from './tools-live-artifacts-cli.js';
 import { splitResearchSubcommand } from './research/cli-args.js';
 import { resolveDaemonUrl } from './daemon-url.js';
@@ -1367,7 +1367,7 @@ function exitWithStructuredError({ code, message, data }) {
 //   { error: { code, message, ... } }  — newer routes using sendApiError
 //   { error: '<message>' }             — older flat-string routes
 //                                         (e.g. POST /api/templates at
-//                                         project-routes.ts:667-680)
+//                                         routes/project/index.ts)
 // Normalize so a flat-string body still surfaces its message to the
 // structured envelope instead of collapsing to `HTTP <status>: `, which
 // would drop the only diagnostic the daemon actually returned to a
@@ -5628,6 +5628,8 @@ async function runRun(args) {
   od run cancel <runId>                     Request cancellation.
   od run list   [--project <id>]            List recent runs.
   od run info   <runId>                     One run's status.
+  od run result-package <runId> [--json]    Inspect run outputs and workspace
+                                            provenance without applying them.
 
 Common options:
   --daemon-url <url>   Open Design daemon HTTP base.
@@ -5663,6 +5665,30 @@ Common options:
       if (!resp.ok) return structuredHttpFailure(resp, 'run-not-found');
       const data = await resp.json();
       process.stdout.write(JSON.stringify(data, null, 2) + '\n');
+      return;
+    }
+    case 'result-package': {
+      const id = rest.find((a) => !a.startsWith('-'));
+      if (!id) {
+        console.error('Usage: od run result-package <runId> [--json]');
+        process.exit(2);
+      }
+      const resp = await fetch(`${base}/api/runs/${encodeURIComponent(id)}/result-package`);
+      if (!resp.ok) return structuredHttpFailure(resp, 'run-not-found');
+      const data = await resp.json();
+      if (flags.json) return process.stdout.write(JSON.stringify(data, null, 2) + '\n');
+      const run = data?.run ?? {};
+      const workspace = data?.workspace ?? {};
+      const storage = workspace.storage ?? {};
+      const provenance = workspace.provenance ?? null;
+      console.log(`run\t${run.id ?? id}\t${run.status ?? '-'}`);
+      console.log(`workspace\t${storage.kind ?? '-'}\t${storage.baseDir ?? '-'}`);
+      console.log(`provenance\t${provenance?.kind ?? '-'}\twriteback=${provenance?.writeback ?? '-'}`);
+      console.log(`project\t${data?.project?.id ?? '-'}\tfiles=${data?.project?.fileCount ?? 0}`);
+      const artifacts = Array.isArray(data?.artifacts) ? data.artifacts : [];
+      for (const artifact of artifacts) {
+        console.log(`artifact\t${artifact.file ?? '-'}\t${artifact.kind ?? '-'}\t${artifact.title ?? '-'}`);
+      }
       return;
     }
     case 'cancel': {
@@ -7369,7 +7395,7 @@ Imports a shadcn registry item as an Open Design design system.
 // Renames an editable (user-created) design system via PATCH
 // /api/design-systems/:id. Built-in systems are read-only and the daemon
 // returns 404, surfaced here as a structured failure. Arg parsing lives in
-// design-system-rename-args.ts so it can be unit-tested.
+// rename-args.ts so it can be unit-tested.
 async function runDesignSystemRename(args) {
   if (args.length === 0 || args[0] === 'help' || args.includes('--help') || args.includes('-h')) {
     console.log(`Usage:

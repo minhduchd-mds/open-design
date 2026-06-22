@@ -16,14 +16,16 @@ import {
   renderBrandPreviewIntoProject,
   startBrandExtraction,
 } from '../src/brands/index.js';
+import { patchMeta } from '../src/brands/store.js';
 import { ensureLogoFallback } from '../src/brands/logo-fallback.js';
-import { listDesignSystems } from '../src/design-systems.js';
+import { listDesignSystems } from '../src/design-systems/index.js';
 import {
   adoptExistingImagery,
   findImageRefs,
   imageSize,
   type ImagerySlot,
 } from '../src/brands/imagery-fallback.js';
+import { isChallengePage } from '../src/brands/prefetch.js';
 
 // Real repo skills root so the bundled brand-kit template resolves.
 const SKILLS_ROOT = path.resolve(
@@ -38,6 +40,20 @@ const NO_LOGO_FALLBACK = async () => ({ changed: false });
 // Injected imagery harvester that does nothing — keeps finalize offline (the
 // real fallback fetches the site's cover/hero images over the network).
 const NO_IMAGERY_FALLBACK = async () => ({ changed: false });
+
+// Injected palette/typography harvester that does nothing — keeps the engine
+// tests offline except for cases that explicitly stub a harvester behavior.
+const NO_SEED_FALLBACK = async () => ({ changed: false });
+
+function startOfflineBrandExtraction(
+  opts: Parameters<typeof startBrandExtraction>[0],
+): ReturnType<typeof startBrandExtraction> {
+  return startBrandExtraction({
+    seedFallback: NO_SEED_FALLBACK,
+    imageryFallback: NO_IMAGERY_FALLBACK,
+    ...opts,
+  });
+}
 
 /** Build a tiny but structurally-valid PNG buffer with the given dimensions so
  *  the imagery size gate decodes a real width/height (header-only). */
@@ -97,7 +113,7 @@ describe('agent-driven brand extraction engine', () => {
   it('startBrandExtraction reserves the brand and seeds a live brand.html tab', async () => {
     const db = openDatabase(tempDir, { dataDir: tempDir });
 
-    const result = await startBrandExtraction({
+    const result = await startOfflineBrandExtraction({
       url: 'acme.com',
       brandsRoot,
       projectsRoot,
@@ -138,13 +154,13 @@ describe('agent-driven brand extraction engine', () => {
   it('rejects a non-http(s) URL', async () => {
     const db = openDatabase(tempDir, { dataDir: tempDir });
     await expect(
-      startBrandExtraction({ url: 'ftp://nope', brandsRoot, projectsRoot, skillsRoot: SKILLS_ROOT, db }),
+      startOfflineBrandExtraction({ url: 'ftp://nope', brandsRoot, projectsRoot, skillsRoot: SKILLS_ROOT, db }),
     ).rejects.toThrow(/valid http/i);
   });
 
   it('renderBrandPreviewIntoProject re-renders brand.html from a partial brand.json', async () => {
     const db = openDatabase(tempDir, { dataDir: tempDir });
-    const started = await startBrandExtraction({
+    const started = await startOfflineBrandExtraction({
       url: 'acme.com',
       brandsRoot,
       projectsRoot,
@@ -182,13 +198,19 @@ describe('agent-driven brand extraction engine', () => {
 
   it('finalizeBrand registers the kit, marks it ready, and lights up the assets', async () => {
     const db = openDatabase(tempDir, { dataDir: tempDir });
-    const started = await startBrandExtraction({
+    const started = await startOfflineBrandExtraction({
       url: 'acme.com',
       brandsRoot,
       projectsRoot,
       skillsRoot: SKILLS_ROOT,
       db,
       logoFallback: NO_LOGO_FALLBACK,
+    });
+    patchMeta(brandsRoot, started.id, {
+      status: 'failed',
+      error: 'Old extraction failed.',
+      extractionTerminalRunId: 'run-old-failed',
+      extractionTerminalError: 'Old extraction failed.',
     });
 
     // Simulate the agent writing the complete kit into the backing project.
@@ -217,6 +239,9 @@ describe('agent-driven brand extraction engine', () => {
 
     const detail = readBrandDetail(brandsRoot, started.id);
     expect(detail?.meta.status).toBe('ready');
+    expect(detail?.meta.error).toBeUndefined();
+    expect(detail?.meta.extractionTerminalRunId).toBeUndefined();
+    expect(detail?.meta.extractionTerminalError).toBeUndefined();
     expect(detail?.meta.designSystemId).toBe(finalized.designSystemId);
 
     const project = getProject(db, started.projectId);
@@ -235,7 +260,7 @@ describe('agent-driven brand extraction engine', () => {
 
   it('finalizeBrand is idempotent — re-finalizing reuses the brand design system', async () => {
     const db = openDatabase(tempDir, { dataDir: tempDir });
-    const started = await startBrandExtraction({
+    const started = await startOfflineBrandExtraction({
       url: 'acme.com',
       brandsRoot,
       projectsRoot,
@@ -287,7 +312,7 @@ describe('agent-driven brand extraction engine', () => {
 
   it('finalizeBrand fails clearly when the agent has not written brand.json yet', async () => {
     const db = openDatabase(tempDir, { dataDir: tempDir });
-    const started = await startBrandExtraction({
+    const started = await startOfflineBrandExtraction({
       url: 'acme.com',
       brandsRoot,
       projectsRoot,
@@ -310,7 +335,7 @@ describe('agent-driven brand extraction engine', () => {
 
   it('preview renders the imagery gallery + font tiles from imagery.samples', async () => {
     const db = openDatabase(tempDir, { dataDir: tempDir });
-    const started = await startBrandExtraction({
+    const started = await startOfflineBrandExtraction({
       url: 'acme.com',
       brandsRoot,
       projectsRoot,
@@ -358,7 +383,7 @@ describe('agent-driven brand extraction engine', () => {
 
   it('preview falls back to a logo alternate when logo.primary is empty', async () => {
     const db = openDatabase(tempDir, { dataDir: tempDir });
-    const started = await startBrandExtraction({
+    const started = await startOfflineBrandExtraction({
       url: 'acme.com',
       brandsRoot,
       projectsRoot,
@@ -408,7 +433,7 @@ describe('agent-driven brand extraction engine', () => {
       return { changed: true };
     };
 
-    const started = await startBrandExtraction({
+    const started = await startOfflineBrandExtraction({
       url: 'acme.com',
       brandsRoot,
       projectsRoot,
@@ -426,7 +451,7 @@ describe('agent-driven brand extraction engine', () => {
 
   it('finalizeBrand adopts on-disk logo files when the agent left logo.primary empty', async () => {
     const db = openDatabase(tempDir, { dataDir: tempDir });
-    const started = await startBrandExtraction({
+    const started = await startOfflineBrandExtraction({
       url: 'acme.com',
       brandsRoot,
       projectsRoot,
@@ -492,7 +517,7 @@ describe('agent-driven brand extraction engine', () => {
 
   it('preview adopts on-disk project logos so the live page is never logo-less', async () => {
     const db = openDatabase(tempDir, { dataDir: tempDir });
-    const started = await startBrandExtraction({
+    const started = await startOfflineBrandExtraction({
       url: 'acme.com',
       brandsRoot,
       projectsRoot,
@@ -535,7 +560,7 @@ describe('agent-driven brand extraction engine', () => {
 
   it('finalizeBrand mirrors imagery/ and renders the gallery on the ready page', async () => {
     const db = openDatabase(tempDir, { dataDir: tempDir });
-    const started = await startBrandExtraction({
+    const started = await startOfflineBrandExtraction({
       url: 'acme.com',
       brandsRoot,
       projectsRoot,
@@ -654,7 +679,7 @@ describe('agent-driven brand extraction engine', () => {
 
   it('finalizeBrand runs the imagery fallback when the agent saved no samples', async () => {
     const db = openDatabase(tempDir, { dataDir: tempDir });
-    const started = await startBrandExtraction({
+    const started = await startOfflineBrandExtraction({
       url: 'acme.com',
       brandsRoot,
       projectsRoot,
@@ -765,7 +790,7 @@ describe('agent-driven brand extraction engine', () => {
       };
     };
 
-    const result = await startBrandExtraction({
+    const result = await startOfflineBrandExtraction({
       url: 'acme.com',
       brandsRoot,
       projectsRoot,
@@ -815,7 +840,7 @@ describe('agent-driven brand extraction engine', () => {
 
     // Prefetch returns null (fully blocked / unreachable origin) → no design
     // system is built and the agent takes over from the scaffold.
-    const result = await startBrandExtraction({
+    const result = await startOfflineBrandExtraction({
       url: 'acme.com',
       brandsRoot,
       projectsRoot,
@@ -833,5 +858,163 @@ describe('agent-driven brand extraction engine', () => {
 
     const html = readFileSync(path.join(projectsRoot, result.projectId, 'brand.html'), 'utf8');
     expect(html).toContain('"status":"extracting"');
+  });
+
+  it('does not finalize blocked or thin programmatic harvests as ready', async () => {
+    const db = openDatabase(tempDir, { dataDir: tempDir });
+
+    for (const [host, flags] of [
+      ['blocked.example', { blocked: true, thin: true }],
+      ['thin.example', { blocked: false, thin: true }],
+    ] as const) {
+      const result = await startOfflineBrandExtraction({
+        url: host,
+        brandsRoot,
+        projectsRoot,
+        skillsRoot: SKILLS_ROOT,
+        db,
+        userDesignSystemsRoot,
+        prefetch: async () => ({
+          url: `https://${host}/`,
+          finalUrl: `https://${host}/`,
+          siteName: 'Fallback',
+          title: '',
+          description: '',
+          colors: [
+            { hex: '#ffffff', count: 50, extreme: true },
+            { hex: '#111111', count: 30, extreme: true },
+          ],
+          fonts: [],
+          fontFaceFamilies: [],
+          googleFontsUrls: [],
+          fontFiles: [],
+          logos: [],
+          headings: [],
+          paragraphs: [],
+          navLabels: [],
+          extraPages: [],
+          screenshot: null,
+          materialMd: '',
+          ...flags,
+        }),
+        logoFallback: NO_LOGO_FALLBACK,
+        imageryFallback: NO_IMAGERY_FALLBACK,
+      });
+
+      const detail = readBrandDetail(brandsRoot, result.id);
+      expect(detail?.meta.status).toBe('extracting');
+      expect(detail?.meta.designSystemId).toBeUndefined();
+      const html = readFileSync(path.join(projectsRoot, result.projectId, 'brand.html'), 'utf8');
+      expect(html).toContain('"status":"extracting"');
+
+      const project = getProject(db, result.projectId);
+      expect(project?.pendingPrompt ?? '').toContain('DESIGN SYSTEM EXTRACTION');
+      expect(project?.pendingPrompt ?? '').toContain('ready design system is NOT guaranteed yet');
+      expect(project?.pendingPrompt ?? '').not.toContain('DESIGN SYSTEM ENRICHMENT');
+      expect(project?.pendingPrompt ?? '').not.toContain('ALREADY been extracted programmatically');
+    }
+
+    const systems = await listDesignSystems(userDesignSystemsRoot, {
+      idPrefix: 'user:',
+      source: 'user',
+      isEditable: true,
+      defaultStatus: 'draft',
+    });
+    expect(systems).toHaveLength(0);
+  });
+
+  it('classifies EO_Bot_Ssid verification pages as anti-bot challenges', () => {
+    expect(isChallengePage(`
+      <!doctype html>
+      <html>
+        <head><title>旺旺集团</title></head>
+        <body>
+          <script>
+            document.cookie = "EO_Bot_Ssid=abc123";
+            window.__tst_status = "verify";
+            location.reload();
+          </script>
+        </body>
+      </html>
+    `)).toBe(true);
+  });
+
+  it('returns fast without blocking on a slow programmatic harvest, then finalizes in the background', async () => {
+    const db = openDatabase(tempDir, { dataDir: tempDir });
+
+    // A slow origin: the harvest takes far longer than the start response should
+    // ever wait. The user must still land in the project promptly.
+    const SLOW_MS = 1_500;
+    const stubPrefetch = async (_url: string, brandDir: string) => {
+      await new Promise((resolve) => setTimeout(resolve, SLOW_MS));
+      const logosDir = path.join(brandDir, 'logos');
+      mkdirSync(logosDir, { recursive: true });
+      writeFileSync(
+        path.join(logosDir, 'header.svg'),
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 40"><rect width="120" height="40" /></svg>',
+        'utf8',
+      );
+      return {
+        url: 'https://slow.com/',
+        finalUrl: 'https://slow.com/',
+        siteName: 'Slow',
+        title: 'Slow — eventually',
+        description: 'Slow makes things, eventually.',
+        colors: [
+          { hex: '#ffffff', count: 50 },
+          { hex: '#1a1a18', count: 30 },
+          { hex: '#d97757', count: 18 },
+        ],
+        fonts: [{ family: 'Inter', count: 22 }],
+        fontFaceFamilies: [],
+        googleFontsUrls: [],
+        fontFiles: [],
+        logos: [
+          { file: 'header.svg', sourceUrl: 'https://slow.com/', kind: 'inline-svg' as const, bytes: 120 },
+        ],
+        headings: ['Eventually'],
+        paragraphs: ['Slow makes things, eventually.'],
+        navLabels: [],
+        extraPages: [],
+        screenshot: null,
+        thin: false,
+        blocked: false,
+        materialMd: '',
+      };
+    };
+
+    let background: Promise<unknown> | null = null;
+    const startedAt = Date.now();
+    const result = await startOfflineBrandExtraction({
+      url: 'slow.com',
+      brandsRoot,
+      projectsRoot,
+      skillsRoot: SKILLS_ROOT,
+      db,
+      userDesignSystemsRoot,
+      prefetch: stubPrefetch,
+      logoFallback: NO_LOGO_FALLBACK,
+      imageryFallback: NO_IMAGERY_FALLBACK,
+      // Keep the test snappy: a short sync budget, well under the slow harvest.
+      programmaticSyncBudgetMs: 200,
+      onBackgroundExtraction: (settled) => {
+        background = settled;
+      },
+    });
+    const elapsed = Date.now() - startedAt;
+
+    // The start response returned long before the slow harvest could finish.
+    expect(elapsed).toBeLessThan(SLOW_MS);
+    expect(background).not.toBeNull();
+
+    // At return time the brand is still extracting (skeleton page), so the user
+    // sees a progress state rather than waiting on the network.
+    expect(readBrandDetail(brandsRoot, result.id)?.meta.status).toBe('extracting');
+
+    // Once the background harvest settles, the brand finalizes to ready.
+    await background;
+    const detail = readBrandDetail(brandsRoot, result.id);
+    expect(detail?.meta.status).toBe('ready');
+    expect(detail?.meta.designSystemId?.startsWith('user:')).toBe(true);
   });
 });

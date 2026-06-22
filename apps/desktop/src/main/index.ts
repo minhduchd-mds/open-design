@@ -53,7 +53,11 @@ export {
   isAllowedChildWindowUrl,
   isAllowedEmbeddedBrowserUrl,
   isHttpUrl,
+  registerSplashStageTracking,
   resolveDesktopStatusUrl,
+  setSplashStage,
+  type SplashBootStage,
+  type SplashStageSurface,
 } from "./runtime.js";
 
 // Re-export the path-validation helpers for the same reason (#974).
@@ -457,7 +461,7 @@ function installDesktopMenu(
           {
             label: "Contact Us",
             click() {
-              void shell.openExternal("https://x.com/nexudotio");
+              void shell.openExternal("https://x.com/OpenDesignHQ");
             },
           },
           {
@@ -469,7 +473,7 @@ function installDesktopMenu(
           {
             label: "Join Discord",
             click() {
-              void shell.openExternal("https://discord.gg/mHAjSMV6gz");
+              void shell.openExternal("https://discord.gg/9ptkbbqRu");
             },
           },
           { type: "separator" },
