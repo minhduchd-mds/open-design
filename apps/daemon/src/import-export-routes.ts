@@ -479,7 +479,22 @@ export function registerProjectExportRoutes(app: Express, ctx: RegisterProjectEx
       const tStart = Date.now();
       const { input, title: resolvedTitle, defaultFilename } =
         await buildDeckRenderInput(renderOptions);
-      const rendered = await desktopSlideRenderer(input);
+      // The renderer call is a cross-process IPC (requestJsonIpc, 600s). A
+      // missing desktop process, broken socket, or timeout is an upstream
+      // renderer outage — surface it as 502 UPSTREAM_UNAVAILABLE (matching the
+      // `!rendered.ok` branch below), not the outer 400 BAD_REQUEST which is for
+      // genuine request-validation / assembly errors.
+      let rendered;
+      try {
+        rendered = await desktopSlideRenderer(input);
+      } catch (err: any) {
+        return sendApiError(
+          res,
+          502,
+          'UPSTREAM_UNAVAILABLE',
+          `desktop renderer unavailable: ${err?.message || String(err)}`,
+        );
+      }
       const tRendered = Date.now();
       const hasFiles = Array.isArray(rendered.slideFiles) && rendered.slideFiles.length > 0;
       const hasDataUrls = Array.isArray(rendered.slides) && rendered.slides.length > 0;

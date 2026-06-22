@@ -87,6 +87,28 @@ describe('GET /api/projects/:id/raw/* cache revalidation', () => {
     expect(await after.text()).toContain('#abcdef');
   });
 
+  it('treats If-None-Match as authoritative when both validators are sent (no stale 304)', async () => {
+    // Same-second rewrite: ETag changes immediately but Last-Modified stays
+    // identical at HTTP-date (second) granularity. A client that sends the stale
+    // ETag AND the current Last-Modified must get 200 — If-None-Match wins, so
+    // the If-Modified-Since match must NOT produce a 304 for changed bytes.
+    const dir = path.join(projectsRoot, projectId);
+    await writeFile(path.join(dir, 'precedence.css'), Buffer.from('a{color:#111}'));
+    const first = await fetch(rawUrl('precedence.css'));
+    const staleEtag = first.headers.get('etag')!;
+
+    await writeFile(path.join(dir, 'precedence.css'), Buffer.from('a{color:#222;font-size:9px}'));
+    const probe = await fetch(rawUrl('precedence.css'));
+    const currentLastModified = probe.headers.get('last-modified')!;
+    expect(probe.headers.get('etag')).not.toBe(staleEtag);
+
+    const res = await fetch(rawUrl('precedence.css'), {
+      headers: { 'If-None-Match': staleEtag, 'If-Modified-Since': currentLastModified },
+    });
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain('#222');
+  });
+
   it('revalidates the streamed media path too (304 on matching ETag)', async () => {
     const first = await fetch(rawUrl('clip.mp4'));
     expect(first.status).toBe(200);

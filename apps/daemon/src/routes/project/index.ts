@@ -1962,9 +1962,15 @@ export function registerProjectFileRoutes(app: Express, ctx: RegisterProjectFile
   }
 
   function rawRequestIsFresh(req: any, etag: string, mtimeMs: number): boolean {
+    // If-None-Match is authoritative when present (RFC 9110 §13.1.3): freshness
+    // is decided solely by whether the ETag matches — do NOT fall through to
+    // If-Modified-Since. Otherwise a same-second rewrite (ETag changes
+    // immediately, but Last-Modified is identical at HTTP-date second
+    // granularity) would 304 stale-but-changed bytes when a client sends both a
+    // non-matching ETag and the current If-Modified-Since.
     const ifNoneMatch = req.headers['if-none-match'];
-    if (typeof ifNoneMatch === 'string' && ifNoneMatch.split(',').some((tag) => tag.trim() === etag)) {
-      return true;
+    if (typeof ifNoneMatch === 'string') {
+      return ifNoneMatch.split(',').some((tag) => tag.trim() === etag);
     }
     const ifModifiedSince = req.headers['if-modified-since'];
     if (typeof ifModifiedSince === 'string') {
