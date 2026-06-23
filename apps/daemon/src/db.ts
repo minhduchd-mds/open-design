@@ -1188,33 +1188,41 @@ export function getAgentSessionRecord(
 }
 
 // Conversation cursor for the resume identity guard: the id of the latest
-// SUCCESSFULLY COMPLETED assistant message in the conversation, EXCLUDING the
-// current run's in-flight placeholder (`excludeMessageId`). At resolve time the
-// session is in sync iff this equals the assistant message the session last
-// produced — otherwise another agent completed a turn in between, or the
-// session's own last message was edited/removed, and the session is behind.
-// Returns null when there is no prior completed assistant turn.
+// COMPLETED assistant message in the conversation, EXCLUDING the current run's
+// in-flight placeholder (`excludeMessageId`). At resolve time the session is in
+// sync iff this equals the assistant message the session last produced —
+// otherwise another agent completed a turn in between, or the session's own last
+// message was edited/removed, and the session is behind. Returns null when there
+// is no prior completed assistant turn.
 //
-// The `run_status = 'succeeded'` filter is load-bearing: a run stamps its
-// assistant message with the terminal status on finish (server.ts), so an
-// intervening agent run that FAILED or was CANCELED leaves a placeholder that
-// produced no completed turn. Counting it as advancement would force a needless
-// cold reseed (silently disabling this PR's resume perf path) even though the
-// stored session is still the latest completed turn. In-flight placeholders have
-// a null run_status and are likewise excluded.
+// "Completed" means run_status = 'succeeded' — a run stamps its assistant
+// message with the terminal status on finish (server.ts), so an intervening
+// agent run that FAILED or was CANCELED leaves a placeholder that produced no
+// completed turn; counting it as advancement would force a needless cold reseed
+// (silently disabling the resume perf path) even though the stored session is
+// still the latest completed turn. In-flight placeholders have a null run_status
+// and are likewise excluded.
+//
+// `resumableMessageId` is the one allowed exception: the resume-on-failure path
+// persists a session whose own last assistant turn FAILED transiently (the CLI
+// session already committed a tool/artifact block and is resumable). That stored
+// id is admitted through the filter so the session it owns still matches its
+// cursor — while a DIFFERENT later failed/canceled turn (a different id) stays
+// excluded, so genuine advancement by a later succeeded turn is still detected.
 export function latestCompletedAssistantMessageId(
   db: SqliteDb,
   conversationId: string,
   excludeMessageId: string,
+  resumableMessageId: string | null = null,
 ): string | null {
   const row = db
     .prepare(
       `SELECT id FROM messages
         WHERE conversation_id = ? AND role = 'assistant' AND id != ?
-          AND run_status = 'succeeded'
+          AND (run_status = 'succeeded' OR id = ?)
         ORDER BY position DESC LIMIT 1`,
     )
-    .get(conversationId, excludeMessageId) as DbRow | undefined;
+    .get(conversationId, excludeMessageId, resumableMessageId) as DbRow | undefined;
   return row && typeof row.id === 'string' ? row.id : null;
 }
 

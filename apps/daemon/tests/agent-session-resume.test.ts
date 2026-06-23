@@ -161,6 +161,49 @@ describe('resolveAgentResumeContext', () => {
     expect(ctx.invalidationReason).toBe('conversation_advanced');
   });
 
+  it('still resumes when the stored cursor is the session own failed turn (resume-on-failure)', () => {
+    const db = seed();
+    // Turn 1 committed work then FAILED transiently; the resume-on-failure path
+    // persisted the session pointing at that failed assistant turn.
+    seedMessage(db, 'asst-1', 'assistant', 'failed');
+    upsertAgentSession(db, {
+      conversationId: 'conv-1',
+      agentId: 'claude',
+      sessionId: 'sess-A',
+      lastMessageId: 'asst-1',
+      model: null,
+      cwd: null,
+      stablePromptHash: null,
+    });
+    // Turn 2 must continue the same session — the failed turn it owns is a valid
+    // resume cursor, not conversation advancement.
+    const ctx = resolveAgentResumeContext(db, { conversationId: 'conv-1', agentId: 'claude' });
+    expect(ctx.isResuming).toBe(true);
+    expect(ctx.resumeSessionId).toBe('sess-A');
+    expect(ctx.invalidationReason).toBeNull();
+  });
+
+  it('reseeds (conversation_advanced) when a later succeeded turn follows the stored failed turn', () => {
+    const db = seed();
+    // Stored session owns a failed turn (asst-1)...
+    seedMessage(db, 'asst-1', 'assistant', 'failed');
+    upsertAgentSession(db, {
+      conversationId: 'conv-1',
+      agentId: 'claude',
+      sessionId: 'sess-A',
+      lastMessageId: 'asst-1',
+      model: null,
+      cwd: null,
+      stablePromptHash: null,
+    });
+    // ...but a different agent then COMPLETED a turn (asst-2 succeeded). That is
+    // genuine advancement the session never saw — must reseed, not resume.
+    seedMessage(db, 'asst-2', 'assistant'); // succeeded
+    const ctx = resolveAgentResumeContext(db, { conversationId: 'conv-1', agentId: 'claude' });
+    expect(ctx.isResuming).toBe(false);
+    expect(ctx.invalidationReason).toBe('conversation_advanced');
+  });
+
   it('reseeds (missing_cursor) for a legacy row written without an identity', () => {
     const db = seed();
     seedMessage(db, 'asst-1', 'assistant');

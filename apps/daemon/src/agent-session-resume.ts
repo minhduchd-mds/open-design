@@ -99,10 +99,15 @@ export function resolveAgentResumeContext(
           storedLastMessageId: record?.lastMessageId ?? null,
           currentModel: input.currentModel ?? null,
           currentCwd: input.currentCwd ?? null,
+          // Admit the stored session's own last message id through the cursor
+          // filter so a resume-on-failure session (whose last turn FAILED but is
+          // resumable) still matches its cursor; a different later failed turn
+          // stays excluded and genuine advancement is still detected.
           latestCompletedAssistantId: latestCompletedAssistantMessageId(
             db,
             input.conversationId,
             input.currentAssistantMessageId ?? '',
+            record?.lastMessageId ?? null,
           ),
         })
       : null;
