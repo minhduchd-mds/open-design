@@ -406,6 +406,10 @@ export function registerLibraryRoutes(app: Express, ctx: RegisterLibraryRoutesDe
     }
   });
 
+  app.get('/api/library/clipper-probe', (_req, res) => {
+    res.json({ ok: true });
+  });
+
   // --- assets --------------------------------------------------------------
 
   app.get('/api/library/assets', async (req, res) => {

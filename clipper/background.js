@@ -25,12 +25,12 @@ async function getDaemonUrl() {
   return daemonUrl || DEFAULT_DAEMON_URL;
 }
 
-// Is Open Design running and reachable? We probe a library route (the daemon
-// auto-trusts our extension origin there) and treat any 2xx as connected.
+// Is Open Design running and reachable? We probe the narrow clipper route the
+// daemon auto-trusts for extension origins and treat any 2xx as connected.
 async function probe() {
   const daemonUrl = await getDaemonUrl();
   try {
-    const resp = await fetch(`${daemonUrl}/api/library/assets?limit=1`, { method: 'GET' });
+    const resp = await fetch(`${daemonUrl}/api/library/clipper-probe`, { method: 'GET' });
     return resp.ok;
   } catch {
     return false;

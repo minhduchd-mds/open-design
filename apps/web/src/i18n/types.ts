@@ -3442,9 +3442,24 @@ export interface Dict {
   // Final onboarding step — invite the user to build with brands + design systems
   'onboarding.buildTitle': string;
   'onboarding.buildBody': string;
+  'onboarding.buildBenefitMemoryTitle': string;
+  'onboarding.buildBenefitMemoryBody': string;
+  'onboarding.buildBenefitAlignedTitle': string;
+  'onboarding.buildBenefitAlignedBody': string;
+  'onboarding.buildBenefitSourcesTitle': string;
+  'onboarding.buildBenefitSourcesBody': string;
+  'onboarding.buildPreviewLabel': string;
   'onboarding.buildArtifacts': string;
   'onboarding.buildStart': string;
   'onboarding.buildHome': string;
+  'dsCreate.referenceLabel': string;
+  'dsCreate.referenceLoading': string;
+  'dsCreate.referenceLoadFailed': string;
+  'dsCreate.heroShowGuideAria': string;
+  'dsCreate.heroHideGuideAria': string;
+  'dsCreate.heroShowGuideTitle': string;
+  'dsCreate.heroHideGuideTitle': string;
+  'dsCreate.heroGuide': string;
   // Brand reference picker — pick a brand to extract from
   'brandPicker.heading': string;
   'brandPicker.subtext': string;

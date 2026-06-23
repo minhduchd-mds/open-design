@@ -49,7 +49,7 @@ function createOriginMiddleware(resolvedPort: number, host = '127.0.0.1') {
     // Mirror the real /api middleware: the zero-config clipper bypass runs
     // first, using the same predicate server.ts uses. `req.path` is
     // mount-relative here (the `/api` prefix is stripped by app.use('/api')).
-    if (isZeroConfigClipperLibraryRequest(req.path, req.headers.origin)) {
+    if (isZeroConfigClipperLibraryRequest(req.method, req.path, req.headers.origin)) {
       return next();
     }
     const origin = req.headers.origin;
@@ -95,6 +95,9 @@ function makeTestApp(port: number, host = '127.0.0.1') {
   });
   app.post('/api/projects', (req, res) => res.json({ project: req.body }));
   app.post('/api/library/ingest', (req, res) => res.json({ ingested: true }));
+  app.get('/api/library/clipper-probe', (_req, res) => res.json({ ok: true }));
+  app.get('/api/library/assets', (_req, res) => res.json({ assets: [] }));
+  app.get('/api/library/assets/:id/raw', (req, res) => res.type('text/plain').send(req.params.id));
   app.delete('/api/projects/:id', (req, res) => res.json({ ok: true }));
   app.get('/api/codex-pets/:id/spritesheet', (req, res) => {
     // Mimics the real spritesheet route that sets CORS for Origin: null
@@ -426,7 +429,7 @@ describe('daemon origin validation middleware', () => {
     expect(res.status).toBe(403);
   });
 
-  // --- Zero-config OD Clipper bypass for /api/library/* ---
+  // --- Zero-config OD Clipper bypass for the OD Clipper probe + ingest routes ---
   //
   // Regression guard: the bypass predicate runs inside app.use('/api', …),
   // where Express strips the `/api` mount prefix, so it must match
@@ -469,6 +472,23 @@ describe('daemon origin validation middleware', () => {
     expect(res.status).toBe(403);
   });
 
+  it('lets an unpaired browser-extension origin reach the dedicated clipper probe', async () => {
+    const res = await request(port, 'GET', '/api/library/clipper-probe', {
+      origin: 'chrome-extension://abcdefghijklmnopabcdefghijklmnop',
+    });
+    expect(res.status).toBe(200);
+    expect(JSON.parse(res.body)).toEqual({ ok: true });
+  });
+
+  it('still blocks extension origins from library read endpoints', async () => {
+    const origin = 'chrome-extension://abcdefghijklmnopabcdefghijklmnop';
+    const list = await request(port, 'GET', '/api/library/assets?limit=1', { origin });
+    const raw = await request(port, 'GET', '/api/library/assets/asset-1/raw', { origin });
+
+    expect(list.status).toBe(403);
+    expect(raw.status).toBe(403);
+  });
+
   // Note: fail-closed coverage when port=0 is tested in the dedicated
   // describe block below ("fail-closed before port resolution").
 });
@@ -478,29 +498,34 @@ describe('isZeroConfigClipperLibraryRequest predicate', () => {
   // as /library/ingest. These cases lock in that contract.
   it('accepts a chrome extension origin on a mount-relative library path', () => {
     expect(
-      isZeroConfigClipperLibraryRequest('/library/ingest', 'chrome-extension://abc'),
+      isZeroConfigClipperLibraryRequest('POST', '/library/ingest', 'chrome-extension://abc'),
     ).toBe(true);
   });
 
-  it('accepts a moz extension origin on a mount-relative library path', () => {
+  it('accepts a moz extension origin on the dedicated probe path', () => {
     expect(
-      isZeroConfigClipperLibraryRequest('/library/grid', 'moz-extension://abc'),
+      isZeroConfigClipperLibraryRequest('GET', '/library/clipper-probe', 'moz-extension://abc'),
     ).toBe(true);
   });
 
   it('rejects the full /api-prefixed path (prefix is already stripped by the mount)', () => {
     expect(
-      isZeroConfigClipperLibraryRequest('/api/library/ingest', 'chrome-extension://abc'),
+      isZeroConfigClipperLibraryRequest('POST', '/api/library/ingest', 'chrome-extension://abc'),
     ).toBe(false);
   });
 
   it('rejects a non-extension origin even on a library path', () => {
-    expect(isZeroConfigClipperLibraryRequest('/library/ingest', 'http://evil.com')).toBe(false);
-    expect(isZeroConfigClipperLibraryRequest('/library/ingest', undefined)).toBe(false);
+    expect(isZeroConfigClipperLibraryRequest('POST', '/library/ingest', 'http://evil.com')).toBe(false);
+    expect(isZeroConfigClipperLibraryRequest('POST', '/library/ingest', undefined)).toBe(false);
   });
 
   it('rejects an extension origin on a non-library path', () => {
-    expect(isZeroConfigClipperLibraryRequest('/projects', 'chrome-extension://abc')).toBe(false);
+    expect(isZeroConfigClipperLibraryRequest('POST', '/projects', 'chrome-extension://abc')).toBe(false);
+  });
+
+  it('rejects extension origins on library read paths', () => {
+    expect(isZeroConfigClipperLibraryRequest('GET', '/library/assets', 'chrome-extension://abc')).toBe(false);
+    expect(isZeroConfigClipperLibraryRequest('GET', '/library/assets/a/raw', 'chrome-extension://abc')).toBe(false);
   });
 });
 

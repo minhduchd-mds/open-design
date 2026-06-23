@@ -140,9 +140,8 @@ describe('FileWorkspace design-system project surface', () => {
     // lowercase by the parser; CSS upper-cases them only visually).
     expect(container.textContent?.toLowerCase()).toContain('#10b981');
     expect(container.textContent?.toLowerCase()).toContain('#111827');
-    // The DESIGN.md edit affordance is available (Visualize / Edit / Source).
-    expect(container.textContent).toContain('Edit');
-    expect(container.textContent).toContain('Source');
+    // The DESIGN.md edit affordance is available in the kit toolbar.
+    expect(container.textContent).toContain('Edit DESIGN.md');
   });
 
   it('reports malformed design-system card manifests instead of silently falling back', async () => {
@@ -220,6 +219,31 @@ describe('FileWorkspace design-system project surface', () => {
     expect(markup).toContain('Creating your design system...');
     expect(markup).toContain('Keep this tab open. You can come back in a few minutes.');
     expect(markup).toContain('role="progressbar"');
+  });
+
+  it('shows the completed extraction state once generation is no longer running', async () => {
+    registryMocks.fetchProjectFileText.mockResolvedValue('# Acme\n\n## Voice\nReady.');
+
+    const container = renderWorkspace(
+      <FileWorkspace
+        projectId="ds-acme"
+        projectKind="prototype"
+        files={[workspaceFile('DESIGN.md')]}
+        liveArtifacts={[]}
+        onRefreshFiles={vi.fn()}
+        isDeck={false}
+        tabsState={{ tabs: [], active: null }}
+        onTabsStateChange={vi.fn()}
+        designSystemProject={designSystem()}
+      />,
+    );
+
+    await flushKit();
+
+    expect(container.textContent).toContain('Extraction complete');
+    expect(container.textContent).toContain('Your design system is ready');
+    expect(container.textContent).not.toContain('Creating your design system...');
+    expect(container.textContent).not.toContain('Keep this tab open. You can come back in a few minutes.');
   });
 
   it('blocks publishing GitHub-backed design systems until connector evidence snapshots exist', async () => {
@@ -512,7 +536,7 @@ describe('FileWorkspace design-system project surface', () => {
 
     const defaultToggle = container.querySelector<HTMLButtonElement>('.ds-project-default-toggle');
     expect(defaultToggle).toBeTruthy();
-    expect(defaultToggle?.textContent).toContain('Make default');
+    expect(defaultToggle?.textContent).toContain('Default for new chats');
 
     await act(async () => {
       defaultToggle?.click();
@@ -544,7 +568,7 @@ describe('FileWorkspace design-system project surface', () => {
 
     const defaultToggle = container.querySelector<HTMLButtonElement>('.ds-project-default-toggle');
     expect(defaultToggle?.getAttribute('aria-pressed')).toBe('true');
-    expect(defaultToggle?.textContent).toContain('Default');
+    expect(defaultToggle?.textContent).toContain('Chat default');
 
     await act(async () => {
       defaultToggle?.click();

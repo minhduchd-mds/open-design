@@ -215,17 +215,22 @@ function headerValue(value: unknown): string | undefined {
  * `'/api/library/'` here would never fire because the mount prefix is gone.
  *
  * Returns true only for a locally-installed browser extension (an origin a web
- * page cannot forge) targeting the OD Library surface. The daemon is
- * loopback-bound, so such a request is necessarily a local extension reaching
- * the local daemon; it is auto-trusted without a pairing handshake. Every other
- * origin (including ordinary cross-origin web pages) falls through to the
- * normal same-origin / allow-list checks.
+ * page cannot forge) targeting the narrow OD Clipper bootstrap surface: the
+ * dedicated probe route and the ingest endpoint. Library reads still require
+ * normal same-origin / allow-list validation so an unrelated installed
+ * extension cannot enumerate or download the user's library.
  */
 export function isZeroConfigClipperLibraryRequest(
+  method: string,
   apiRelativePath: string,
   origin: unknown,
 ): boolean {
-  if (!apiRelativePath.startsWith('/library/')) return false;
+  const normalizedMethod = method.toUpperCase();
+  const isAllowedClipperPath =
+    (normalizedMethod === 'GET' && apiRelativePath === '/library/clipper-probe') ||
+    ((normalizedMethod === 'OPTIONS' || normalizedMethod === 'POST') &&
+      apiRelativePath === '/library/ingest');
+  if (!isAllowedClipperPath) return false;
   return (
     typeof origin === 'string' &&
     (origin.startsWith('chrome-extension://') || origin.startsWith('moz-extension://'))

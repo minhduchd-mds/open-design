@@ -2327,18 +2327,18 @@ function OnboardingView({
                   <div className="onboarding-view__build-benefits">
                     <div>
                       <Icon name="file-text" size={15} aria-hidden />
-                      <strong>One brand memory</strong>
-                      <span>Colors, type, spacing, components, and voice become a DESIGN.md your agents can reuse.</span>
+                      <strong>{t('onboarding.buildBenefitMemoryTitle')}</strong>
+                      <span>{t('onboarding.buildBenefitMemoryBody')}</span>
                     </div>
                     <div>
                       <Icon name="swatchbook" size={15} aria-hidden />
-                      <strong>Every output stays aligned</strong>
-                      <span>Prototype, slide, PDF, dashboard, and marketing work all pull from the same rules.</span>
+                      <strong>{t('onboarding.buildBenefitAlignedTitle')}</strong>
+                      <span>{t('onboarding.buildBenefitAlignedBody')}</span>
                     </div>
                     <div>
                       <Icon name="github" size={15} aria-hidden />
-                      <strong>Start from what you have</strong>
-                      <span>Use a GitHub repo, website, existing DESIGN.md, screenshots, fonts, or Figma files.</span>
+                      <strong>{t('onboarding.buildBenefitSourcesTitle')}</strong>
+                      <span>{t('onboarding.buildBenefitSourcesBody')}</span>
                     </div>
                   </div>
                 </div>
@@ -2350,7 +2350,7 @@ function OnboardingView({
                     <strong>DESIGN.md</strong>
                   </div>
                   <div className="onboarding-view__build-preview-body">
-                    <small>Brand system</small>
+                    <small>{t('onboarding.buildPreviewLabel')}</small>
                     <div className="onboarding-view__build-preview-swatches">
                       <i />
                       <i />

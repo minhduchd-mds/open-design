@@ -2259,7 +2259,7 @@ export function ProjectView({
     });
   }, [
     project.skillId,
-    project.designSystemId,
+    projectDesignSystemId,
     project.metadata,
     skills,
     designTemplates,
@@ -4146,7 +4146,7 @@ export function ProjectView({
           skillId: project.skillId ?? null,
           skillIds: Array.isArray(meta?.skillIds) ? meta.skillIds : [],
           context: runContext,
-          designSystemId: project.designSystemId ?? null,
+          designSystemId: projectDesignSystemId ?? null,
           attachments: runAttachments.map((a) => a.path),
           commentAttachments: runCommentAttachments,
           sessionMode: runSessionMode,
@@ -4387,6 +4387,7 @@ export function ProjectView({
       composedSystemPrompt,
       onTouchProject,
       project.id,
+      projectDesignSystemId,
       project.name,
       projectFiles,
       refreshProjectFiles,
@@ -5418,7 +5419,7 @@ export function ProjectView({
 
   const handleChangeDesignSystemId = useCallback(
     (nextId: string | null) => {
-      if ((project.designSystemId ?? null) === nextId) return;
+      if ((projectDesignSystemId ?? null) === nextId) return;
       // `design_system_apply_result` studio variant. The existing
       // NewProjectPanel picker fires the same event under
       // `page_name=home`; this in-project header picker fires under
@@ -5484,7 +5485,7 @@ export function ProjectView({
       onProjectChange(updated);
       void patchProject(project.id, { designSystemId: nextId });
     },
-    [project, onProjectChange, designSystems, analytics.track],
+    [project, projectDesignSystemId, onProjectChange, designSystems, analytics.track],
   );
 
   const projectMeta = useMemo(() => {
@@ -5499,15 +5500,14 @@ export function ProjectView({
   }, [skills, designTemplates, project.skillId, t]);
 
   const activeDesignSystemSummary = useMemo(() => {
-    if (!project.designSystemId) return null;
-    return designSystems.find((d) => d.id === project.designSystemId) ?? null;
-  }, [designSystems, project.designSystemId]);
+    if (!projectDesignSystemId) return null;
+    return designSystems.find((d) => d.id === projectDesignSystemId) ?? null;
+  }, [designSystems, projectDesignSystemId]);
 
   const designSystemProject = useMemo(() => {
-    if (project.metadata?.importedFrom !== 'design-system') return null;
-    if (!project.designSystemId) return null;
-    return designSystems.find((d) => d.id === project.designSystemId) ?? null;
-  }, [designSystems, project.designSystemId, project.metadata?.importedFrom]);
+    if (!projectIsDesignSystemProject || !projectDesignSystemId) return null;
+    return designSystems.find((d) => d.id === projectDesignSystemId) ?? null;
+  }, [designSystems, projectDesignSystemId, projectIsDesignSystemProject]);
   const designSystemActivityEvents = useMemo(
     () => designSystemProject ? latestDesignSystemActivityEvents(messages) : [],
     [designSystemProject, messages],
@@ -6165,7 +6165,7 @@ export function ProjectView({
               projectKindForTracking={projectKindToTracking(project.metadata?.kind, project.metadata?.videoModel)}
               projectFiles={projectFiles}
               activeProjectFileName={activeProjectFileName}
-              hasActiveDesignSystem={!!project.designSystemId}
+              hasActiveDesignSystem={!!projectDesignSystemId}
               activeDesignSystem={chatDesignSystemSummary}
               projectFileNames={projectFileNames}
               skills={skills}
@@ -6271,7 +6271,7 @@ export function ProjectView({
                 onProjectChange({ ...project, skillId });
               }}
               activePluginSnapshot={activePluginSnapshot}
-              currentDesignSystemId={project.designSystemId}
+              currentDesignSystemId={projectDesignSystemId}
               onActiveDesignSystemChange={(updatedProject) => {
                 onProjectChange(updatedProject);
               }}
@@ -6309,7 +6309,7 @@ export function ProjectView({
               designSystemPicker={(
                 <DesignSystemPicker
                   designSystems={designSystems}
-                  selectedId={project.designSystemId ?? null}
+                  selectedId={projectDesignSystemId ?? null}
                   onChange={handleChangeDesignSystemId}
                 />
               )}

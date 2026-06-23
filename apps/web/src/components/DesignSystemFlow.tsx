@@ -332,6 +332,7 @@ export function DesignSystemCreationFlow({
   onGenerateSettled,
   designSystems = [],
 }: CreationProps) {
+  const { t } = useI18n();
   const [step, setStep] = useState<SetupStep>('setup');
   // A Library "create design system from selection" hand-off pre-fills the
   // source material with the chosen assets (single-shot; cleared on read).
@@ -354,6 +355,7 @@ export function DesignSystemCreationFlow({
   const [referenceDesignSystemLoading, setReferenceDesignSystemLoading] = useState(false);
   const [referenceDesignSystemError, setReferenceDesignSystemError] = useState<string | null>(null);
   const referenceDesignSystemRequestRef = useRef(0);
+  const manualDesignMdRef = useRef(state.designMd);
   // "Start from a brand" reference picker on the URL field + the Advanced
   // disclosure that hides the lower-frequency source inputs.
   const [brandPickerOpen, setBrandPickerOpen] = useState(false);
@@ -615,7 +617,7 @@ export function DesignSystemCreationFlow({
     if (id == null) {
       setReferenceDesignSystemLoading(false);
       setDesignMdMode('edit');
-      setState((curr) => ({ ...curr, designMd: '' }));
+      setState((curr) => ({ ...curr, designMd: manualDesignMdRef.current }));
       return;
     }
 
@@ -624,7 +626,7 @@ export function DesignSystemCreationFlow({
       .then((detail) => {
         if (referenceDesignSystemRequestRef.current !== requestId) return;
         if (!detail) {
-          setReferenceDesignSystemError('Could not load that design system.');
+          setReferenceDesignSystemError(t('dsCreate.referenceLoadFailed'));
           return;
         }
         setState((curr) => ({ ...curr, designMd: detail.body }));
@@ -634,7 +636,7 @@ export function DesignSystemCreationFlow({
       .catch((err) => {
         if (referenceDesignSystemRequestRef.current !== requestId) return;
         setReferenceDesignSystemError(
-          err instanceof Error ? err.message : 'Could not load that design system.',
+          err instanceof Error ? err.message : t('dsCreate.referenceLoadFailed'),
         );
       })
       .finally(() => {
@@ -693,6 +695,11 @@ export function DesignSystemCreationFlow({
       ...curr,
       figmaUrls: curr.figmaUrls.filter((item) => item !== url),
     }));
+  }
+
+  function handleDesignMdInput(value: string) {
+    manualDesignMdRef.current = value;
+    setState((curr) => ({ ...curr, designMd: value }));
   }
 
   function beginSourceProcessing() {
@@ -976,12 +983,20 @@ export function DesignSystemCreationFlow({
             <Button
               variant="ghost"
               className="ds-setup-hero-toggle"
-              aria-label={heroCollapsed ? 'Show design system guide' : 'Hide design system guide'}
-              title={heroCollapsed ? 'Show guide' : 'Hide guide'}
+              aria-label={
+                heroCollapsed
+                  ? t('dsCreate.heroShowGuideAria')
+                  : t('dsCreate.heroHideGuideAria')
+              }
+              title={
+                heroCollapsed
+                  ? t('dsCreate.heroShowGuideTitle')
+                  : t('dsCreate.heroHideGuideTitle')
+              }
               onClick={() => setHeroCollapsed((collapsed) => !collapsed)}
             >
               <Icon name={heroCollapsed ? 'chevron-right' : 'chevron-left'} />
-              <span>Guide</span>
+              <span>{t('dsCreate.heroGuide')}</span>
             </Button>
           </div>
           <span className="ds-setup-mark">
@@ -1161,7 +1176,7 @@ export function DesignSystemCreationFlow({
                 </div>
                 {designSystems.length > 0 ? (
                   <div className="ds-design-md-reference-picker">
-                    <span>Copy from existing design system</span>
+                    <span>{t('dsCreate.referenceLabel')}</span>
                     <DesignSystemPicker
                       designSystems={designSystems}
                       selectedId={referenceDesignSystemId}
@@ -1169,7 +1184,9 @@ export function DesignSystemCreationFlow({
                       showCreateAction={false}
                     />
                     {referenceDesignSystemLoading ? (
-                      <span className="ds-design-md-reference-status">Loading DESIGN.md...</span>
+                      <span className="ds-design-md-reference-status">
+                        {t('dsCreate.referenceLoading')}
+                      </span>
                     ) : null}
                     {referenceDesignSystemError ? (
                       <span className="ds-design-md-reference-status is-error">
@@ -1188,7 +1205,7 @@ export function DesignSystemCreationFlow({
                   <textarea
                     rows={5}
                     value={state.designMd}
-                    onChange={(event) => setState((curr) => ({ ...curr, designMd: event.target.value }))}
+                    onChange={(event) => handleDesignMdInput(event.target.value)}
                     placeholder={'---\nname: Heritage\ncolors:\n  primary: "#1A1C1E"\n  tertiary: "#B8422E"\ntypography:\n  h1:\n    fontFamily: Public Sans\n---\n\n## Overview\n...'}
                   />
                 )}
