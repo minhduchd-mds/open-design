@@ -347,4 +347,46 @@ describe('error-tracking', () => {
       'AbortError',
     );
   });
+
+  // Regression: a failed telemetry beacon (PostHog unreachable) must not
+  // manufacture another exception. In the real browser the beacon's own
+  // `fetch` rejection is swallowed by the `.catch()` in dispatch(); if it
+  // ever surfaces anyway — as an unhandledrejection whose TypeError
+  // originates in our od:// transport code — the packaged noise filter is the
+  // backstop that stops it re-entering as a second `$exception`/beacon. This
+  // exercises that backstop (the part observable under jsdom — Node routes
+  // promise rejections to `process`, not `window.onunhandledrejection`, so
+  // the `.catch()` itself isn't unit-observable here).
+  it('a failed beacon surfacing as an unhandledrejection does not spawn a second beacon', () => {
+    installErrorHandlers();
+    setExceptionTrackingContext({
+      apiKey: 'phc_test',
+      host: 'https://us.i.posthog.com',
+      distinctId: 'user-loop',
+    });
+
+    // A genuine exception dispatches exactly one beacon.
+    reportHandledException(new Error('real-bug'));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    fetchMock.mockClear();
+
+    // Now simulate that beacon's own request failing and surfacing as an
+    // unhandledrejection from our od:// transport code.
+    const beaconFailure = new TypeError('Failed to fetch');
+    beaconFailure.stack = [
+      'TypeError: Failed to fetch',
+      '    at dispatch (od://app/_next/static/chunks/error-tracking.js:1:42)',
+    ].join('\n');
+    const rejection = new Event('unhandledrejection') as Event & {
+      reason?: unknown;
+      promise?: Promise<unknown>;
+    };
+    rejection.reason = beaconFailure;
+    rejection.promise = Promise.reject(beaconFailure);
+    rejection.promise.catch(() => undefined);
+    window.dispatchEvent(rejection);
+
+    // No second beacon — the loop is broken.
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
