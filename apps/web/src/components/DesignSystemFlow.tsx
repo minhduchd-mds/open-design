@@ -879,7 +879,7 @@ export function DesignSystemCreationFlow({
         : '';
       const designMdForExtraction = hasDesignMd ? state.designMd : fallbackDesignMd;
       if (!extractUrl && !designMdForExtraction) {
-        setError('Add a website, DESIGN.md, description, file, Figma source, or notes to create a design system.');
+        setError(t('dsCreate.missingSourceError'));
         setStep('setup');
         emitCreateResult('failed', undefined, 'DS_EXTRACT_NO_SOURCE', undefined);
         onGenerateSettled?.(snapshot, { result: 'failed', errorCode: 'DS_EXTRACT_NO_SOURCE' });
@@ -1025,13 +1025,13 @@ export function DesignSystemCreationFlow({
             onClick={() => {
               emitCreateFormClick('continue_to_generation');
               if (!hasCreationSource(state)) {
-                setError('Add a website, DESIGN.md, description, file, Figma source, or notes to create a design system.');
+                setError(t('dsCreate.missingSourceError'));
                 return;
               }
               setStep('confirm');
             }}
           >
-            Continue to generation
+            {t('dsCreate.continueToGeneration')}
             <Icon name="chevron-right" />
           </Button>
         </header>
@@ -1040,8 +1040,8 @@ export function DesignSystemCreationFlow({
       <main className="ds-setup-form">
         {embedded ? (
           <>
-            <h1>Generate from your material</h1>
-            <p>Start with a website or brand reference, then add any source files you already have.</p>
+            <h1>{t('dsCreate.embeddedTitle')}</h1>
+            <p>{t('dsCreate.embeddedBody')}</p>
           </>
         ) : heroCollapsed ? null : (
           <aside className="ds-setup-hero-col">
@@ -1051,11 +1051,11 @@ export function DesignSystemCreationFlow({
 
         <div className="ds-setup-form-col">
         <section className="ds-resource-section">
-          <h2>Extract from GitHub, websites, or source material</h2>
-          <p>Start with a GitHub repo, website, DESIGN.md, or files that show your style. Open Design first creates a usable system quickly, then AI can refine it inside the project.</p>
+          <h2>{t('dsCreate.sourceSectionTitle')}</h2>
+          <p>{t('dsCreate.sourceSectionBody')}</p>
           <div className="ds-resource-card">
             <div className="ds-resource-row">
-              <strong>GitHub or website</strong>
+              <strong>{t('dsCreate.githubWebsiteLabel')}</strong>
               <div className="ds-resource-inline">
                 <input
                   value={state.sourceUrl}
@@ -1069,7 +1069,7 @@ export function DesignSystemCreationFlow({
                   disabled={!state.sourceUrl.trim()}
                   onClick={handleAddSourceUrl}
                 >
-                  Add
+                  {t('dsCreate.add')}
                 </button>
                 <button
                   type="button"
@@ -1079,20 +1079,20 @@ export function DesignSystemCreationFlow({
                   onClick={() => setBrandPickerOpen(true)}
                 >
                   <Icon name="sparkles" />
-                  Start from a brand
+                  {t('dsCreate.startFromBrand')}
                 </button>
               </div>
               <BrandPickerModal
                 open={brandPickerOpen}
                 onClose={() => setBrandPickerOpen(false)}
                 onPick={(brand) => handlePickBrandReference(brand.domain)}
-                title="Start from a brand"
-                subtitle="Search hundreds of brands — pick one and we'll add its site as a style reference."
-                actionLabel="Add"
-                quickPicksLabel="Popular brands — click to add"
+                title={t('dsCreate.startFromBrand')}
+                subtitle={t('dsCreate.brandPickerSubtitle')}
+                actionLabel={t('dsCreate.add')}
+                quickPicksLabel={t('dsCreate.brandPickerQuickPicks')}
               />
               {state.sourceUrls.length > 0 ? (
-                <div className="ds-source-link-list" aria-label="Added source links">
+                <div className="ds-source-link-list" aria-label={t('dsCreate.addedSourceLinks')}>
                   {state.sourceUrls.map((url) => {
                     const label = sourceUrlLabel(url);
                     const href = sourceUrlHref(url);
@@ -1104,8 +1104,8 @@ export function DesignSystemCreationFlow({
                             href={href}
                             target="_blank"
                             rel="noreferrer"
-                            aria-label={`Open ${label}`}
-                            title={`Open ${label}`}
+                            aria-label={t('dsCreate.openSourceLabel', { label })}
+                            title={t('dsCreate.openSourceLabel', { label })}
                           >
                             <SourceLinkFavicon url={url} />
                             <span className="ds-source-link-label">{label}</span>
@@ -1119,7 +1119,7 @@ export function DesignSystemCreationFlow({
                         <button
                           type="button"
                           className="ds-source-link-remove"
-                          aria-label={`Remove ${label}`}
+                          aria-label={t('dsCreate.removeSourceLabel', { label })}
                           onClick={() => handleRemoveSourceUrl(url)}
                         >
                           x
@@ -1131,7 +1131,7 @@ export function DesignSystemCreationFlow({
               ) : null}
             </div>
             <div className="ds-resource-row ds-resource-row--assets">
-              <strong>Add files</strong>
+              <strong>{t('dsCreate.addFiles')}</strong>
               <DesignSystemAssetDropzone
                 files={state.assetFileObjects}
                 onAddFiles={handleAssetUpload}
@@ -1144,41 +1144,41 @@ export function DesignSystemCreationFlow({
               />
             </div>
             <div className="ds-resource-row ds-resource-row--description">
-              <strong>Describe brand <span>optional</span></strong>
+              <strong>{t('dsCreate.describeBrand')} <span>{t('dsCreate.optional')}</span></strong>
               <label className="ds-resource-description">
-                <span>Brand voice, intro and product context. Used in the fast pass and AI refinement.</span>
+                <span>{t('dsCreate.describeBrandHelp')}</span>
                 <textarea
                   rows={3}
                   value={state.company}
                   onChange={(event) => setState((curr) => ({ ...curr, company: event.target.value }))}
-                  placeholder="e.g. Mission Impastabowl: fast-casual pasta restaurant with kiosk, mobile app and website"
+                  placeholder={t('dsCreate.companyPlaceholder')}
                 />
               </label>
             </div>
             <div className="ds-resource-row ds-resource-row--design-md">
-              <strong>Paste DESIGN.md <span>optional</span></strong>
+              <strong>{t('dsCreate.pasteDesignMd')} <span>{t('dsCreate.optional')}</span></strong>
               <div className="ds-design-md-field">
                 <div className="ds-design-md-field-head">
                   <span>
-                    Paste a DESIGN.md to create directly from tokens, rationale and component guidance.
+                    {t('dsCreate.pasteDesignMdHelp')}
                     <a
                       href="https://github.com/VoltAgent/awesome-design-md/"
                       target="_blank"
                       rel="noreferrer"
                       className="ds-design-md-reference-link"
                     >
-                      Reference
+                      {t('dsCreate.reference')}
                       <Icon name="external-link" size={12} />
                     </a>
                   </span>
-                  <div className="ds-design-md-actions" aria-label="DESIGN.md view mode">
+                  <div className="ds-design-md-actions" aria-label={t('dsCreate.designMdViewMode')}>
                     <button
                       type="button"
                       className={designMdMode === 'edit' ? 'active' : ''}
                       aria-pressed={designMdMode === 'edit'}
                       onClick={() => setDesignMdMode('edit')}
                     >
-                      Edit
+                      {t('common.edit')}
                     </button>
                     <button
                       type="button"
@@ -1187,7 +1187,7 @@ export function DesignSystemCreationFlow({
                       disabled={!state.designMd.trim()}
                       onClick={() => setDesignMdMode('preview')}
                     >
-                      Preview
+                      {t('common.preview')}
                     </button>
                   </div>
                 </div>
@@ -1236,12 +1236,12 @@ export function DesignSystemCreationFlow({
                 onClick={() => setAdvancedOpen((open) => !open)}
               >
                 <Icon name={advancedOpen ? 'chevron-down' : 'chevron-right'} />
-                Advanced — repo, local code, Figma
+                {t('dsCreate.advancedToggle')}
               </button>
               <div className={`accordion-collapsible${advancedOpen ? ' open' : ''}`}>
                 <div className="accordion-collapsible-inner">
                   <div className="ds-resource-row">
-                    <strong>GitHub repo</strong>
+                    <strong>{t('dsCreate.githubRepo')}</strong>
                     <GitHubRepositoryAccessPanel
                       composioConfigured={composioConfigured}
                       connector={githubConnector}
@@ -1258,9 +1258,9 @@ export function DesignSystemCreationFlow({
                     />
                   </div>
                   <DropZone
-                    label="Link local code"
-                    helper="Use a folder or selected files from this computer."
-                    prompt="Drag a folder here or browse"
+                    label={t('dsCreate.localCodeLabel')}
+                    helper={t('dsCreate.localCodeHelper')}
+                    prompt={t('dsCreate.localCodePrompt')}
                     names={localCodeSourceLabels(state)}
                     directory
                     onZoneClick={() => emitCreateFormClick('browse_folder')}
@@ -1280,9 +1280,9 @@ export function DesignSystemCreationFlow({
                     }}
                   />
                   <DropZone
-                    label="Upload .fig"
-                    helper="Decoded on your machine into real tokens, components & assets — no Figma account."
-                    prompt="Drop .fig here or browse"
+                    label={t('dsCreate.uploadFigLabel')}
+                    helper={t('dsCreate.uploadFigHelper')}
+                    prompt={t('dsCreate.uploadFigPrompt')}
                     accept=".fig"
                     names={state.figFiles}
                     onZoneClick={() => emitCreateFormClick('upload_fig')}
@@ -1300,13 +1300,13 @@ export function DesignSystemCreationFlow({
                     }}
                   />
                   <div className="ds-resource-row">
-                    <strong>Figma URL</strong>
+                    <strong>{t('dsCreate.figmaUrl')}</strong>
                     <div className="ds-resource-inline">
                       <input
                         value={state.figmaUrl}
                         onChange={(event) => setState((curr) => ({ ...curr, figmaUrl: event.target.value }))}
                         onKeyDown={handleFigmaUrlKeyDown}
-                        placeholder="https://figma.com/design/… or /file/…"
+                        placeholder={t('dsCreate.figmaPlaceholder')}
                       />
                       <button
                         type="button"
@@ -1314,11 +1314,11 @@ export function DesignSystemCreationFlow({
                         disabled={!state.figmaUrl.trim()}
                         onClick={handleAddFigmaUrl}
                       >
-                        Add
+                        {t('dsCreate.add')}
                       </button>
                     </div>
                     {state.figmaUrls.length > 0 ? (
-                      <div className="ds-source-link-list" aria-label="Added Figma URLs">
+                      <div className="ds-source-link-list" aria-label={t('dsCreate.addedFigmaUrls')}>
                         {state.figmaUrls.map((url) => (
                           <span className="ds-source-link-chip" key={url}>
                             <a
@@ -1326,8 +1326,8 @@ export function DesignSystemCreationFlow({
                               href={url}
                               target="_blank"
                               rel="noreferrer"
-                              aria-label={`Open ${figmaUrlLabel(url)}`}
-                              title={`Open ${figmaUrlLabel(url)}`}
+                              aria-label={t('dsCreate.openSourceLabel', { label: figmaUrlLabel(url) })}
+                              title={t('dsCreate.openSourceLabel', { label: figmaUrlLabel(url) })}
                             >
                               <span className="ds-source-link-favicon ds-source-link-favicon--glyph" aria-hidden>
                                 <Icon name="import" size={14} />
@@ -1337,7 +1337,7 @@ export function DesignSystemCreationFlow({
                             <button
                               type="button"
                               className="ds-source-link-remove"
-                              aria-label={`Remove ${figmaUrlLabel(url)}`}
+                              aria-label={t('dsCreate.removeSourceLabel', { label: figmaUrlLabel(url) })}
                               onClick={() => handleRemoveFigmaUrl(url)}
                             >
                               x
@@ -1346,16 +1346,16 @@ export function DesignSystemCreationFlow({
                         ))}
                       </div>
                     ) : null}
-                    <p>Saved as a Figma design source. The agent uses it as the canonical reference; export a .fig above for a full offline decode.</p>
+                    <p>{t('dsCreate.savedFigmaHelp')}</p>
                   </div>
                   {embedded ? null : (
                     <label className="ds-setup-field">
-                      <span>Notes</span>
+                      <span>{t('dsCreate.notes')}</span>
                       <Textarea
                         rows={4}
                         value={state.notes}
                         onChange={(event) => setState((curr) => ({ ...curr, notes: event.target.value }))}
-                        placeholder="e.g. We use a warm, earthy color palette with rounded corners. Our brand voice is playful but professional..."
+                        placeholder={t('dsCreate.notesPlaceholder')}
                       />
                     </label>
                   )}
@@ -1376,7 +1376,7 @@ export function DesignSystemCreationFlow({
               }}
             >
               <Icon name="arrow-left" />
-              Back
+              {t('dsCreate.back')}
             </Button>
             <Button
               variant="primary"
@@ -1384,13 +1384,13 @@ export function DesignSystemCreationFlow({
               onClick={() => {
                 emitCreateFormClick('continue_to_generation');
                 if (!hasCreationSource(state)) {
-                  setError('Add a website, DESIGN.md, description, file, Figma source, or notes to create a design system.');
+                  setError(t('dsCreate.missingSourceError'));
                   return;
                 }
                 setStep('confirm');
               }}
             >
-              Generate
+              {t('dsCreate.generate')}
               <Icon name="chevron-right" />
             </Button>
           </div>
@@ -1399,8 +1399,8 @@ export function DesignSystemCreationFlow({
       </main>
       {libraryPickerOpen ? (
         <LibraryPicker
-          title="Select from library"
-          confirmLabel="Add to assets"
+          title={t('dsCreate.libraryPickerTitle')}
+          confirmLabel={t('dsCreate.libraryPickerConfirm')}
           onClose={() => setLibraryPickerOpen(false)}
           onConfirm={addAssetsFromLibrary}
         />
@@ -1449,6 +1449,7 @@ function DesignMdComponentKitPreview({
 }) {
   const model = useMemo(() => buildDesignMdPreviewModel(markdown), [markdown]);
   const themeTokens = theme === 'dark' ? model.dark : model.light;
+  const { t } = useI18n();
   const style = {
     '--ds-md-bg': themeTokens.background,
     '--ds-md-surface': themeTokens.surface,
@@ -1469,8 +1470,8 @@ function DesignMdComponentKitPreview({
   return (
     <div className="ds-design-md-preview" style={style} data-theme={theme}>
       <div className="ds-design-md-preview-head">
-        <strong>DESIGN SYSTEM</strong>
-        <span>DESIGN.md preview</span>
+        <strong>{t('dsCreate.designMdPreviewKicker')}</strong>
+        <span>{t('dsCreate.designMdPreviewTitle')}</span>
       </div>
       <div className="ds-design-md-kit">
         <div className="ds-design-md-kit-tabs">
@@ -1480,7 +1481,7 @@ function DesignMdComponentKitPreview({
             aria-pressed={theme === 'light'}
             onClick={() => onThemeChange('light')}
           >
-            Light
+            {t('brandDetail.themeLight')}
           </button>
           <button
             type="button"
@@ -1488,33 +1489,33 @@ function DesignMdComponentKitPreview({
             aria-pressed={theme === 'dark'}
             onClick={() => onThemeChange('dark')}
           >
-            Dark
+            {t('brandDetail.themeDark')}
           </button>
-          <span>component kit</span>
+          <span>{t('dsCreate.componentKit')}</span>
         </div>
         <div className="ds-design-md-kit-stage">
-          <span className="ds-design-md-kit-badge">{model.name} · default theme</span>
-          <h3>{model.name} — component kit</h3>
-          <p>{model.description || 'Generated from pasted DESIGN.md tokens, rationale and component guidance.'}</p>
+          <span className="ds-design-md-kit-badge">{model.name} · {t('dsCreate.defaultTheme')}</span>
+          <h3>{t('dsCreate.componentKitTitle', { name: model.name })}</h3>
+          <p>{model.description || t('dsCreate.designMdGeneratedDescription')}</p>
           <div className="ds-design-md-specimen">
             <section>
-              <h4>Buttons</h4>
-              <small>Five types across three sizes.</small>
+              <h4>{t('dsCreate.previewButtons')}</h4>
+              <small>{t('dsCreate.previewButtonsHelp')}</small>
               <div className="ds-design-md-button-row">
-                <button type="button" className="primary" style={{ color: primaryText }}>Primary</button>
-                <button type="button">Default</button>
-                <button type="button" className="dashed">Dashed</button>
-                <button type="button" className="text">Text</button>
-                <button type="button" className="link">Link</button>
+                <button type="button" className="primary" style={{ color: primaryText }}>{t('dsCreate.buttonPrimary')}</button>
+                <button type="button">{t('common.default')}</button>
+                <button type="button" className="dashed">{t('dsCreate.buttonDashed')}</button>
+                <button type="button" className="text">{t('dsCreate.buttonText')}</button>
+                <button type="button" className="link">{t('dsCreate.buttonLink')}</button>
               </div>
               <div className="ds-design-md-size-row">
-                <button type="button" className="primary small" style={{ color: primaryText }}>Small</button>
-                <button type="button" className="primary" style={{ color: primaryText }}>Medium</button>
-                <button type="button" className="primary large" style={{ color: primaryText }}>Large</button>
+                <button type="button" className="primary small" style={{ color: primaryText }}>{t('dsCreate.sizeSmall')}</button>
+                <button type="button" className="primary" style={{ color: primaryText }}>{t('dsCreate.sizeMedium')}</button>
+                <button type="button" className="primary large" style={{ color: primaryText }}>{t('dsCreate.sizeLarge')}</button>
               </div>
             </section>
             <section>
-              <h4>Type scale</h4>
+              <h4>{t('dsCreate.previewTypeScale')}</h4>
               <small>{model.displayFont} · {model.bodyFont}</small>
               <div className="ds-design-md-type-row">
                 <strong>Aa</strong>
@@ -1525,7 +1526,7 @@ function DesignMdComponentKitPreview({
           </div>
         </div>
       </div>
-      <div className="ds-design-md-token-row" aria-label="Extracted DESIGN.md tokens">
+      <div className="ds-design-md-token-row" aria-label={t('dsCreate.extractedTokens')}>
         <DesignMdTokenChip label="colorPrimary" hex={model.colorPrimary} />
         <DesignMdTokenChip label="colorPrimaryBg" hex={model.colorPrimaryBg} />
         <DesignMdTokenChip label="colorPrimaryHover" hex={model.colorPrimaryHover} />

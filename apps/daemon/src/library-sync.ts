@@ -19,7 +19,7 @@
 // or throw into the caller (a route handler), so every unit is try-wrapped.
 
 import path from 'node:path';
-import { readFile, stat } from 'node:fs/promises';
+import { lstat, readFile, realpath, stat } from 'node:fs/promises';
 import type Database from 'better-sqlite3';
 import type { LibraryAssetKind, LibrarySourceKind } from '@open-design/contracts';
 import { listConversations, listMessages, listProjects } from './db.js';
@@ -101,6 +101,32 @@ function isoToMs(value: string | undefined): number | undefined {
   return Number.isFinite(ms) ? ms : undefined;
 }
 
+function isWithinRoot(absPath: string, root: string): boolean {
+  const rel = path.relative(root, absPath);
+  return rel === '' || (!!rel && !rel.startsWith('..') && !path.isAbsolute(rel));
+}
+
+async function resolveDesignSystemPreviewCandidate(
+  dsRoot: string,
+  dsRootReal: string,
+  rel: string,
+): Promise<{ abs: string; rel: string } | null> {
+  const normalizedRel = rel.replace(/\\/g, '/').trim();
+  if (!normalizedRel || normalizedRel.includes('\0') || path.isAbsolute(normalizedRel)) return null;
+  const abs = path.resolve(dsRoot, normalizedRel);
+  try {
+    const linkInfo = await lstat(abs);
+    if (linkInfo.isSymbolicLink()) return null;
+    const absReal = await realpath(abs);
+    if (!isWithinRoot(absReal, dsRootReal)) return null;
+    const info = await stat(absReal);
+    if (!info.isFile()) return null;
+    return { abs: absReal, rel: normalizedRel };
+  } catch {
+    return null;
+  }
+}
+
 // Candidate preview HTML files, in order of preference, for a user design
 // system. The Library renders a `design-system` asset via an <iframe>, so we
 // reference one representative self-contained-ish page. Mirrors the manifest
@@ -109,6 +135,12 @@ async function resolveDesignSystemPreview(
   dsRoot: string,
 ): Promise<{ abs: string; rel: string } | null> {
   const candidates: string[] = [];
+  let dsRootReal: string;
+  try {
+    dsRootReal = await realpath(dsRoot);
+  } catch {
+    return null;
+  }
   try {
     const manifestRaw = await readFile(path.join(dsRoot, 'manifest.json'), 'utf8');
     const manifest = JSON.parse(manifestRaw) as {
@@ -136,13 +168,8 @@ async function resolveDesignSystemPreview(
   for (const rel of candidates) {
     if (!rel || seen.has(rel)) continue;
     seen.add(rel);
-    const abs = path.join(dsRoot, rel);
-    try {
-      const info = await stat(abs);
-      if (info.isFile()) return { abs, rel };
-    } catch {
-      // try next candidate
-    }
+    const candidate = await resolveDesignSystemPreviewCandidate(dsRoot, dsRootReal, rel);
+    if (candidate) return candidate;
   }
   return null;
 }

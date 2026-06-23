@@ -449,14 +449,14 @@ export function DesignKitView({
     if (!designMd) return null;
     return (
       <>
-        {moduleActionButton('Copy DESIGN.md', 'copy', () => void copyDesignMd(), !designMd.body)}
+        {moduleActionButton(t('ds.copyDesignMd'), 'copy', () => void copyDesignMd(), !designMd.body)}
         {canEditDesignMd
-          ? moduleActionButton('Edit DESIGN.md', 'edit', openDesignMdEditor, Boolean(designMd.saving))
+          ? moduleActionButton(t('ds.editDesignMd'), 'edit', openDesignMdEditor, Boolean(designMd.saving))
           : designMd.onOpenFile
-            ? moduleActionButton('Open DESIGN.md', 'file-text', designMd.onOpenFile)
+            ? moduleActionButton(t('ds.openDesignMd'), 'file-text', designMd.onOpenFile)
             : null}
         {canEditDesignMd
-          ? moduleActionButton('Upload MD', 'upload', () => designMdInputRef.current?.click(), Boolean(designMd.saving))
+          ? moduleActionButton(t('ds.uploadMd'), 'upload', () => designMdInputRef.current?.click(), Boolean(designMd.saving))
           : null}
       </>
     );
@@ -470,7 +470,7 @@ export function DesignKitView({
         : module === 'logo'
           ? t('ds.uploadLogo')
           : module === 'font'
-            ? 'Upload font'
+            ? t('ds.uploadFont')
             : t('ds.uploadImage');
     return moduleActionButton(
       label,
@@ -496,7 +496,7 @@ export function DesignKitView({
               : module === 'logo'
                 ? t('ds.uploadLogo')
                 : module === 'font'
-                  ? 'Upload font'
+                  ? t('ds.uploadFont')
                 : t('ds.uploadImage')}
           </button>
         ) : null}
@@ -945,10 +945,10 @@ export function DesignKitView({
                 {moduleActions(
                   <>
                     {designMdActionButtons()}
-                    {onRefresh ? moduleActionButton('Refresh', 'refresh', onRefresh) : null}
-                    {onDownload ? moduleActionButton('Download', 'download', onDownload) : null}
-                    {onImport ? moduleActionButton('Import folder', 'import', onImport) : null}
-                    {onReset ? moduleActionButton('Reset', 'reload', onReset) : null}
+                    {onRefresh ? moduleActionButton(t('ds.refresh'), 'refresh', onRefresh) : null}
+                    {onDownload ? moduleActionButton(t('ds.download'), 'download', onDownload) : null}
+                    {onImport ? moduleActionButton(t('ds.importFolder'), 'import', onImport) : null}
+                    {onReset ? moduleActionButton(t('ds.reset'), 'reload', onReset) : null}
                     {kit.system.indexUrl ? (
                       <a
                         className={styles.dsOpen}
@@ -1168,7 +1168,7 @@ export function DesignKitView({
               aria-label="DESIGN.md"
             />
             <div className={styles.designMdModalBar}>
-              <span>Editing this Markdown updates the rendered kit modules.</span>
+              <span>{t('ds.editingDesignMdHint')}</span>
               <Button variant="primary" disabled={Boolean(designMd.saving)} onClick={() => void saveDesignMdDraft()}>
                 {designMd.saving ? t('ds.saving') : t('ds.saveDesignMd')}
               </Button>

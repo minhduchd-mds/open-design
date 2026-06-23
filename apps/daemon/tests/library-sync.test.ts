@@ -9,7 +9,7 @@
 //   - the pass is idempotent (re-running indexes nothing new).
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { mkdir, mkdtemp, rm, utimes, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, symlink, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -178,5 +178,59 @@ describe('reconcileLibrary', () => {
     expect(second.total).toBe(0);
     expect(second.deduped).toBeGreaterThanOrEqual(4);
     expect(listLibraryAssets(db, {}).length).toBe(countAfterFirst);
+  });
+
+  it('skips manifest preview paths that escape the design-system root', async () => {
+    const root = path.join(designSystemsDir, DS_DIR);
+    await mkdir(root, { recursive: true });
+    await writeFile(path.join(designSystemsDir, 'outside.html'), '<!doctype html><h1>Secret</h1>');
+    await writeFile(
+      path.join(root, 'DESIGN.md'),
+      '---\nname: Acme\ncategory: Brand\n---\n\n# Acme\n',
+    );
+    await writeFile(
+      path.join(root, 'manifest.json'),
+      JSON.stringify({
+        schemaVersion: 'od-design-system-project/v1',
+        id: DS_DIR,
+        name: 'Acme',
+        preview: { pages: [{ path: '../outside.html', role: 'overview' }] },
+      }),
+    );
+    await writeFile(path.join(root, 'components.html'), '<!doctype html><button>Safe</button>');
+
+    const result = await reconcileLibrary(db, paths());
+
+    expect(result.designSystems).toBe(1);
+    const ds = listLibraryAssets(db, {}).find((asset) => asset.kind === 'design-system');
+    expect(ds?.relPath).toBe('components.html');
+    expect(await realpath(path.resolve(ds?.filePath ?? ''))).toBe(
+      await realpath(path.join(root, 'components.html')),
+    );
+  });
+
+  it('does not register a design-system preview that is a symlink', async () => {
+    const root = path.join(designSystemsDir, DS_DIR);
+    await mkdir(root, { recursive: true });
+    await writeFile(path.join(designSystemsDir, 'outside.html'), '<!doctype html><h1>Secret</h1>');
+    await writeFile(
+      path.join(root, 'DESIGN.md'),
+      '---\nname: Acme\ncategory: Brand\n---\n\n# Acme\n',
+    );
+    await writeFile(
+      path.join(root, 'manifest.json'),
+      JSON.stringify({
+        schemaVersion: 'od-design-system-project/v1',
+        id: DS_DIR,
+        name: 'Acme',
+        preview: { pages: [{ path: 'components.html', role: 'overview' }] },
+      }),
+    );
+    await symlink(path.join(designSystemsDir, 'outside.html'), path.join(root, 'components.html'));
+
+    const result = await reconcileLibrary(db, paths());
+
+    expect(result.designSystems).toBe(0);
+    expect(listLibraryAssets(db, {}).filter((asset) => asset.kind === 'design-system')).toEqual([]);
   });
 });

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { DesignKitView } from '../../src/components/DesignKitView';
@@ -48,5 +48,29 @@ describe('DesignKitView iframe sandboxing', () => {
     }
     expect(container.innerHTML).not.toContain('allow-popups-to-escape-sandbox');
     expect(container.innerHTML).not.toContain('allow-same-origin');
+  });
+
+  it('renders new kit actions with the active non-English locale', () => {
+    const kit = { ...previewKit(), canUpload: true };
+    render(
+      <I18nProvider initial="zh-CN">
+        <DesignKitView
+          kit={kit}
+          designMd={{
+            body: '# Preview Kit',
+            onSave: async () => {},
+            saving: false,
+          }}
+          onUploadModule={() => {}}
+          onRefresh={() => {}}
+        />
+      </I18nProvider>,
+    );
+
+    expect(screen.getAllByTitle('复制 DESIGN.md').length).toBeGreaterThan(0);
+    expect(screen.getByTitle('上传字体')).toBeTruthy();
+    expect(screen.getByTitle('刷新')).toBeTruthy();
+    expect(screen.queryByText('Upload font')).toBeNull();
+    expect(screen.queryByText('Copy DESIGN.md')).toBeNull();
   });
 });

@@ -18,6 +18,7 @@ import { DECK_PAGE_SIZE, DECK_PRINT_CSS, inferPageSize, waitForPrintableContent 
 // to the HTTP caller and removes the temp file.
 
 const PPTX_LAYOUT_WIDTH_IN = 13.333;
+const MAX_IMAGE_EXPORT_HEIGHT_PX = 20_000;
 
 type Shape =
   | { type: "rect"; x: number; y: number; w: number; h: number; fill: string }
@@ -84,10 +85,15 @@ async function renderImage(
   // grabs the full scrollable page rather than just the first viewport.
   if (!input.deck) {
     const contentHeight = (await window.webContents.executeJavaScript(
-      `Math.min(20000, Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0))`,
+      `Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0)`,
       true,
     )) as number;
     if (Number.isFinite(contentHeight) && contentHeight > 0) {
+      if (contentHeight > MAX_IMAGE_EXPORT_HEIGHT_PX) {
+        throw new Error(
+          `Image export height exceeds supported image export limit (${Math.ceil(contentHeight)}px > ${MAX_IMAGE_EXPORT_HEIGHT_PX}px).`,
+        );
+      }
       const [w] = window.getContentSize();
       window.setContentSize(w, Math.ceil(contentHeight));
       await waitForPrintableContent(window);

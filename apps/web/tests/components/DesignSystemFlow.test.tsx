@@ -322,6 +322,20 @@ describe('DesignSystemCreationFlow', () => {
   // system and stands up a backing project the brand-extract skill enriches.
   // Source-material specs below exercise the current handoff by staging files
   // into the backing brand project after kickoff and before navigation.
+  it('renders the new create surface copy with the active non-English locale', () => {
+    render(
+      <I18nProvider initial="zh-CN">
+        <DesignSystemCreationFlow onBack={() => {}} onCreated={() => {}} />
+      </I18nProvider>,
+    );
+
+    expect(screen.getByRole('heading', { name: '从 GitHub、网站或源素材提取' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /继续生成/ })).toBeTruthy();
+    expect(screen.getByText('从品牌开始')).toBeTruthy();
+    expect(screen.queryByText('Continue to generation')).toBeNull();
+    expect(screen.queryByText('Start from a brand')).toBeNull();
+  });
+
   it('extracts a design system from a website via POST /api/brands and opens the backing project', async () => {
     const project: Project = {
       id: 'brand-acme-com',
