@@ -788,70 +788,71 @@ export function InlineModelSwitcher({
               {amrInstalled ? (
                 <div className="inline-switcher__account">
                   <span className="inline-switcher__account-id">
-                    <AgentIcon id="amr" size={16} />
-                    <span className="inline-switcher__account-name">Open Design</span>
+                    <AgentIcon id="amr" size={24} />
+                    <span className="inline-switcher__account-text">
+                      <span className="inline-switcher__account-name-row">
+                        <span className="inline-switcher__account-name">
+                          Open Design
+                        </span>
+                        {amrLoggedIn && amrPlanLabel ? (
+                          <span className="inline-switcher__account-plan-badge">
+                            {amrPlanLabel}
+                          </span>
+                        ) : null}
+                      </span>
+                      {amrLoggedIn && amrBalanceLabel ? (
+                        <span className="inline-switcher__account-subtitle">
+                          <span className="inline-switcher__account-stat">
+                            <span className="inline-switcher__account-stat-label">
+                              {t('settings.amrBalance')}
+                            </span>
+                            <span className="inline-switcher__account-stat-value">
+                              {amrBalanceLabel}
+                            </span>
+                          </span>
+                        </span>
+                      ) : null}
+                    </span>
                   </span>
                   {amrLoginError ? (
                     <span className="inline-switcher__account-status is-error">
                       {amrLoginError}
                     </span>
                   ) : amrLoggedIn ? (
-                    <span className="inline-switcher__account-meta">
-                      {amrBalanceLabel ? (
-                        <span className="inline-switcher__account-meta-row">
-                          <span className="inline-switcher__account-meta-label">
-                            {t('settings.amrBalance')}
-                          </span>
-                          <span className="inline-switcher__account-balance">
-                            {amrBalanceLabel}
-                          </span>
-                        </span>
-                      ) : null}
-                      {amrPlanLabel ? (
-                        <span className="inline-switcher__account-meta-row">
-                          <span className="inline-switcher__account-meta-label">
-                            {t('settings.amrPlan')}
-                          </span>
-                          <span className="inline-switcher__account-plan">
-                            {amrPlanLabel}
-                          </span>
-                          {amrCanUpgrade ? (
-                            <button
-                              type="button"
-                              className="inline-switcher__account-upgrade"
-                              data-testid="inline-model-switcher-account-upgrade"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const attribution = recordAmrEntry(
-                                  analytics.track,
-                                  'inline_amr_upgrade',
-                                  new Date(),
-                                  { metricsConsent: config.telemetry?.metrics === true },
-                                );
-                                const deviceId = amrHandoffDeviceId({
-                                  metricsConsent: config.telemetry?.metrics === true,
-                                  resolvedDeviceId: getResolvedDeviceId(),
-                                  installationId: config.installationId,
-                                });
-                                window.open(
-                                  attributedAmrUrl(
-                                    amrPlansUrlForProfile(
-                                      config.agentCliEnv?.amr?.OPEN_DESIGN_AMR_PROFILE,
-                                    ),
-                                    attribution,
-                                    deviceId,
-                                  ),
-                                  '_blank',
-                                  'noopener,noreferrer',
-                                );
-                              }}
-                            >
-                              {t('settings.amrUpgrade')}
-                            </button>
-                          ) : null}
-                        </span>
-                      ) : null}
-                    </span>
+                    amrCanUpgrade ? (
+                      <button
+                        type="button"
+                        className="inline-switcher__account-upgrade"
+                        data-testid="inline-model-switcher-account-upgrade"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const attribution = recordAmrEntry(
+                            analytics.track,
+                            'inline_amr_upgrade',
+                            new Date(),
+                            { metricsConsent: config.telemetry?.metrics === true },
+                          );
+                          const deviceId = amrHandoffDeviceId({
+                            metricsConsent: config.telemetry?.metrics === true,
+                            resolvedDeviceId: getResolvedDeviceId(),
+                            installationId: config.installationId,
+                          });
+                          window.open(
+                            attributedAmrUrl(
+                              amrPlansUrlForProfile(
+                                config.agentCliEnv?.amr?.OPEN_DESIGN_AMR_PROFILE,
+                              ),
+                              attribution,
+                              deviceId,
+                            ),
+                            '_blank',
+                            'noopener,noreferrer',
+                          );
+                        }}
+                      >
+                        {t('settings.amrUpgrade')}
+                      </button>
+                    ) : null
                   ) : (
                     <button
                       type="button"

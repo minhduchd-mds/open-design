@@ -194,12 +194,6 @@ export function AvatarMenu({
   const amrBalanceLabel = amrAccount?.loggedIn
     ? formatVelaBalanceUsd(amrAccount.account?.balanceUsd)
     : null;
-  // Compact "$204.35 · Max" shown inline on the Open Design agent row; null when
-  // no live data so the row simply omits it (no static placeholder).
-  const amrRowMeta =
-    amrBalanceLabel || amrPlanDisplay
-      ? [amrBalanceLabel, amrPlanDisplay].filter(Boolean).join(' · ')
-      : null;
   const amrCanUpgrade =
     !!amrAccount?.loggedIn && canUpgradeVelaPlan(amrAccount.account?.plan);
   const amrPlansUrl = amrPlansUrlForProfile(amrProfile);
@@ -406,13 +400,27 @@ export function AvatarMenu({
                           onAgentChange('amr');
                         }}
                       >
-                        <AgentIcon id="amr" size={18} />
-                        <span className="avatar-amr-row__name">
-                          {displayAgentName(a)}
+                        <AgentIcon id="amr" size={24} />
+                        <span className="avatar-amr-row__text">
+                          <span className="avatar-amr-row__name-row">
+                            <span className="avatar-amr-row__name">
+                              {displayAgentName(a)}
+                            </span>
+                            {amrPlanDisplay ? (
+                              <span className="avatar-amr-row__plan-badge">
+                                {amrPlanDisplay}
+                              </span>
+                            ) : null}
+                          </span>
+                          {amrBalanceLabel ? (
+                            <span className="avatar-amr-row__subtitle">
+                              <span className="avatar-amr-row__meta-label">
+                                {t('settings.amrBalance')}
+                              </span>{' '}
+                              {amrBalanceLabel}
+                            </span>
+                          ) : null}
                         </span>
-                        {amrRowMeta ? (
-                          <span className="avatar-amr-row__meta">{amrRowMeta}</span>
-                        ) : null}
                       </button>
                       {amrCanUpgrade ? (
                         <a

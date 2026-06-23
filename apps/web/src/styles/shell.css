@@ -1158,19 +1158,42 @@
 .avatar-amr-row__name {
   flex: 0 0 auto;
 }
-.avatar-amr-row__meta {
-  margin-left: auto;
+.avatar-amr-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   min-width: 0;
-  overflow: hidden;
-  font-size: 11px;
+}
+.avatar-amr-row__name-row {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+.avatar-amr-row__subtitle {
+  font-size: 12px;
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--text-strong);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  text-overflow: ellipsis;
 }
-.avatar-amr-row.active .avatar-amr-row__meta {
-  color: color-mix(in srgb, var(--text-strong) 72%, var(--text-muted));
+.avatar-amr-row__meta-label {
+  margin-right: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+/* Current tier as a small neutral pill right after the Open Design name. */
+.avatar-amr-row__plan-badge {
+  flex: 0 0 auto;
+  margin-left: 8px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-strong) 8%, transparent);
+  color: var(--text-strong);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.7;
+  text-transform: capitalize;
 }
 .avatar-amr-row__upgrade,
 .avatar-amr-row__upgrade:visited {

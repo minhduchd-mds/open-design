@@ -1488,37 +1488,57 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.inline-switcher__account-meta {
+.inline-switcher__account-text {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 3px;
-  flex: 0 1 auto;
+  gap: 2px;
   min-width: 0;
 }
-.inline-switcher__account-meta-row {
+.inline-switcher__account-name-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+/* Current tier shown as a small neutral pill right after the Open Design name
+   (identity + tier as one group); balance sits on the subtitle line below. */
+.inline-switcher__account-plan-badge {
+  flex: 0 0 auto;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-strong) 8%, transparent);
+  color: var(--text-strong);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.7;
+  text-transform: capitalize;
+}
+/* Plan + balance as a muted subtitle line under the Open Design name. Each
+   stat is "label value"; the gap (not a literal separator) keeps them apart. */
+.inline-switcher__account-subtitle {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  min-width: 0;
+}
+.inline-switcher__account-stat {
   display: inline-flex;
   align-items: baseline;
-  gap: 6px;
+  gap: 4px;
 }
-.inline-switcher__account-meta-label {
+.inline-switcher__account-stat-label {
   flex: 0 0 auto;
   font-size: 11px;
   font-weight: 500;
   color: var(--text-muted);
 }
-.inline-switcher__account-balance {
+.inline-switcher__account-stat-value {
   flex: 0 0 auto;
   font-size: 12px;
   font-weight: 600;
   color: var(--text-strong);
   font-variant-numeric: tabular-nums;
-}
-.inline-switcher__account-plan {
-  flex: 0 0 auto;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-strong);
   text-transform: capitalize;
 }
 .inline-switcher__account-upgrade {
