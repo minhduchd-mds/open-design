@@ -12344,15 +12344,15 @@ export async function startServer({
       ) {
         // The stored session id no longer resolves (pruned / machine moved
         // / ~/.claude cleared). Drop it so the next turn starts a fresh
-        // session seeded with the full transcript, and surface a retryable
-        // error rather than a confusing hard failure.
+        // session seeded with the full transcript. Route through the shared
+        // retry finalizer so the same run can recover once automatically.
         clearAgentSession(db, run.conversationId, def.id);
         send('error', createSseErrorPayload(
           'AGENT_EXECUTION_FAILED',
-          'The previous Claude session could not be resumed (it may have expired). Resend your message to continue with a fresh session.',
+          'The previous Claude session could not be resumed (it may have expired). Retrying with a fresh session.',
           { retryable: true },
         ));
-        return design.runs.finish(run, 'failed', code ?? 1, signal ?? null);
+        return finishWithRetryDecision('failed', code ?? 1, signal ?? null);
       }
       // Empty-output guard: a clean `code === 0` exit with no visible
       // output means the run silently finished without producing anything.

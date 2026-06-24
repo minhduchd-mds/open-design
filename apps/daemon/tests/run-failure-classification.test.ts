@@ -571,6 +571,21 @@ describe('classifyRunFailure', () => {
     });
   });
 
+  it('maps missing Claude resume sessions to a retryable session-init detail', () => {
+    expect(
+      classify(
+        'AGENT_EXECUTION_FAILED',
+        'Error: No conversation found with session ID: 98c0bf52-be6d-4c7f-b91d-570436ab09f1',
+      ),
+    ).toMatchObject({
+      failure_category: 'process_exit',
+      failure_detail: 'session_resume_missing',
+      failure_stage: 'session_init',
+      retryable: true,
+      user_action: 'retry',
+    });
+  });
+
   it('adds process-exit details for spawn and protocol failures', () => {
     expect(classify('AGENT_EXECUTION_FAILED', 'spawn failed: spawn ENOEXEC')).toMatchObject({
       failure_category: 'process_exit',

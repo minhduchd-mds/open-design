@@ -5,6 +5,7 @@ import type {
   TrackingRunFailureUserAction,
 } from '@open-design/contracts/analytics';
 
+import { isClaudeResumeFailure } from './agent-resume-failure.js';
 import { classifyAmrAccountFailure } from './integrations/vela-errors.js';
 import { classifyAgentServiceFailure } from './runtimes/auth.js';
 import type { RunResult, RunStatusForAnalytics } from './run-result.js';
@@ -303,6 +304,7 @@ function processExitDetail(
   if (/\bstdin: write EOF\b/i.test(text)) return 'stdin_write_eof';
   if (isAgentConfigInvalidText(text)) return 'agent_config_invalid';
   if (isFabricatedRoleMarkerText(text)) return 'fabricated_role_marker';
+  if (isClaudeResumeFailure(text)) return 'session_resume_missing';
   if (/\bjson-rpc id \d+: Internal error\b/i.test(text)) {
     return 'agent_protocol_error';
   }
@@ -529,6 +531,16 @@ export function classifyRunFailure(
       'child_close',
       retryable,
       retryable ? 'retry' : 'none',
+    );
+  }
+
+  if (isClaudeResumeFailure(text)) {
+    return classification(
+      'process_exit',
+      'session_resume_missing',
+      'session_init',
+      retryableHint ?? true,
+      'retry',
     );
   }
 

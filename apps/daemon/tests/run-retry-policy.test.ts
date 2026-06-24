@@ -188,6 +188,23 @@ describe('decideSafeRunRetry', () => {
     });
   });
 
+  it('allows a stale resume session to retry once before any side effects', () => {
+    expect(
+      decide({
+        failure: {
+          failure_category: 'process_exit',
+          failure_detail: 'session_resume_missing',
+          failure_stage: 'session_init',
+          retryable: true,
+        },
+      }),
+    ).toMatchObject({
+      shouldRetry: true,
+      retryAttemptIndex: 1,
+      retryReason: 'transient_failure',
+    });
+  });
+
   it('never auto-retries process kills, crashes, or interruptions', () => {
     for (const failure_detail of [
       'signal_killed',

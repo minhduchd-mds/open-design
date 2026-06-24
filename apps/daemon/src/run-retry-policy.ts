@@ -73,6 +73,9 @@ function isTransientRetryCategory(
   if (category === 'upstream_unavailable') return true;
   if (category === 'empty_output') return stage === undefined || stage === 'first_token_wait';
   if (category === 'timeout') return stage === 'first_token_wait';
+  if (category === 'process_exit' && detail === 'session_resume_missing') {
+    return stage === undefined || stage === 'session_init';
+  }
   return false;
 }
 

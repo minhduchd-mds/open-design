@@ -279,6 +279,7 @@ export type TrackingRunFailureDetail =
   | 'fabricated_role_marker'
   | 'permission_request_not_found'
   | 'qoder_stop_sequence'
+  | 'session_resume_missing'
   | 'signal_killed'
   | 'process_crashed'
   | 'interrupted'
