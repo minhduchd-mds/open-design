@@ -61,27 +61,6 @@ const ALLOWED_ORIGINS = [
 ];
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-// Free/personal mailbox providers. A Workspace-for-Teams lead must come from a
-// company domain, so we reject these. A blocklist (not an allowlist) is the only
-// tractable approach — business domains are unbounded.
-const PERSONAL_EMAIL_DOMAINS = new Set<string>([
-  "gmail.com", "googlemail.com",
-  "outlook.com", "outlook.com.cn", "hotmail.com", "hotmail.co.uk", "live.com", "live.cn", "msn.com",
-  "yahoo.com", "yahoo.com.cn", "yahoo.co.jp", "ymail.com", "rocketmail.com",
-  "icloud.com", "me.com", "mac.com",
-  "aol.com", "gmx.com", "gmx.net", "mail.com", "zoho.com",
-  "protonmail.com", "proton.me", "tutanota.com", "yandex.com",
-  "qq.com", "vip.qq.com", "foxmail.com",
-  "163.com", "126.com", "yeah.net", "188.com",
-  "sina.com", "sina.cn", "vip.sina.com", "sohu.com", "vip.sohu.com",
-  "aliyun.com", "139.com", "189.cn", "wo.cn", "21cn.com", "tom.com", "263.net", "china.com",
-]);
-
-function isBusinessEmail(email: string): boolean {
-  const at = email.lastIndexOf("@");
-  if (at < 0) return false;
-  return !PERSONAL_EMAIL_DOMAINS.has(email.slice(at + 1).toLowerCase());
-}
 const MAX_EMAIL_LENGTH = 254;
 const MAX_SHORT = 200;
 const MAX_MESSAGE = 4000;
@@ -319,9 +298,6 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   const email = readString(payload.email, MAX_EMAIL_LENGTH).toLowerCase();
   if (!email || !EMAIL_RE.test(email)) {
     return json({ ok: false, error: "invalid_email" }, 400, origin);
-  }
-  if (!isBusinessEmail(email)) {
-    return json({ ok: false, error: "personal_email" }, 400, origin);
   }
 
   const name = readString(payload.name, MAX_SHORT);
