@@ -81,6 +81,7 @@ import {
   isOpenDesignHostAvailable,
   openSandboxedPreviewInNewTab,
   prepareImageExportTarget,
+  planDeckImageCapture,
   requestPreviewSnapshot,
   sourceLooksLikeExportableDeck,
   type ImageExportFormat,
@@ -7711,23 +7712,27 @@ function HtmlViewer({
       // of slide 1. The vector-PDF fallback below uses the SAME signal, so an
       // artifact exports identically with or without a desktop host.
       const wholeDeck = options?.wholeDeck === true;
-      // Current-slide capture sends a concrete index (defaulting to the first
-      // slide if slide-state hasn't arrived). Whole-deck capture omits the index
-      // so /export/image stitches every slide.
-      const deckIndex = deckExportSignal && !wholeDeck
-        ? slideState?.active ?? htmlPreviewSlideState.get(previewStateKey)?.active ?? 0
-        : undefined;
-      const rendered = await exportProjectImageDataUrl({
-        projectId,
-        fileName: file.name,
-        deck: deckExportSignal,
-        ...(deckIndex != null ? { index: deckIndex } : {}),
-      });
-      if (rendered.ok) return rendered.snapshot;
-      // A semantic failure (e.g. "page is too tall — export as PDF") must surface,
-      // NOT silently downgrade to a partial visible-viewport screenshot. Only when
-      // the off-screen renderer is genuinely unavailable do we fall through.
-      if ('error' in rendered) throw new Error(rendered.error);
+      // For a CURRENT-slide capture we need the active slide index, which only
+      // exists when the viewer tracks it. Runtime-managed decks have no
+      // active-slide bridge (slideState===null); for those the off-screen path
+      // would always grab slide 0, so plan to skip it and fall through to the
+      // visible host snapshot (= the slide on screen). Whole-deck / pages /
+      // tracked `.slide` decks still render off-screen.
+      const trackedActive = slideState?.active ?? htmlPreviewSlideState.get(previewStateKey)?.active ?? null;
+      const plan = planDeckImageCapture({ deck: deckExportSignal, wholeDeck, trackedActive });
+      if (plan.useOffscreen) {
+        const rendered = await exportProjectImageDataUrl({
+          projectId,
+          fileName: file.name,
+          deck: deckExportSignal,
+          ...(plan.index != null ? { index: plan.index } : {}),
+        });
+        if (rendered.ok) return rendered.snapshot;
+        // A semantic failure (e.g. "page is too tall — export as PDF") must surface,
+        // NOT silently downgrade to a partial visible-viewport screenshot. Only when
+        // the off-screen renderer is genuinely unavailable do we fall through.
+        if ('error' in rendered) throw new Error(rendered.error);
+      }
     }
 
     // Fallback: desktop compositor screenshot of the visible preview region.

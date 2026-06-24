@@ -17,9 +17,43 @@ import {
   exportProjectAsPptx,
   openSandboxedPreviewInNewTab,
   prepareImageExportTarget,
+  planDeckImageCapture,
   requestPreviewSnapshot,
   sourceLooksLikeExportableDeck,
 } from '../../src/runtime/exports';
+
+describe('planDeckImageCapture (#4604 current-slide capture for runtime decks)', () => {
+  it('whole-deck capture renders off-screen with no index (stitch all)', () => {
+    expect(planDeckImageCapture({ deck: true, wholeDeck: true, trackedActive: 3 })).toEqual({
+      useOffscreen: true,
+      index: undefined,
+    });
+  });
+
+  it('ordinary page renders off-screen with no index', () => {
+    expect(planDeckImageCapture({ deck: false, wholeDeck: false, trackedActive: null })).toEqual({
+      useOffscreen: true,
+      index: undefined,
+    });
+  });
+
+  it('tracked deck current-slide renders off-screen at the active index', () => {
+    expect(planDeckImageCapture({ deck: true, wholeDeck: false, trackedActive: 4 })).toEqual({
+      useOffscreen: true,
+      index: 4,
+    });
+  });
+
+  it('runtime-managed deck (no tracked active) skips off-screen → host snapshot, NOT index 0', () => {
+    // The viewer doesn't track a deck-stage / data-screen-label deck's active
+    // slide, so a current-slide capture must use the visible host snapshot rather
+    // than off-screen-rendering slide 0.
+    expect(planDeckImageCapture({ deck: true, wholeDeck: false, trackedActive: null })).toEqual({
+      useOffscreen: false,
+      index: undefined,
+    });
+  });
+});
 
 function mockResponse(headers: Record<string, string>): Response {
   return { headers: new Headers(headers) } as Response;

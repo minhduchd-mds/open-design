@@ -941,6 +941,29 @@ export function sourceLooksLikeExportableDeck(source: string | null | undefined)
   );
 }
 
+// Decides how a current-slide / whole-deck / page image capture should run.
+// The off-screen renderer needs a concrete slide `index` for a CURRENT-slide
+// capture (Copy screenshot / annotation), but we only know the active slide when
+// the viewer tracks it (`trackedActive`). Runtime-managed decks (`<deck-stage>` /
+// `data-screen-label`) are deliberately kept out of the viewer's nav signal, so
+// they have no active-slide bridge (`trackedActive === null`); a current-slide
+// off-screen render would then always grab slide 0, exporting slide 1 instead of
+// the slide on screen. For that case the caller must skip the off-screen path and
+// use the visible host snapshot (which IS the current slide). Whole-deck (Export
+// as image, omits index → stitches all), ordinary pages, and tracked `.slide`
+// decks still use the off-screen renderer.
+export function planDeckImageCapture(opts: {
+  deck: boolean;
+  wholeDeck: boolean;
+  trackedActive: number | null;
+}): { useOffscreen: boolean; index: number | undefined } {
+  const currentSlide = opts.deck && !opts.wholeDeck;
+  if (currentSlide && opts.trackedActive === null) {
+    return { useOffscreen: false, index: undefined };
+  }
+  return { useOffscreen: true, index: currentSlide ? opts.trackedActive ?? 0 : undefined };
+}
+
 // Programmatic image export: render a single pixel-perfect PNG via the daemon
 // (off-screen Electron Chromium), independent of the preview pane size. For a
 // deck pass the current slide `index` (Copy screenshot); omit it to stitch the

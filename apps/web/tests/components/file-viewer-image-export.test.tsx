@@ -7,14 +7,20 @@ import type { ProjectFile } from '../../src/types';
 const {
   captureHostIframeSnapshotMock,
   downloadImageDataUrlMock,
+  exportProjectImageDataUrlMock,
   imageDataUrlToBlobMock,
+  isOpenDesignHostAvailableMock,
   prepareImageExportTargetMock,
   requestPreviewSnapshotMock,
   saveImageBlobMock,
 } = vi.hoisted(() => ({
   captureHostIframeSnapshotMock: vi.fn(),
   downloadImageDataUrlMock: vi.fn(),
+  exportProjectImageDataUrlMock: vi.fn(),
   imageDataUrlToBlobMock: vi.fn(),
+  // Default: no desktop host, so existing tests exercise the host-snapshot
+  // fallback path exactly as before. The runtime-deck test flips this on.
+  isOpenDesignHostAvailableMock: vi.fn(() => false),
   prepareImageExportTargetMock: vi.fn(),
   requestPreviewSnapshotMock: vi.fn(),
   saveImageBlobMock: vi.fn(),
@@ -28,7 +34,9 @@ vi.mock('../../src/runtime/exports', async () => {
     ...actual,
     captureHostIframeSnapshot: captureHostIframeSnapshotMock,
     downloadImageDataUrl: downloadImageDataUrlMock,
+    exportProjectImageDataUrl: exportProjectImageDataUrlMock,
     imageDataUrlToBlob: imageDataUrlToBlobMock,
+    isOpenDesignHostAvailable: isOpenDesignHostAvailableMock,
     prepareImageExportTarget: prepareImageExportTargetMock,
     requestPreviewSnapshot: requestPreviewSnapshotMock,
   };
@@ -336,5 +344,35 @@ describe('FileViewer image export', () => {
     expect(imageDataUrlToBlobMock).toHaveBeenCalledWith('data:image/png;base64,ok', 'png');
     expect(prepareImageExportTargetMock).not.toHaveBeenCalled();
     expect(saveImageBlobMock).not.toHaveBeenCalled();
+  });
+
+  it('Copy screenshot of a runtime-managed deck uses the visible snapshot, not off-screen slide 0', async () => {
+    // A `<deck-stage>` / `data-screen-label` deck is exportable, but the viewer
+    // doesn't track its active slide (no `class="slide"` → no slide-state
+    // bridge). A current-slide capture must therefore use the visible host
+    // snapshot (= the slide on screen), NOT off-screen-render slide 0 — otherwise
+    // Copy screenshot always returns the cover regardless of where the user is.
+    isOpenDesignHostAvailableMock.mockReturnValue(true);
+    captureHostIframeSnapshotMock.mockResolvedValue({ dataUrl: 'data:image/png;base64,host', w: 1280, h: 720 });
+
+    render(
+      <FileViewer
+        projectId="project-1"
+        projectKind="prototype"
+        file={htmlFile()}
+        liveHtml={
+          '<deck-stage><section data-screen-label="01 Cover">A</section>' +
+          '<section data-screen-label="02 Next">B</section></deck-stage>'
+        }
+      />,
+    );
+
+    fireEvent.click(await screen.findByTestId('screenshot-copy-button'));
+
+    await waitFor(() => {
+      expect(captureHostIframeSnapshotMock).toHaveBeenCalled();
+    });
+    // The untracked deck must NOT be off-screen-rendered (which would grab slide 0).
+    expect(exportProjectImageDataUrlMock).not.toHaveBeenCalled();
   });
 });
