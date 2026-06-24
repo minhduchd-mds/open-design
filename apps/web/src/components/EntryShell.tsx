@@ -2491,29 +2491,6 @@ function OnboardingView({
                   }}
                 />
               </div>
-              <div className="onboarding-view__memory-callout">
-                <span className="onboarding-view__memory-callout-icon" aria-hidden>
-                  <Icon name="sparkles" size={16} />
-                </span>
-                <div className="onboarding-view__memory-callout-body">
-                  <strong>{t('settings.onboardingMemoryCalloutTitle')}</strong>
-                  <p>{t('settings.onboardingMemoryCalloutBody')}</p>
-                  <ul className="onboarding-view__memory-benefits">
-                    <li>
-                      <Icon name="check" size={13} aria-hidden />
-                      <span>{t('settings.onboardingMemoryBenefitIntent')}</span>
-                    </li>
-                    <li>
-                      <Icon name="check" size={13} aria-hidden />
-                      <span>{t('settings.onboardingMemoryBenefitFewerQuestions')}</span>
-                    </li>
-                    <li>
-                      <Icon name="check" size={13} aria-hidden />
-                      <span>{t('settings.onboardingMemoryBenefitPersonalized')}</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
             </div>
           ) : null}
 
@@ -2553,6 +2530,15 @@ function OnboardingView({
 
           {step === 3 ? (
             <div className="onboarding-view__panel onboarding-view__panel--newsletter">
+              <button
+                type="button"
+                className="onboarding-view__back-to-cloud"
+                onClick={handleBackWithTracking}
+                disabled={onboardingNavigationLocked}
+              >
+                <Icon name="chevron-left" size={14} />
+                <span>{t('settings.onboardingBack')}</span>
+              </button>
               <OnboardingPanelHeader
                 title={t('onboarding.brandTitle')}
                 body={t('onboarding.brandSubtitle')}
@@ -2582,6 +2568,63 @@ function OnboardingView({
                   }}
                 />
               </label>
+              <div className="onboarding-view__brand-action-row">
+                <div className="onboarding-view__brand-action-statuses">
+                  {brandExtractActive ? (
+                    <span
+                      className="onboarding-view__action-status"
+                      role="status"
+                    >
+                      {t('brand.extracting')}
+                    </span>
+                  ) : null}
+                  {brandExtractDone ? (
+                    <span className="onboarding-view__action-status" role="status">
+                      {t('onboarding.brandDone')}
+                    </span>
+                  ) : null}
+                  {brandExtractFailed ? (
+                    <span
+                      className="onboarding-view__action-status is-error"
+                      role="alert"
+                    >
+                      {brandExtractState.error || t('brand.failed')}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="onboarding-view__brand-action-group">
+                  <button
+                    type="button"
+                    className="onboarding-view__secondary"
+                    onClick={handlePrimaryAction}
+                    disabled={newsletterSubmitting}
+                    aria-busy={newsletterSubmitting ? true : undefined}
+                  >
+                    <span>{t('onboarding.brandSkip')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`onboarding-view__secondary${brandExtractActive ? ' is-loading' : ''}`}
+                    onClick={() => {
+                      void handleOnboardingBrandExtract();
+                    }}
+                    disabled={!brandUrl.trim() || brandExtractActive}
+                  >
+                    {brandExtractActive
+                      ? t('brand.extracting')
+                      : t('newBrand.extract')}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className="onboarding-view__secondary onboarding-view__brand-finish"
+                  onClick={handlePrimaryAction}
+                  disabled={newsletterSubmitting}
+                  aria-busy={newsletterSubmitting ? true : undefined}
+                >
+                  <span>{t('settings.onboardingFinish')}</span>
+                </button>
+              </div>
               <div
                 style={{
                   marginTop: 22,
@@ -2603,94 +2646,43 @@ function OnboardingView({
             </div>
           ) : null}
 
-          <div
-            className={`onboarding-view__actions${
-              step === 3 ? ' onboarding-view__actions--brand' : ''
-            }`}
-          >
-            {step === 0 && amrLoginError ? (
-              <span className="onboarding-view__action-status is-error" role="alert">
-                {amrLoginError}
-              </span>
-            ) : null}
-            {step === 3 ? (
-              <div className="onboarding-view__brand-action-statuses">
-                {brandExtractActive ? (
-                  <span
-                    className="onboarding-view__action-status"
-                    role="status"
-                  >
-                    {t('brand.extracting')}
-                  </span>
-                ) : null}
-                {brandExtractDone ? (
-                  <span className="onboarding-view__action-status" role="status">
-                    {t('onboarding.brandDone')}
-                  </span>
-                ) : null}
-                {brandExtractFailed ? (
-                  <span
-                    className="onboarding-view__action-status is-error"
-                    role="alert"
-                  >
-                    {brandExtractState.error || t('brand.failed')}
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
-            {step === 0 && amrLoginPending ? (
-              <button
-                type="button"
-                className="onboarding-view__secondary"
-                onClick={handleCancelAmrLogin}
-                disabled={amrLoginCancelPending}
-              >
-                {t('settings.amrCancelSignIn')}
-              </button>
-            ) : null}
-            {step === 3 ? (
-              <div className="onboarding-view__brand-action-group">
+          {!isLastStep ? (
+            <div className="onboarding-view__actions">
+              {step === 0 && amrLoginError ? (
+                <span className="onboarding-view__action-status is-error" role="alert">
+                  {amrLoginError}
+                </span>
+              ) : null}
+              {step === 0 && amrLoginPending ? (
                 <button
                   type="button"
                   className="onboarding-view__secondary"
-                  onClick={handlePrimaryAction}
-                  disabled={newsletterSubmitting}
+                  onClick={handleCancelAmrLogin}
+                  disabled={amrLoginCancelPending}
                 >
-                  {t('onboarding.brandSkip')}
+                  {t('settings.amrCancelSignIn')}
                 </button>
-                <button
-                  type="button"
-                  className={`onboarding-view__secondary${brandExtractActive ? ' is-loading' : ''}`}
-                  onClick={() => {
-                    void handleOnboardingBrandExtract();
-                  }}
-                  disabled={!brandUrl.trim() || brandExtractActive}
-                >
-                  {brandExtractActive
-                    ? t('brand.extracting')
-                    : t('newBrand.extract')}
-                </button>
-              </div>
-            ) : null}
-            <button
-              type="button"
-              className={`onboarding-view__primary${
-                connectGateTooltip ? ' od-tooltip' : ''
-              }`}
-              onClick={handlePrimaryAction}
-              // The Connect gate uses `aria-disabled`, not the native `disabled`
-              // attribute, so the button still receives hover/focus and can show
-              // its tooltip explaining what to configure. `handlePrimaryAction`
-              // guards the click. Truly-busy states stay natively disabled.
-              disabled={amrLoginPending || amrLoginCancelPending || newsletterSubmitting}
-              aria-disabled={connectStepBlocked || undefined}
-              data-tooltip={connectGateTooltip ?? undefined}
-              data-tooltip-placement="top"
-              aria-busy={newsletterSubmitting ? true : undefined}
-            >
-              <span>{primaryActionLabel}</span>
-            </button>
-          </div>
+              ) : null}
+              <button
+                type="button"
+                className={`onboarding-view__primary${
+                  connectGateTooltip ? ' od-tooltip' : ''
+                }`}
+                onClick={handlePrimaryAction}
+                // The Connect gate uses `aria-disabled`, not the native `disabled`
+                // attribute, so the button still receives hover/focus and can show
+                // its tooltip explaining what to configure. `handlePrimaryAction`
+                // guards the click. Truly-busy states stay natively disabled.
+                disabled={amrLoginPending || amrLoginCancelPending || newsletterSubmitting}
+                aria-disabled={connectStepBlocked || undefined}
+                data-tooltip={connectGateTooltip ?? undefined}
+                data-tooltip-placement="top"
+                aria-busy={newsletterSubmitting ? true : undefined}
+              >
+                <span>{primaryActionLabel}</span>
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
     </section>
