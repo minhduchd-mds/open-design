@@ -28,6 +28,18 @@ const buildTargets = [
   "tools/serve",
 ];
 
+const buildTargetProfiles = {
+  "web-workspace": [
+    "packages/release",
+    "packages/contracts",
+    "packages/components",
+    "packages/platform",
+    "packages/host",
+    "packages/sidecar-proto",
+    "packages/sidecar",
+  ],
+};
+
 const jsExtensions = new Set([".js", ".cjs", ".mjs"]);
 
 function resolvePackageManagerInvocation() {
@@ -44,9 +56,22 @@ function resolvePackageManagerInvocation() {
 
 const packageManager = resolvePackageManagerInvocation();
 
+function requestedBuildTargets() {
+  const profile = process.env.OPEN_DESIGN_POSTINSTALL_PROFILE;
+  if (profile == null || profile.trim() === "") return buildTargets;
+
+  const targets = buildTargetProfiles[profile];
+  if (targets == null) {
+    throw new Error(`Unknown OPEN_DESIGN_POSTINSTALL_PROFILE: ${profile}`);
+  }
+
+  process.stdout.write(`postinstall: using ${profile} build profile\n`);
+  return targets;
+}
+
 function availableBuildTargets() {
   const targets = [];
-  for (const target of buildTargets) {
+  for (const target of requestedBuildTargets()) {
     // Partial install contexts (e.g. deploy/Dockerfile copies only
     // apps/daemon/package.json before `pnpm install`) lack the target's sources;
     // building there fails `tsc -p tsconfig.json` with TS5058. Skip instead —
