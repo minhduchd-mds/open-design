@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
 import {
-  imageSignature,
   scrollStitchGeometry,
   scrollStitchRowOffset,
   shouldCaptureAsDeck,
@@ -24,30 +23,6 @@ describe('tallPageChunkHeights', () => {
 
   test('never yields a zero-height chunk', () => {
     for (const c of tallPageChunkHeights(5000, 0, 0)) expect(c).toBeGreaterThan(0);
-  });
-});
-
-// imageSignature distinguishes two slide captures so the deck loop can detect a
-// stale-frame race (capturePage returning the previous slide's frame) and
-// re-capture instead of emitting a duplicate page.
-describe('imageSignature', () => {
-  const fakeImage = (bytes: number[]) => ({ toBitmap: () => Buffer.from(bytes) }) as unknown as Electron.NativeImage;
-
-  test('identical bitmaps hash equal', () => {
-    const a = fakeImage([10, 20, 30, 40, 50, 60, 70, 80]);
-    const b = fakeImage([10, 20, 30, 40, 50, 60, 70, 80]);
-    expect(imageSignature(a)).toBe(imageSignature(b));
-  });
-
-  test('different content hashes differently', () => {
-    // Differ at byte 0 (sampled by the stride) so the checksum must change.
-    const a = fakeImage(new Array(8192).fill(0).map((_, i) => (i === 0 ? 1 : 0)));
-    const b = fakeImage(new Array(8192).fill(0).map((_, i) => (i === 0 ? 2 : 0)));
-    expect(imageSignature(a)).not.toBe(imageSignature(b));
-  });
-
-  test('different length hashes differently', () => {
-    expect(imageSignature(fakeImage([1, 2, 3, 4]))).not.toBe(imageSignature(fakeImage([1, 2, 3, 4, 5, 6, 7, 8])));
   });
 });
 

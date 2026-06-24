@@ -178,40 +178,62 @@ export async function renderDeckSlides(
     // contract. So `pageImageFormat` is intentionally ignored in the deck branch.
     const jpeg = false;
 
-    // Image export of a deck wants every slide stitched top-to-bottom into one
-    // tall image (the "whole deck as one picture").
-    if (input.stitch) {
-      return finish(await stitchDeckSlides(window, count, stage, jpeg, input.outputDir));
+    // Capture each slide via CDP `Page.captureScreenshot` when the debugger can
+    // attach. Unlike `capturePage()` (which grabs the last COMPOSITED frame and
+    // can hand back the previous slide's frame when the new one hasn't composited
+    // yet — the duplicate-page race), CDP renders the CURRENT DOM to a fresh
+    // frame, so the captured pixels always match the slide we just showed. No
+    // pixel-compare / retry needed. Animations + transitions are already frozen
+    // (prepareDeckStage), so each slide is captured at its final state — never a
+    // mid page-turn frame. Falls back to capturePage if the debugger is busy.
+    const deckDbg = window.webContents.debugger;
+    let deckDbgAttached = false;
+    try {
+      deckDbg.attach("1.3");
+      deckDbgAttached = true;
+      await deckDbg.sendCommand("Page.enable");
+    } catch {
+      // already attached / unavailable — captureDeckSlide falls back to capturePage
     }
+    const dbg = deckDbgAttached ? deckDbg : null;
+    try {
+      // Image export of a deck wants every slide stitched top-to-bottom into one
+      // tall image (the "whole deck as one picture").
+      if (input.stitch) {
+        return finish(await stitchDeckSlides(window, dbg, count, stage, jpeg, input.outputDir));
+      }
 
-    // Otherwise render every slide, or just the one requested by image export.
-    // A specified-but-out-of-range index is a caller error — fail fast instead
-    // of silently falling back to slide 0 (which the daemon would return with
-    // 200 for image export).
-    if (input.index != null && (input.index < 0 || input.index >= count)) {
-      return finish({
-        ok: false,
-        error: `slide index ${input.index} is out of range (deck has ${count} slide(s))`,
-      });
+      // Otherwise render every slide, or just the one requested by image export.
+      // A specified-but-out-of-range index is a caller error — fail fast instead
+      // of silently falling back to slide 0 (which the daemon would return with
+      // 200 for image export).
+      if (input.index != null && (input.index < 0 || input.index >= count)) {
+        return finish({
+          ok: false,
+          error: `slide index ${input.index} is out of range (deck has ${count} slide(s))`,
+        });
+      }
+      const indices = input.index != null ? [input.index] : range(count);
+      const images: Array<{ buffer: Buffer; jpeg: boolean }> = [];
+      let width = stage.w;
+      let height = stage.h;
+      for (const i of indices) {
+        const image = await captureDeckSlide(window, dbg, i, stage);
+        const size = image.getSize();
+        width = size.width;
+        height = size.height;
+        images.push({ buffer: jpeg ? image.toJPEG(82) : image.toPNG(), jpeg });
+      }
+      return finish({ ok: true, ...(await emitImages(images, input.outputDir)), width, height, mode: "deck" });
+    } finally {
+      if (deckDbgAttached) {
+        try {
+          deckDbg.detach();
+        } catch {
+          // ignore
+        }
+      }
     }
-    const indices = input.index != null ? [input.index] : range(count);
-    const images: Array<{ buffer: Buffer; jpeg: boolean }> = [];
-    let width = stage.w;
-    let height = stage.h;
-    // Track the previous slide's capture so a stale-frame race can't emit an
-    // exact duplicate of the prior page (see captureSettledSlideImage). Clipped
-    // to the exact measured slide rect (DIP) so the PNG aspect always matches the
-    // authored deck, even if the window content rounds differently.
-    let prevSignature: number | null = null;
-    for (const i of indices) {
-      const { image, signature } = await captureSettledSlideImage(window, i, stage, prevSignature);
-      prevSignature = signature;
-      const size = image.getSize();
-      width = size.width;
-      height = size.height;
-      images.push({ buffer: jpeg ? image.toJPEG(82) : image.toPNG(), jpeg });
-    }
-    return finish({ ok: true, ...(await emitImages(images, input.outputDir)), width, height, mode: "deck" });
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : String(error) };
   } finally {
@@ -280,43 +302,27 @@ async function showDeckSlide(window: BrowserWindow, i: number, stage: Stage): Pr
   }
 }
 
-// Cheap sampled checksum of a capture's BGRA bytes — enough to tell two slide
-// captures apart without hashing megabytes per slide. Uses a prime stride so it
-// doesn't alias on row width. Exported for tests.
-export function imageSignature(image: Electron.NativeImage): number {
-  const bmp = image.toBitmap();
-  let h = 2166136261;
-  for (let i = 0; i < bmp.length; i += 4099) {
-    h = (Math.imul(h, 16777619) ^ bmp[i]!) >>> 0;
-  }
-  // Fold the byte length in so a size change alone is detected.
-  return (Math.imul(h, 16777619) ^ bmp.length) >>> 0;
-}
-
-// Shows slide `i` and captures it, GUARDING against the compositor returning the
-// PREVIOUS slide's frame. `capturePage` can hand back the last composited frame
-// when the just-shown slide hasn't painted yet (a stale-frame race seen on
-// slower / loaded machines), which silently emits an exact duplicate of the
-// prior page — the QA-reported "two identical 目录 pages". When the capture is
-// byte-identical to the previous slide's, wait for more frames and re-capture
-// (bounded). Two genuinely-identical adjacent slides simply exhaust the retries
-// and emit once, which is correct.
-async function captureSettledSlideImage(
+// Shows slide `i` and captures the measured stage rect. Prefers CDP
+// `Page.captureScreenshot` (renders the CURRENT DOM to a fresh frame, so it
+// cannot return a stale composited frame of the previous slide — the
+// duplicate-page race `capturePage` exhibits); falls back to `capturePage` when
+// the debugger isn't attached. `scale: 1` because the window's device-pixel
+// ratio already provides the pixel scale (avoids double-scaling).
+async function captureDeckSlide(
   window: BrowserWindow,
+  dbg: Electron.Debugger | null,
   i: number,
   stage: Stage,
-  prevSignature: number | null,
-): Promise<{ image: Electron.NativeImage; signature: number }> {
+): Promise<Electron.NativeImage> {
   await showDeckSlide(window, i, stage);
-  let image = await window.webContents.capturePage({ x: 0, y: 0, width: stage.w, height: stage.h });
-  let signature = imageSignature(image);
-  for (let attempt = 0; prevSignature !== null && signature === prevSignature && attempt < 4; attempt++) {
-    await nextFrames(window);
-    await new Promise((resolve) => setTimeout(resolve, 60));
-    image = await window.webContents.capturePage({ x: 0, y: 0, width: stage.w, height: stage.h });
-    signature = imageSignature(image);
+  if (dbg) {
+    const shot = (await dbg.sendCommand("Page.captureScreenshot", {
+      clip: { x: 0, y: 0, width: stage.w, height: stage.h, scale: 1 },
+      format: "png",
+    })) as { data: string };
+    return nativeImage.createFromBuffer(Buffer.from(shot.data, "base64"));
   }
-  return { image, signature };
+  return await window.webContents.capturePage({ x: 0, y: 0, width: stage.w, height: stage.h });
 }
 
 // Captures every deck slide and stacks them top-to-bottom into one tall image
@@ -331,6 +337,7 @@ const DECK_STITCH_MAX_H = 30000;
 const DECK_STITCH_MAX_BYTES = 320 * 1024 * 1024;
 async function stitchDeckSlides(
   window: BrowserWindow,
+  dbg: Electron.Debugger | null,
   count: number,
   stage: Stage,
   jpeg: boolean,
@@ -341,9 +348,7 @@ async function stitchDeckSlides(
   // and the RAM byte budget. Scaling (instead of dropping trailing slides) keeps
   // the "whole deck as one picture" contract — long/large decks just get a
   // smaller per-slide size.
-  const firstCapture = await captureSettledSlideImage(window, 0, stage, null);
-  const first = firstCapture.image;
-  let prevSignature: number | null = firstCapture.signature;
+  const first = await captureDeckSlide(window, dbg, 0, stage);
   const nativeSize = first.getSize();
   const nativeW = Math.max(1, nativeSize.width);
   const nativeH = Math.max(1, nativeSize.height);
@@ -361,8 +366,7 @@ async function stitchDeckSlides(
   };
   place(first, 0);
   for (let i = 1; i < count; i++) {
-    const { image, signature } = await captureSettledSlideImage(window, i, stage, prevSignature);
-    prevSignature = signature;
+    const image = await captureDeckSlide(window, dbg, i, stage);
     place(image, i);
   }
   const H = slideHpx * count;
