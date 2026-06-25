@@ -140,6 +140,7 @@ interface Props {
   onClearActiveChip?: () => void;
   activeSkillId?: string | null;
   activeSkillTitle?: string | null;
+  activeSkillRecord?: SkillSummary | null;
   onClearActiveSkill?: () => void;
   selectedPluginContexts?: InstalledPluginRecord[];
   selectedMcpContexts?: McpServerConfig[];
@@ -158,6 +159,7 @@ interface Props {
   onAddConnector?: () => void;
   onAddMcp?: () => void;
   onOpenPluginDetails?: (record: InstalledPluginRecord) => void;
+  onOpenSkillDetails?: (skill: SkillSummary) => void;
   pluginInputFields?: InputFieldSpec[];
   pluginInputValues?: Record<string, unknown>;
   pluginInputTemplate?: string | null;
@@ -266,6 +268,7 @@ export const HomeHero = forwardRef<HomeHeroHandle, Props>(function HomeHero(
     activePluginRecord = null,
     activeSkillId = null,
     activeSkillTitle = null,
+    activeSkillRecord = null,
     activeChipId,
     onClearActivePlugin,
     onClearActiveChip = onClearActivePlugin,
@@ -281,6 +284,7 @@ export const HomeHero = forwardRef<HomeHeroHandle, Props>(function HomeHero(
     onAddConnector = () => undefined,
     onAddMcp = () => undefined,
     onOpenPluginDetails = () => undefined,
+    onOpenSkillDetails = () => undefined,
     pluginInputFields = EMPTY_INPUT_FIELDS,
     pluginInputValues = EMPTY_PLUGIN_INPUT_VALUES,
     onPluginInputValuesChange = () => undefined,
@@ -1052,6 +1056,10 @@ export const HomeHero = forwardRef<HomeHeroHandle, Props>(function HomeHero(
     if (activePluginRecord) onOpenPluginDetails(activePluginRecord);
   }
 
+  function openActiveSkillDetails() {
+    if (activeSkillRecord) onOpenSkillDetails(activeSkillRecord);
+  }
+
   // plugin/MCP/connector contexts now render as inline @mention pills in the
   // composer, so they no longer drive this top row — only staged files (which
   // have no inline representation) and the active plugin/skill/example chips do.
@@ -1216,10 +1224,26 @@ export const HomeHero = forwardRef<HomeHeroHandle, Props>(function HomeHero(
                 className="home-hero__active-chip home-hero__active-chip--skill"
                 data-testid="home-hero-active-skill"
               >
-                <span className="home-hero__active-icon" aria-hidden>
-                  <Icon name="sparkles" size={12} />
-                </span>
-                <span className="home-hero__active-label">{t('homeHero.skillPrefix', { title: activeSkillTitle })}</span>
+                <button
+                  type="button"
+                  className="home-hero__active-chip-body"
+                  onPointerDown={(event) => {
+                    event.preventDefault();
+                    openActiveSkillDetails();
+                  }}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    openActiveSkillDetails();
+                  }}
+                  onClick={openActiveSkillDetails}
+                  disabled={!activeSkillRecord}
+                  title={activeSkillRecord ? activeSkillRecord.description || activeSkillTitle : undefined}
+                >
+                  <span className="home-hero__active-icon" aria-hidden>
+                    <Icon name="sparkles" size={12} />
+                  </span>
+                  <span className="home-hero__active-label">{t('homeHero.skillPrefix', { title: activeSkillTitle })}</span>
+                </button>
                 <button
                   type="button"
                   className="home-hero__active-clear od-tooltip"
@@ -1528,6 +1552,17 @@ export const HomeHero = forwardRef<HomeHeroHandle, Props>(function HomeHero(
                   resource_kind: 'plugin',
                 });
                 onAddPlugin();
+              }}
+              skills={skillOptions}
+              onPickSkill={(skill) => {
+                trackHomeChatComposerClick(analytics.track, {
+                  page_name: 'home',
+                  area: 'chat_composer',
+                  element: 'plus_pick',
+                  resource_kind: 'skill',
+                  resource_id: skill.id,
+                });
+                pickSkill(skill);
               }}
               mcpServers={mcpOptions}
               onPickMcp={(server) => {

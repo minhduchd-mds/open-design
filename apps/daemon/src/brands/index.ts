@@ -473,10 +473,10 @@ export async function startBrandExtraction(
 
 function launchProgrammaticBackgroundExtraction(input: {
   programmaticOptions: RunProgrammaticExtractionOptions;
-  programmaticAbortSignal?: AbortSignal;
+  programmaticAbortSignal?: AbortSignal | undefined;
   fallbackPrompt: string;
-  onBackgroundExtraction?: (settled: Promise<unknown>) => void;
-  locale?: string;
+  onBackgroundExtraction?: ((settled: Promise<unknown>) => void) | undefined;
+  locale?: string | undefined;
 }): Promise<BrandFinalizeResponse | null> {
   const { programmaticOptions, programmaticAbortSignal, fallbackPrompt, locale } = input;
   const { db, brandsRoot, projectsRoot, id, projectId } = programmaticOptions;
@@ -508,7 +508,7 @@ function launchProgrammaticBackgroundExtraction(input: {
       projectsRoot,
       brandId: id,
       outcome: 'needs_attention',
-      locale,
+      ...(locale ? { locale } : {}),
     }).catch(() => {});
   }, PROGRAMMATIC_STALL_CHECKPOINT_MS);
   stallTimer.unref?.();
@@ -516,7 +516,7 @@ function launchProgrammaticBackgroundExtraction(input: {
   // Defer so the HTTP route returns the ids (making the transcript visible in
   // the left pane) before any synchronous extraction work — notably DESIGN.md
   // parsing — runs.
-  const settled = new Promise<BrandFinalizeResponse | null>((resolve) => {
+  const harvest = new Promise<BrandFinalizeResponse | null>((resolve) => {
     setTimeout(() => {
       runProgrammaticExtraction({ ...programmaticOptions, abortSignal }).then(resolve, (err) => {
         if (!isProgrammaticExtractionAbortError(err) && !programmaticAbortSignal?.aborted) {
@@ -525,24 +525,39 @@ function launchProgrammaticBackgroundExtraction(input: {
         resolve(null);
       });
     }, 0);
-  }).finally(() => {
-    extractionSettled = true;
-    clearTimeout(stallTimer);
-    clearTimeout(hardCapTimer);
   });
-  input.onBackgroundExtraction?.(settled);
 
-  void settled
-    .then((result) => {
+  const settled = harvest
+    .then(async (result) => {
       // A deliberate user Stop is reconciled by the cancel route, which knows
       // the run was stopped (not given up on). Everything else settles here.
-      if (programmaticAbortSignal?.aborted) return undefined;
+      if (programmaticAbortSignal?.aborted) return result;
       // Success: finalizeBrandCore already flipped the row to `succeeded` from
       // the authoritative completion point, so there is nothing to do.
-      if (result) return undefined;
+      if (result) return result;
       // Give-up (blocked / too thin / unreachable / hard-cap backstop): hand
       // the brand to the agent fallback and retire the synthetic row into the
       // actionable "needs a hand" terminal so it stops counting up forever.
+      const latest = readMeta(brandsRoot, id);
+      const error = latest?.blockedReason
+        ? `Programmatic extraction blocked by ${latest.blockedReason}.`
+        : 'Programmatic extraction needs user assistance.';
+      patchMeta(brandsRoot, id, {
+        status: 'failed',
+        error,
+        extractionTerminalRunId: undefined,
+        extractionTerminalError: error,
+      });
+      await renderBrandPreviewIntoProject({
+        id,
+        brandsRoot,
+        skillsRoot: programmaticOptions.skillsRoot,
+        projectsRoot,
+        projectId,
+        ...(locale ? { locale } : {}),
+      }).catch((err) => {
+        console.warn(`[brand] failed to render failed draft preview for ${id}`, err);
+      });
       updateProject(db, projectId, { pendingPrompt: fallbackPrompt });
       return reconcileProgrammaticExtractionTranscript({
         db,
@@ -550,13 +565,20 @@ function launchProgrammaticBackgroundExtraction(input: {
         projectsRoot,
         brandId: id,
         outcome: 'needs_attention',
-        locale,
-      });
+        ...(locale ? { locale } : {}),
+      }).then(() => null);
     })
     .catch((err) => {
-      if (isClosedDatabaseError(err)) return;
+      if (isClosedDatabaseError(err)) return null;
       console.warn(`[brand] failed to reconcile programmatic extraction transcript for ${id}`, err);
+      return null;
+    })
+    .finally(() => {
+      extractionSettled = true;
+      clearTimeout(stallTimer);
+      clearTimeout(hardCapTimer);
     });
+  input.onBackgroundExtraction?.(settled);
 
   return settled;
 }

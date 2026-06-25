@@ -19,7 +19,7 @@ import {
   listMessages,
 } from '../../src/state/projects';
 import { fetchPreviewComments } from '../../src/providers/registry';
-import { cancelBrandExtraction, continueBrandExtraction } from '../../src/runtime/brands';
+import { cancelBrandExtraction, continueBrandExtraction, fetchBrands } from '../../src/runtime/brands';
 
 const fileWorkspaceSpy = vi.hoisted(() => vi.fn());
 const chatPaneSpy = vi.hoisted(() => vi.fn());
@@ -71,6 +71,7 @@ vi.mock('../../src/runtime/brands', async () => {
         designSystemId: 'user:brand-retry',
       },
     }),
+    fetchBrands: vi.fn().mockResolvedValue([]),
   };
 });
 
@@ -126,6 +127,7 @@ vi.mock('../../src/components/FileWorkspace', () => ({
     openRequest?: { name: string } | null;
     onBrandExtractionStopRequest?: () => void;
     designSystemEditable?: boolean;
+    filesRefreshKey?: number;
   }) => {
     fileWorkspaceSpy(props);
     return <div data-testid="file-workspace" />;
@@ -159,6 +161,7 @@ const mockedListMessages = vi.mocked(listMessages);
 const mockedFetchPreviewComments = vi.mocked(fetchPreviewComments);
 const mockedCancelBrandExtraction = vi.mocked(cancelBrandExtraction);
 const mockedContinueBrandExtraction = vi.mocked(continueBrandExtraction);
+const mockedFetchBrands = vi.mocked(fetchBrands);
 
 const config: AppConfig = {
   mode: 'api',
@@ -228,6 +231,7 @@ describe('ProjectView pending prompt seeding', () => {
     );
     mockedListMessages.mockResolvedValue([]);
     mockedFetchPreviewComments.mockResolvedValue([]);
+    mockedFetchBrands.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -373,6 +377,74 @@ describe('ProjectView pending prompt seeding', () => {
           props.designSystemEditable === true && props.openRequest?.name === '__design_system__',
         ),
       ).toBe(true);
+    });
+  });
+
+  it('continues a programmatic brand extraction from the next-step action', async () => {
+    const onDesignSystemsRefresh = vi.fn();
+    const onProjectsRefresh = vi.fn();
+    renderProjectView(
+      {
+        ...project('brand-retry'),
+        metadata: {
+          kind: 'brand',
+          importedFrom: 'brand-extraction',
+          brandId: 'brand-retry',
+          brandSourceUrl: 'https://economist.com/',
+          brandDesignSystemId: 'user:brand-retry',
+        },
+      },
+      vi.fn(),
+      { onDesignSystemsRefresh, onProjectsRefresh },
+    );
+
+    await waitFor(() => {
+      expect(chatPaneSpy.mock.calls.at(-1)?.[0].onContinueBrandExtraction).toBeTypeOf('function');
+    });
+    chatPaneSpy.mock.calls.at(-1)?.[0].onContinueBrandExtraction?.();
+
+    await waitFor(() => expect(mockedContinueBrandExtraction).toHaveBeenCalledWith('brand-retry'));
+    await waitFor(() => expect(onDesignSystemsRefresh).toHaveBeenCalled());
+    await waitFor(() => expect(onProjectsRefresh).toHaveBeenCalled());
+    await waitFor(() => {
+      expect(
+        fileWorkspaceSpy.mock.calls.some(([props]) =>
+          props.openRequest?.name === '__design_system__' && props.designSystemEditable === false,
+        ),
+      ).toBe(true);
+    });
+  });
+
+  it('refreshes brand.html when the brand extraction reaches a failed terminal state', async () => {
+    mockedFetchBrands.mockResolvedValue([
+      {
+        meta: {
+          id: 'brand-failed',
+          sourceUrl: 'https://economist.com/',
+          createdAt: 1,
+          updatedAt: 2,
+          status: 'failed',
+          designSystemId: 'user:brand-failed',
+        },
+        brand: null,
+      },
+    ]);
+
+    renderProjectView(
+      {
+        ...project('brand-failed'),
+        metadata: {
+          kind: 'brand',
+          importedFrom: 'brand-extraction',
+          brandId: 'brand-failed',
+          brandSourceUrl: 'https://economist.com/',
+          brandDesignSystemId: 'user:brand-failed',
+        },
+      },
+    );
+
+    await waitFor(() => {
+      expect(fileWorkspaceSpy.mock.calls.some(([props]) => (props.filesRefreshKey ?? 0) > 0)).toBe(true);
     });
   });
 

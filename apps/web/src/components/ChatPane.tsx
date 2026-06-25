@@ -677,6 +677,15 @@ interface QueuedSendUpdate {
 // Gap left above the anchored user message when it is pinned to the top.
 const ANCHOR_TOP_PADDING = 12;
 
+function shouldHideEmptyBrandAssistantMessage(message: ChatMessage, metadata?: ProjectMetadata): boolean {
+  if (metadata?.importedFrom !== 'brand-extraction' && metadata?.kind !== 'brand') return false;
+  if (message.role !== 'assistant') return false;
+  if (message.content.trim()) return false;
+  if ((message.events?.length ?? 0) > 0) return false;
+  if ((message.producedFiles?.length ?? 0) > 0) return false;
+  return Boolean(message.runStatus || message.endedAt);
+}
+
 export function ChatPane({
   messages,
   streaming,
@@ -789,7 +798,10 @@ export function ChatPane({
 }: Props) {
   const t = useT();
   const analytics = useAnalytics();
-  const displayMessages = messages;
+  const displayMessages = useMemo(
+    () => messages.filter((message) => !shouldHideEmptyBrandAssistantMessage(message, projectMetadata)),
+    [messages, projectMetadata],
+  );
   const amrProfile = config?.agentCliEnv?.amr?.[AMR_PROFILE_ENV_KEY] ?? null;
   const [inlineAmrLoginStatus, setInlineAmrLoginStatus] =
     useState<VelaLoginStatus | null>(null);

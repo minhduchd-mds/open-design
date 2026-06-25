@@ -89,6 +89,7 @@ import {
   type HomePromptHandoff,
 } from './home-hero/plugin-authoring';
 import { PluginDetailsModal } from './PluginDetailsModal';
+import { SkillDetailsModal } from './SkillDetailsModal';
 import { HomeTemplatesReveal } from './HomeTemplatesReveal';
 import { PluginsHomeSection } from './PluginsHomeSection';
 import type { PluginLoopSubmit } from './PluginLoopHome';
@@ -352,6 +353,7 @@ export function HomeView({
   const [elevenLabsVoicesLoaded, setElevenLabsVoicesLoaded] = useState(false);
   const [elevenLabsVoicesError, setElevenLabsVoicesError] = useState<string | null>(null);
   const [detailsRecord, setDetailsRecord] = useState<InstalledPluginRecord | null>(null);
+  const [detailsSkill, setDetailsSkill] = useState<SkillSummary | null>(null);
   const [pendingReplacement, setPendingReplacement] = useState<PendingReplacement | null>(null);
   // Surface_view fires when the replacement modal becomes visible. Tied
   // to the {before, after} pair so reopening with the same pair after a
@@ -1778,6 +1780,7 @@ export function HomeView({
         activePluginRecord={active?.record ?? null}
         activeSkillId={activeSkill?.id ?? null}
         activeSkillTitle={activeSkill ? localizeSkillName(locale, activeSkill) : null}
+        activeSkillRecord={activeSkill}
         activeChipId={active?.chipId ?? null}
         showActivePluginChip={showActivePluginChip}
         onClearActivePlugin={clearActivePlugin}
@@ -1796,6 +1799,7 @@ export function HomeView({
         onAddConnector={onOpenIntegrations}
         onAddMcp={onOpenMcp}
         onOpenPluginDetails={setDetailsRecord}
+        onOpenSkillDetails={setDetailsSkill}
         pluginInputFields={(active?.inputFields ?? []).filter(
           (field) => !ARTIFACT_FOOTER_FIELD_NAMES.has(field.name),
         )}
@@ -1939,6 +1943,13 @@ export function HomeView({
                 plugin_id: detailsRecord.sourceMarketplaceEntryName ?? detailsRecord.id,
                 plugin_type: detailsRecord.marketplaceTrust ?? 'official',
               })}
+          />
+        ) : null}
+        {detailsSkill ? (
+          <SkillDetailsModal
+            skillId={detailsSkill.id}
+            summary={detailsSkill}
+            onClose={() => setDetailsSkill(null)}
           />
         ) : null}
         {figmaModalOpen ? (

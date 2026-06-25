@@ -336,6 +336,8 @@ interface Props {
   onApiProtocolChange: (protocol: ApiProtocol) => void;
   onApiModelChange: (model: string) => void;
   onConfigPersist: (cfg: AppConfig) => Promise<void> | void;
+  onSkillsRefresh?: () => Promise<void> | void;
+  onSkillsChanged?: (affectedSkillId?: string) => void;
   onRefreshAgents: () => Promise<AgentInfo[]> | AgentInfo[];
   // Quick theme switch from the avatar-popover dropdown. Lets the user
   // flip between system / light / dark without opening the full Settings
@@ -458,6 +460,8 @@ export function EntryShell({
   onApiProtocolChange,
   onApiModelChange,
   onConfigPersist,
+  onSkillsRefresh,
+  onSkillsChanged,
   onRefreshAgents,
   onThemeChange,
   onCreateProject,
@@ -983,7 +987,10 @@ export function EntryShell({
                 config={config}
                 initialTab={integrationTab}
                 composioConfigLoading={composioConfigLoading}
+                onConfigPersist={onConfigPersist}
                 onPersistComposioKey={onPersistComposioKey}
+                onSkillsRefresh={onSkillsRefresh}
+                onSkillsChanged={onSkillsChanged}
               />
             ) : null}
           </div>

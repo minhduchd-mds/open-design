@@ -12,21 +12,21 @@ const BRAND_METADATA: ProjectMetadata = {
   brandId: 'brand-1',
 };
 
-function mockBrandsResponse(): void {
+function mockBrandsResponse(brands: unknown[] = [
+  {
+    meta: {
+      id: 'brand-1',
+      status: 'ready',
+      designSystemId: 'user:brand-1',
+    },
+    brand: {
+      name: 'Nexu',
+    },
+  },
+]): void {
   vi.spyOn(globalThis, 'fetch').mockResolvedValue(
     new Response(JSON.stringify({
-      brands: [
-        {
-          meta: {
-            id: 'brand-1',
-            status: 'ready',
-            designSystemId: 'user:brand-1',
-          },
-          brand: {
-            name: 'Nexu',
-          },
-        },
-      ],
+      brands,
     }), {
       status: 200,
       headers: { 'content-type': 'application/json' },
@@ -54,5 +54,30 @@ describe('useBrandReadyPrompt', () => {
     });
     expect(result.current.status).toBe('ready');
     expect(result.current.prompt).toBeNull();
+  });
+
+  it('surfaces browser assist for a recoverable failed extraction', async () => {
+    mockBrandsResponse([
+      {
+        meta: {
+          id: 'brand-1',
+          status: 'failed',
+          sourceUrl: 'https://www.economist.com/',
+          error: 'Brand extraction failed in the backing project.',
+        },
+        brand: null,
+      },
+    ]);
+
+    const { result } = renderHook(() => useBrandReadyPrompt(BRAND_METADATA));
+
+    await waitFor(() => {
+      expect(result.current.browserAssist).toEqual({
+        brandId: 'brand-1',
+        sourceUrl: 'https://www.economist.com/',
+        reason: 'Brand extraction failed in the backing project.',
+      });
+    });
+    expect(result.current.status).toBe('failed');
   });
 });

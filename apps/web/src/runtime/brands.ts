@@ -10,7 +10,7 @@
 
 import { useEffect, useState } from 'react';
 import type {
-  BrandContinueExtractionResponse,
+  BrandExtractStartResponse,
   BrandExtractFromHtmlRequest,
   BrandFinalizeResponse,
   BrandSummary,
@@ -121,7 +121,7 @@ export type CancelBrandExtractionOutcome =
   | { ok: false; error: string };
 
 export type ContinueBrandExtractionOutcome =
-  | { ok: true; result: BrandContinueExtractionResponse }
+  | { ok: true; result: BrandExtractStartResponse }
   | { ok: false; error: string };
 
 export async function continueBrandExtraction(
@@ -143,7 +143,7 @@ export async function continueBrandExtraction(
       }
       return { ok: false, error };
     }
-    const result = (await resp.json()) as BrandContinueExtractionResponse;
+    const result = (await resp.json()) as BrandExtractStartResponse;
     return { ok: true, result };
   } catch (err) {
     return {

@@ -1193,13 +1193,13 @@ export interface HomeChatComposerClickProps {
     | 'example_open_project'
     // The "+" menu on the home composer (same control as the in-project
     // composer's `plus_*` events): opening it, inserting a
-    // connector/plugin/mcp mention (`resource_kind` + `resource_id`), or
+    // connector/plugin/skill/mcp mention (`resource_kind` + `resource_id`), or
     // jumping to the add-resource surface (`resource_kind`).
     | 'plus_menu_open'
     | 'plus_pick'
     | 'plus_add';
   // For `plus_pick` / `plus_add`: which kind of resource (and its id on pick).
-  resource_kind?: 'connector' | 'plugin' | 'mcp';
+  resource_kind?: 'connector' | 'plugin' | 'skill' | 'mcp';
   resource_id?: string;
   // For plugin / action / task chips, the specific id (e.g. `prototype`,
   // `from_figma`, `hyperframes`).

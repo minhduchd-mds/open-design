@@ -2231,6 +2231,8 @@ function AppInner() {
         onApiProtocolChange={handleApiProtocolChange}
         onApiModelChange={handleApiModelChange}
         onConfigPersist={handleConfigPersist}
+        onSkillsRefresh={refreshSkills}
+        onSkillsChanged={handleSkillsChanged}
         onRefreshAgents={refreshAgents}
         onThemeChange={handleThemeChange}
         skillsLoading={skillsLoading}
@@ -2312,13 +2314,11 @@ function AppInner() {
           }}
           onRefreshAgents={refreshAgents}
           onAmrLoginStatusChange={handleAmrLoginStatusChange}
-          onSkillsRefresh={refreshSkills}
           daemonMediaProviders={daemonMediaProviders}
           daemonMediaProvidersFetchState={daemonMediaProvidersFetchState}
           mediaProvidersNotice={mediaProvidersNotice}
           onReloadMediaProviders={reloadMediaProvidersFromDaemon}
           onProjectsRefresh={refreshProjects}
-          onSkillsChanged={handleSkillsChanged}
           onDesignSystemsChanged={handleDesignSystemsChanged}
           onDesignSystemImportRebuildJob={handleDesignSystemImportRebuildJob}
           providerModelsCache={providerModelsCache}

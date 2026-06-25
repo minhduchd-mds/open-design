@@ -124,4 +124,38 @@ describe('ChatPane connect-repo CTA', () => {
     });
     expect(container.querySelector('.chat-connect-repo')).toBeNull();
   });
+
+  it('hides empty terminal assistant rows for brand extraction projects', () => {
+    renderPane({
+      projectMetadata: {
+        kind: 'brand',
+        importedFrom: 'brand-extraction',
+        brandId: 'brand-1',
+      },
+      messages: [
+        {
+          id: 'brand-needs-hand',
+          role: 'assistant',
+          agentName: 'AMR',
+          content: 'The automatic pass needs a hand.',
+          events: [{ kind: 'text', text: 'The automatic pass needs a hand.' }],
+          runStatus: 'succeeded',
+          endedAt: 2,
+          createdAt: 1,
+        },
+        {
+          id: 'empty-assistant',
+          role: 'assistant',
+          agentName: 'Assistant',
+          content: '',
+          runStatus: 'succeeded',
+          endedAt: 3,
+          createdAt: 2,
+        },
+      ],
+    });
+
+    expect(screen.getByText('The automatic pass needs a hand.')).toBeTruthy();
+    expect(screen.queryByText('Assistant')).toBeNull();
+  });
 });

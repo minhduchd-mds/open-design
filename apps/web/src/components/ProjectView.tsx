@@ -1161,6 +1161,7 @@ export function ProjectView({
     brandExtractionStatusOverride?.brandId === currentBrandExtractionId
       ? brandExtractionStatusOverride.status
       : polledBrandExtractionStatus;
+  const terminalBrandPreviewRefreshRef = useRef<string | null>(null);
   const designSystemEditable =
     !projectIsProgrammaticBrandExtraction ||
     brandExtractionAllowsEditing(effectiveBrandExtractionStatus) ||
@@ -1950,6 +1951,26 @@ export function ProjectView({
     const [nextFiles] = await Promise.all([refreshProjectFiles(), refreshLiveArtifacts()]);
     return nextFiles;
   }, [refreshLiveArtifacts, refreshProjectFiles]);
+
+  useEffect(() => {
+    if (!currentBrandExtractionId) {
+      terminalBrandPreviewRefreshRef.current = null;
+      return;
+    }
+    if (!brandExtractionAllowsEditing(effectiveBrandExtractionStatus)) {
+      terminalBrandPreviewRefreshRef.current = null;
+      return;
+    }
+    const refreshKey = `${currentBrandExtractionId}:${effectiveBrandExtractionStatus}`;
+    if (terminalBrandPreviewRefreshRef.current === refreshKey) return;
+    terminalBrandPreviewRefreshRef.current = refreshKey;
+    void refreshWorkspaceItems().catch(() => {});
+    setFilesRefresh((n) => n + 1);
+  }, [
+    currentBrandExtractionId,
+    effectiveBrandExtractionStatus,
+    refreshWorkspaceItems,
+  ]);
 
   useEffect(() => {
     if (!tabsLoadedRef.current) return;
