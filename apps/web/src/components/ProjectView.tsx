@@ -6273,9 +6273,8 @@ export function ProjectView({
     const record = plugins.find((plugin) => plugin.id === normalizedId);
     if (record) setContextPluginDetails(record);
   }, []);
-  const handleOpenContextDesignSystemDetails = useCallback(async (system: DesignSystemSummary) => {
-    const detail = await fetchDesignSystem(system.id);
-    setContextDesignSystemDetails(detail ?? system);
+  const handleOpenContextDesignSystemDetails = useCallback((system: DesignSystemSummary) => {
+    setContextDesignSystemDetails(system);
   }, []);
   const chatDesignSystemSummary = useMemo(() => {
     if (activeDesignSystemSummary) return activeDesignSystemSummary;

@@ -12,10 +12,8 @@ import {
   fetchDesignSystemPreview,
   fetchDesignSystemShowcase,
 } from '../providers/registry';
-import { useDesignKit } from '../runtime/design-kit';
 import type { DesignSystemDetail, DesignSystemSummary } from '../types';
 import { DesignSpecView } from './DesignSpecView';
-import { DesignKitView } from './DesignKitView';
 import { PreviewModal } from './PreviewModal';
 
 interface Props {
@@ -52,30 +50,14 @@ export function DesignSystemPreviewModal({ system, onClose }: Props) {
   const [detail, setDetail] = useState<DesignSystemDetail | null | undefined>(
     () => (isDesignSystemDetail(system) ? system : undefined),
   );
-  const [reloadKey, setReloadKey] = useState(0);
-  const projectId = detail?.projectId ?? system.projectId;
   const detailBody = detail?.body ?? (isDesignSystemDetail(system) ? system.body : undefined);
-  const richProjectPreview = Boolean(projectId);
-  const { kit, loading: kitLoading } = useDesignKit({
-    designSystemId: system.id,
-    title: detail?.title ?? system.title,
-    projectId,
-    body: detailBody,
-    packageInfo: detail?.packageInfo,
-    swatches: detail?.swatches ?? system.swatches,
-    showcaseHtml: null,
-    editable: Boolean(detail?.isEditable ?? system.isEditable),
-    reloadKey,
-  });
 
   useEffect(() => {
     let cancelled = false;
     setDetail(isDesignSystemDetail(system) ? system : undefined);
-    setReloadKey((key) => key + 1);
     void fetchDesignSystem(system.id).then((next) => {
       if (cancelled) return;
       if (next) setDetail(next);
-      setReloadKey((key) => key + 1);
     });
     return () => {
       cancelled = true;
@@ -106,7 +88,7 @@ export function DesignSystemPreviewModal({ system, onClose }: Props) {
           });
         }
       }
-      if (viewId === 'showcase' && !richProjectPreview && showcaseHtml === undefined) {
+      if (viewId === 'showcase' && showcaseHtml === undefined) {
         setShowcaseHtml(null);
         void fetchDesignSystemShowcase(system.id).then((html) => setShowcaseHtml(html));
       }
@@ -115,7 +97,7 @@ export function DesignSystemPreviewModal({ system, onClose }: Props) {
         void fetchDesignSystemPreview(system.id).then((html) => setTokensHtml(html));
       }
     },
-    [analytics.track, richProjectPreview, system.id, system.source, showcaseHtml, tokensHtml],
+    [analytics.track, system.id, system.source, showcaseHtml, tokensHtml],
   );
 
   // Fetch DESIGN.md the first time the side panel opens. Once we have it we
@@ -142,30 +124,12 @@ export function DesignSystemPreviewModal({ system, onClose }: Props) {
     setSpecBody(undefined);
   }, [system.id]);
 
-  const richPreview = (
-    <div className="ds-modal-rich-kit">
-      {kit ? (
-        <DesignKitView
-          kit={kit}
-          variant="panel"
-          dataTestId="design-system-modal-kit"
-        />
-      ) : (
-        <div className="viewer-empty">
-          {kitLoading ? t('ds.workspaceLoadingLabel') : t('ds.workspacePreparing')}
-        </div>
-      )}
-    </div>
-  );
-
   const modal = (
     <PreviewModal
       title={system.title}
       subtitle={system.summary || system.category}
       views={[
-        richProjectPreview
-          ? { id: 'showcase', label: t('ds.showcase'), custom: richPreview }
-          : { id: 'showcase', label: t('ds.showcase'), html: showcaseHtml },
+        { id: 'showcase', label: t('ds.showcase'), html: showcaseHtml },
         { id: 'tokens', label: t('ds.tokens'), html: tokensHtml },
       ]}
       initialViewId="showcase"
