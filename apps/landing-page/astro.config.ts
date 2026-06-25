@@ -294,7 +294,17 @@ export default defineConfig({
         ) {
           item.priority = 0.9;
           item.changefreq = changefreq.weekly;
-        } else if (path === '/craft/' || path === '/plugins/') {
+        } else if (
+          path === '/craft/' ||
+          path === '/plugins/' ||
+          // Canonical section hubs that the legacy /skills, /systems, and
+          // /templates roots now 301 to — keep them on the elevated catalog
+          // crawl hint (0.7 / weekly) rather than letting them fall through
+          // to the generic 0.5 / monthly default.
+          path === '/plugins/skills/' ||
+          path === '/plugins/systems/' ||
+          path === '/plugins/templates/'
+        ) {
           item.priority = 0.7;
           item.changefreq = changefreq.weekly;
         } else {
