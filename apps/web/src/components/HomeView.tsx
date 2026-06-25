@@ -1547,6 +1547,7 @@ export function HomeView({
   function submitScenario(scenario: PlaceholderScenario) {
     if (sending) return;
     setError(null);
+    if (pluginsLoading) return;
     const chip = scenario.chipId ? findChip(scenario.chipId) : null;
     const action = chip?.action ?? null;
     const record =

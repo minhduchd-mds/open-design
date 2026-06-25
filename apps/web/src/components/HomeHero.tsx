@@ -423,6 +423,7 @@ export const HomeHero = forwardRef<HomeHeroHandle, Props>(function HomeHero(
   // template switch before the carousel reports the new pool's first scenario.
   const carouselSubmittable =
     carouselActive &&
+    !pluginsLoading &&
     carouselScenario !== null &&
     carouselScenarios.some((scenario) => scenario.id === carouselScenario.id);
   const sendEnabled = canSubmit || carouselSubmittable;
