@@ -1746,6 +1746,59 @@
   flex-direction: column;
   gap: 16px;
 }
+
+/* ── Brand-new user empty state (草稿 / 全部项目) ── */
+.entry-blank {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  padding: 72px 24px;
+  margin-top: 8px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg, 16px);
+  background: var(--bg-subtle);
+}
+.entry-blank__icon {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-soft);
+  color: #c96442;
+}
+.entry-blank__title {
+  margin: 4px 0 0;
+  font-size: 18px;
+  font-weight: 680;
+  color: var(--text-strong);
+}
+.entry-blank__desc {
+  margin: 0;
+  max-width: 360px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+.entry-blank__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 8px;
+  padding: 10px 22px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 120ms;
+}
+.entry-blank__cta:hover { filter: brightness(1.05); }
 .entry-section__head {
   display: flex;
   align-items: baseline;
@@ -4474,12 +4527,135 @@
 .entry-nav-rail__account-name {
   font-size: 14px;
   font-weight: 600;
-  flex: 1;
+  flex: 0 1 auto;
+  margin-right: auto;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .entry-nav-rail__account-trigger svg { color: var(--text-soft); }
+
+/* ── Credits chip (✨ N) — separate region from the account dropdown ── */
+.entry-nav-rail__credits-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  margin-left: 2px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms;
+}
+.entry-nav-rail__credits-chip:hover {
+  background: var(--bg-subtle);
+  border-color: var(--border-strong);
+}
+.entry-nav-rail__credits-chip svg { color: #c96442; }
+.entry-nav-rail__credits-tier { font-weight: 650; }
+.entry-nav-rail__credits-sep { color: var(--text-faint); }
+
+/* ── Credits popover ── */
+.credits-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 18px;
+  border-radius: var(--radius-lg, 16px);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+  animation: entry-invite-in 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.credits-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.credits-panel__plan {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+.credits-panel__upgrade {
+  padding: 7px 18px;
+  border: 0;
+  border-radius: var(--radius-sm, 8px);
+  background: #1a1a1a;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 120ms;
+}
+.credits-panel__upgrade:hover { filter: brightness(1.15); }
+.credits-panel__divider {
+  height: 0;
+  border-top: 1px dashed var(--border);
+  margin: 0 0 12px;
+}
+.credits-panel__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.credits-panel__row--refresh { margin-top: 14px; }
+.credits-panel__row-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text-strong);
+}
+.credits-panel__row-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+.credits-panel__help {
+  display: inline-flex;
+  color: var(--text-faint);
+  cursor: help;
+}
+.credits-panel__sub {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+.credits-panel__sub--muted { color: var(--text-faint); }
+.credits-panel__sub span { display: inline-flex; align-items: center; gap: 5px; }
+.credits-panel__usage {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  margin-top: 16px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-strong);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.credits-panel__usage:hover { color: var(--accent); }
 .entry-nav-rail__account-bell {
   appearance: none;
   border: 0;
@@ -4612,6 +4788,28 @@
 .ds-top-scope-chip.is-active { background: var(--accent-tint); color: var(--accent); }
 .ds-top-scope-count { font-size: 12px; color: var(--text-faint); font-weight: 600; }
 .ds-top-scope-chip.is-active .ds-top-scope-count { color: var(--accent); }
+
+/* ── Design-systems layout fallback ──────────────────────────────────
+   The DesignSystemsTab styling lives in a CSS Module. Next.js dev Fast
+   Refresh can occasionally desync that module's hashed class names after
+   an HMR cycle, dropping the two-column grid and the row logo size cap
+   (the logo then renders at its full intrinsic size). These rules key off
+   stable data-testid hooks — not hashed class names — so the layout stays
+   sane even when the module briefly fails to apply. They mirror the module
+   defaults, so they are harmless no-ops when the module is healthy. */
+[data-testid="design-systems-tab"] {
+  display: grid;
+  grid-template-columns: 304px minmax(0, 1fr);
+  align-items: start;
+  gap: 20px;
+  width: 100%;
+}
+/* Cap the sidebar row logos; never touches the preview pane's large logo. */
+[data-testid="design-systems-list"] img {
+  max-width: 40px;
+  max-height: 40px;
+  object-fit: contain;
+}
 
 /* ============================================================
    Invite-colleagues dialog (team space). Opened from the team
@@ -4828,3 +5026,545 @@
   color: #fff;
 }
 .entry-invite__btn.is-primary:hover { filter: brightness(1.05); }
+
+/* ── Canva-style split invite dialog ── */
+.entry-invite__panel--split {
+  max-width: 880px;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.entry-invite__close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms;
+}
+.entry-invite__close:hover {
+  background: var(--bg-subtle);
+  border-color: var(--border-strong);
+}
+.entry-invite__form {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 36px 40px;
+}
+.entry-invite__teamsize {
+  margin: -8px 0 0;
+  font-size: 14px;
+  color: var(--text);
+}
+.entry-invite__teamsize-link {
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.entry-invite__divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 12.5px;
+}
+.entry-invite__divider::before,
+.entry-invite__divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-soft);
+}
+.entry-invite__divider span { padding: 0 12px; }
+.entry-invite__fields {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.entry-invite__field {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.entry-invite__field--role { flex: 0 0 150px; }
+.entry-invite__field-labels {
+  display: flex;
+  gap: 12px;
+  margin-bottom: -4px;
+}
+.entry-invite__field-labels .entry-invite__label { flex: 1 1 0; }
+.entry-invite__field-labels .entry-invite__label--role { flex: 0 0 150px; }
+.entry-invite__fields .entry-invite__input { flex: 1 1 0; }
+.entry-invite__fields .entry-invite__role { flex: 0 0 150px; }
+.entry-invite__row-remove {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-sm, 8px);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+}
+.entry-invite__row-remove:hover { background: var(--bg-subtle); color: var(--text); }
+.entry-invite__add-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: var(--radius-sm, 8px);
+}
+.entry-invite__add-row:hover { background: var(--bg-subtle); }
+.entry-invite__panel--split .entry-invite__label { margin-bottom: 0; }
+.entry-invite__panel--split .entry-invite__input {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 11px 13px;
+}
+.entry-invite__panel--split .entry-invite__role {
+  flex: 0 0 150px;
+  width: auto;
+  padding: 11px 13px;
+}
+.entry-invite__collapse {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.entry-invite__collapse-body {
+  margin: -8px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.entry-invite__submit {
+  width: 100%;
+  padding: 13px;
+  border: 0;
+  border-radius: var(--radius-sm, 8px);
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+}
+.entry-invite__submit:hover {
+  background: var(--accent);
+  color: #fff;
+}
+.entry-invite__art {
+  position: relative;
+  flex: 0 0 360px;
+  overflow: hidden;
+  background: linear-gradient(150deg, #f4f1ff 0%, #faf7ff 100%);
+}
+.entry-invite__art-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(2px);
+}
+.entry-invite__art-blob--a {
+  width: 320px;
+  height: 320px;
+  right: -90px;
+  bottom: -120px;
+  background: radial-gradient(circle at 30% 30%, #8b5cf6 0%, #7c3aed 60%, #6d28d9 100%);
+  opacity: 0.92;
+}
+.entry-invite__art-blob--b {
+  width: 200px;
+  height: 200px;
+  right: -40px;
+  bottom: -60px;
+  background: radial-gradient(circle at 40% 40%, #f43f5e 0%, #be123c 100%);
+  opacity: 0.85;
+}
+.entry-invite__art-card {
+  position: absolute;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(76, 29, 149, 0.18);
+}
+.entry-invite__art-card--1 {
+  width: 120px;
+  height: 150px;
+  left: 36px;
+  top: 70px;
+  transform: rotate(-6deg);
+  background: linear-gradient(160deg, #fff 0%, #f3efff 100%);
+}
+.entry-invite__art-card--2 {
+  width: 150px;
+  height: 200px;
+  left: 120px;
+  top: 110px;
+  transform: rotate(3deg);
+  background: linear-gradient(160deg, #7c3aed 0%, #5b21b6 100%);
+}
+.entry-invite__art-card--3 {
+  width: 86px;
+  height: 130px;
+  right: 56px;
+  bottom: 90px;
+  transform: rotate(-4deg);
+  background: linear-gradient(160deg, #fff 0%, #ffe9ec 100%);
+}
+@media (max-width: 720px) {
+  .entry-invite__panel--split { flex-direction: column; max-width: 460px; }
+  .entry-invite__art { display: none; }
+}
+
+/* ── Create-team dialog ── */
+.create-team__logo {
+  position: relative;
+  flex: 0 0 56px;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  border: 0;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  overflow: hidden;
+  color: #fff;
+}
+.create-team__logo-initial {
+  font-size: 24px;
+  font-weight: 700;
+}
+.create-team__logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.create-team__logo-edit {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+}
+.create-team__colors {
+  display: flex;
+  gap: 10px;
+}
+.create-team__color {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 120ms;
+}
+.create-team__color:hover { transform: scale(1.1); }
+.create-team__color.is-active {
+  border-color: var(--text-strong);
+  box-shadow: 0 0 0 2px var(--bg-panel) inset;
+}
+
+/* ── Insufficient-credits upgrade dialog ── */
+.credit-upgrade {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 32px 32px 26px;
+  border-radius: var(--radius-lg, 16px);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.22);
+  animation: entry-invite-in 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.credit-upgrade__badge {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: linear-gradient(150deg, #f59e0b 0%, #d97706 100%);
+  color: #fff;
+}
+.credit-upgrade__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 680;
+  color: var(--text-strong);
+}
+.credit-upgrade__subtitle {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+.credit-upgrade__options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 0;
+}
+.credit-upgrade__cycle {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-subtle);
+  align-self: center;
+}
+.credit-upgrade__cycle-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+}
+.credit-upgrade__cycle-tab.is-active {
+  background: var(--bg-panel);
+  color: var(--text-strong);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+.credit-upgrade__cycle-save {
+  font-size: 11px;
+  font-weight: 700;
+  color: #10b981;
+}
+.credit-upgrade__option-unit {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-left: 1px;
+}
+.credit-upgrade__option {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 8px);
+  background: var(--bg-panel);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 120ms, background 120ms;
+}
+.credit-upgrade__option:hover { border-color: var(--border-strong); }
+.credit-upgrade__option.is-active {
+  border-color: var(--accent);
+  background: var(--accent-tint, color-mix(in srgb, var(--accent) 8%, transparent));
+}
+.credit-upgrade__option-radio {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  transition: border-color 120ms, box-shadow 120ms;
+}
+.credit-upgrade__option.is-active .credit-upgrade__option-radio {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 3px var(--accent);
+}
+.credit-upgrade__option-text {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.credit-upgrade__option-label { font-size: 14px; font-weight: 600; color: var(--text-strong); }
+.credit-upgrade__option-desc { font-size: 12px; color: var(--text-muted); }
+.credit-upgrade__option-price { font-size: 14px; font-weight: 700; color: var(--text-strong); }
+.credit-upgrade__prorate {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.credit-upgrade__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+/* ── Demo celebration toast (plan upgrade / credit pack) ── */
+.demo-celebrate-toast {
+  position: fixed;
+  bottom: 88px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  padding: 11px 20px;
+  border-radius: var(--radius-pill);
+  background: #10b981;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 8px 28px rgba(16, 185, 129, 0.4);
+  animation: members-toast-in 220ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* ── Confetti burst (plan upgrade celebration) ── */
+.confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  overflow: hidden;
+}
+.confetti__piece {
+  position: absolute;
+  top: -16px;
+  border-radius: 1px;
+  opacity: 0;
+  animation-name: confetti-fall;
+  animation-timing-function: cubic-bezier(0.4, 0.1, 0.5, 1);
+  animation-iteration-count: 1;
+  animation-fill-mode: forwards;
+}
+@keyframes confetti-fall {
+  0% { opacity: 0; transform: translateY(0) rotate(0deg); }
+  10% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(105vh) rotate(720deg); }
+}
+
+/* ── Upgrade-to-team dialog ── */
+.upgrade-team {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 32px 32px 26px;
+  border-radius: var(--radius-lg, 16px);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.22);
+  animation: entry-invite-in 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.upgrade-team__badge {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: linear-gradient(150deg, #8b5cf6 0%, #6d28d9 100%);
+  color: #fff;
+}
+.upgrade-team__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 680;
+  color: var(--text-strong);
+}
+.upgrade-team__subtitle {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+.upgrade-team__benefits {
+  list-style: none;
+  margin: 4px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.upgrade-team__benefit {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.4;
+}
+.upgrade-team__check {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, #8b5cf6 16%, transparent);
+  color: #7c3aed;
+}
+.upgrade-team__price {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm, 8px);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-soft);
+}
+.upgrade-team__price-label {
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--text-strong);
+}
+.upgrade-team__price-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.upgrade-team__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}

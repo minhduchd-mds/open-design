@@ -65,17 +65,6 @@ type SurfaceFilter = 'all' | Surface;
 type DesignSystemCollection = 'mine' | 'team' | 'official' | 'enterprise';
 type DesignSystemActionKind = 'edit' | 'publish' | 'default' | 'delete';
 
-// Demo-only "私有/共享" visibility for design systems. Mirrors the
-// project-card semantics (创建即私有 → 可共享给团队). Seeded from the
-// system id so the mix is stable across renders; user toggles override.
-type DsVisibility = 'private' | 'shared';
-function seedDsVisibility(id: string): DsVisibility {
-  let h = 0;
-  for (let i = 0; i < id.length; i += 1) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  // ~1/3 of systems start out already shared with the team.
-  return h % 3 === 0 ? 'shared' : 'private';
-}
-
 const SURFACE_PILLS: { value: SurfaceFilter; labelKey: 'examples.modeAll' | 'ds.surfaceWeb' | 'ds.surfaceImage' | 'ds.surfaceVideo' | 'ds.surfaceAudio' }[] = [
   { value: 'all', labelKey: 'examples.modeAll' },
   { value: 'web', labelKey: 'ds.surfaceWeb' },
@@ -274,6 +263,13 @@ export function DesignSystemsTab({
   const notifyAction = (tone: DesignKitActionFeedbackTone, message: string) => {
     setActionToast({ tone, message });
   };
+  // Convert a personal design system to the team scope (demo-local): it moves
+  // from「你的」into「团队」so teammates can use it.
+  const convertToTeam = (system: DesignSystemSummary) => {
+    setTeamSystemIds((prev) => new Set(prev).add(system.id));
+    setDesignSystemCollection('team');
+    notifyAction('success', `已将「${system.title}」转为团队设计系统`);
+  };
   const notifyActionLoading = (label?: string) => {
     const message = label
       ? label.endsWith('…') || label.endsWith('...') ? label : `${label}...`
@@ -281,6 +277,8 @@ export function DesignSystemsTab({
     notifyAction('loading', message);
   };
   const [designSystemCollection, setDesignSystemCollection] = useState<DesignSystemCollection>('mine');
+  // Personal design systems converted to the team scope (demo-local).
+  const [teamSystemIds, setTeamSystemIds] = useState<Set<string>>(() => new Set());
   const [surfaceFilter, setSurfaceFilter] = useState<SurfaceFilter>('all');
   const [category, setCategory] = useState<string>('All');
   // The master-detail selection — which row renders in the right preview pane.
@@ -291,18 +289,6 @@ export function DesignSystemsTab({
   // sessionStorage exactly once; applied by the effect below once the system
   // actually shows up in the loaded list (which may arrive after a refresh).
   const [pendingFocus, setPendingFocus] = useState<string | null>(() => takeDesignSystemFocus());
-  const [thumbs, setThumbs] = useState<Record<string, string | null>>({});
-  const [visibilityOverrides, setVisibilityOverrides] = useState<Record<string, DsVisibility>>({});
-
-  function visibilityOf(system: DesignSystemSummary): DsVisibility {
-    return visibilityOverrides[system.id] ?? seedDsVisibility(system.id);
-  }
-  function toggleVisibility(system: DesignSystemSummary): void {
-    setVisibilityOverrides((cur) => ({
-      ...cur,
-      [system.id]: visibilityOf(system) === 'shared' ? 'private' : 'shared',
-    }));
-  }
 
 
   const q = filter.trim().toLowerCase();
@@ -313,8 +299,18 @@ export function DesignSystemsTab({
   );
 
   const userSystems = useMemo(
-    () => systems.filter(isUserSystem),
-    [systems],
+    () => systems.filter((s) => isUserSystem(s) && !teamSystemIds.has(s.id)),
+    [systems, teamSystemIds],
+  );
+
+  // User systems converted to the team scope.
+  const teamSystems = useMemo(
+    () => systems.filter((s) => isUserSystem(s) && teamSystemIds.has(s.id)),
+    [systems, teamSystemIds],
+  );
+  const teamSearched = useMemo(
+    () => teamSystems.filter((s) => systemMatchesQuery(locale, s, q)),
+    [teamSystems, locale, q],
   );
 
   const userSearched = useMemo(
@@ -388,9 +384,10 @@ export function DesignSystemsTab({
   // The list backing the active scope. Design-system scopes carry summaries;
   const activeSystems = useMemo<DesignSystemSummary[]>(() => {
     if (designSystemCollection === 'mine') return userSearched;
+    if (designSystemCollection === 'team') return teamSearched;
     if (designSystemCollection === 'official') return filtered;
     return [];
-  }, [designSystemCollection, userSearched, filtered]);
+  }, [designSystemCollection, userSearched, teamSearched, filtered]);
 
   const activeIds = useMemo(() => {
     return activeSystems.map((s) => s.id);
@@ -628,7 +625,7 @@ export function DesignSystemsTab({
 
   const scopeTabs = [
     { value: 'mine' as const, label: '你的', count: userSearched.length },
-    { value: 'team' as const, label: '团队', count: 0 },
+    { value: 'team' as const, label: '团队', count: teamSearched.length },
     { value: 'official' as const, label: '官方', count: queryScoped.length },
   ];
 
@@ -864,8 +861,6 @@ export function DesignSystemsTab({
             : localizeDesignSystemCategory(locale, system.category || 'Uncategorized')
         }
         statusLabel={(system.status ?? 'draft') === 'published' ? t('dsManager.statusPublished') : t('dsManager.statusDraft')}
-        visibility={visibilityOf(system)}
-        onToggleVisibility={() => toggleVisibility(system)}
         onSelect={() => handleSelectSystem(system)}
       />
     ));
@@ -897,6 +892,8 @@ export function DesignSystemsTab({
           onDelete={deleteSystem}
           onSystemsRefresh={onSystemsRefresh}
           onActionFeedback={notifyAction}
+          isTeamSystem={teamSystemIds.has(selectedSystem.id)}
+          onConvertToTeam={convertToTeam}
         />
       );
     }
@@ -934,27 +931,7 @@ interface SystemRowProps {
   isDefault: boolean;
   categoryLabel: string;
   statusLabel: string;
-  visibility: DsVisibility;
-  onToggleVisibility: () => void;
   onSelect: () => void;
-}
-
-// Small 私有/共享 capsule badge, mirroring the project-card角标 visual.
-function DsVisibilityBadge({ visibility }: { visibility: DsVisibility }) {
-  if (visibility === 'shared') {
-    return (
-      <span className={`${styles.visibilityBadge} ${styles.visibilityBadgeShared}`}>
-        <Icon name="share" size={10} />
-        共享
-      </span>
-    );
-  }
-  return (
-    <span className={`${styles.visibilityBadge} ${styles.visibilityBadgePrivate}`}>
-      <Icon name="eye-off" size={10} />
-      私有
-    </span>
-  );
 }
 
 function fallbackSwatches(seed: string): string[] {
@@ -1061,14 +1038,11 @@ function SystemRow({
   isDefault,
   categoryLabel,
   statusLabel,
-  visibility,
-  onToggleVisibility,
   onSelect,
 }: SystemRowProps) {
   const { t } = useI18n();
   const status = system.status ?? 'draft';
   const isUser = isUserSystem(system);
-  const shared = visibility === 'shared';
   return (
     <div className={styles.itemRow}>
       <button
@@ -1087,7 +1061,6 @@ function SystemRow({
             {isDefault ? <span className={styles.badgeDefault}>{t('dsManager.badgeDefault')}</span> : null}
           </span>
           <span className={styles.itemSubRow}>
-            <DsVisibilityBadge visibility={visibility} />
             <span className={styles.itemSub}>{categoryLabel}</span>
           </span>
         </span>
@@ -1098,21 +1071,6 @@ function SystemRow({
             aria-label={statusLabel}
           />
         ) : null}
-      </button>
-      {/* Demo-only 私有↔共享 切换：纯前端切角标，不接后端 */}
-      <button
-        type="button"
-        className={styles.visibilityToggle}
-        title={shared ? '设为私有' : '共享给团队'}
-        aria-label={shared ? `将「${system.title}」设为私有` : `将「${system.title}」共享给团队`}
-        data-testid={`design-system-share-${system.id}`}
-        onClick={(event) => {
-          event.stopPropagation();
-          onToggleVisibility();
-        }}
-      >
-        <Icon name={shared ? 'eye-off' : 'share'} size={13} />
-        <span>{shared ? '设为私有' : '共享给团队'}</span>
       </button>
     </div>
   );
@@ -1130,6 +1088,10 @@ interface DetailProps {
   onDelete: (system: DesignSystemSummary) => void | Promise<void>;
   onSystemsRefresh?: () => Promise<void> | void;
   onActionFeedback: (tone: DesignKitActionFeedbackTone, message: string) => void;
+  /** True when this user system has already been moved to the team scope. */
+  isTeamSystem?: boolean;
+  /** Convert a personal design system to the team scope. */
+  onConvertToTeam?: (system: DesignSystemSummary) => void;
 }
 
 function DesignSystemDetail({
@@ -1144,6 +1106,8 @@ function DesignSystemDetail({
   onDelete,
   onSystemsRefresh,
   onActionFeedback,
+  isTeamSystem = false,
+  onConvertToTeam,
 }: DetailProps) {
   const analytics = useAnalytics();
   const isUser = isUserSystem(system);
@@ -1279,6 +1243,15 @@ function DesignSystemDetail({
           onClick: () => onMakeDefault(system),
           disabled: busy,
           loading: actionBusy === 'default',
+        }]
+      : []),
+    ...(isUser && !isTeamSystem && onConvertToTeam
+      ? [{
+          id: 'convert-team',
+          label: '转为团队设计系统',
+          icon: 'share' as const,
+          onClick: () => onConvertToTeam(system),
+          disabled: busy,
         }]
       : []),
     ...(isUser

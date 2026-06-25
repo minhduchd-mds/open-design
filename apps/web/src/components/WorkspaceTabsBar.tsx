@@ -1209,9 +1209,9 @@ function displayTabFor(
   };
   return {
     id: tab.id,
-    title: entryTitle[tab.view],
-    meta: tab.view === 'home' ? 'Start a new project' : 'Workspace',
-    icon: entryIcon[tab.view],
+    title: '',
+    meta: 'Workspace',
+    icon: 'home' as IconName,
     tab,
   };
 }

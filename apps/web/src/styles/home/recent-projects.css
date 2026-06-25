@@ -3,6 +3,21 @@
    on the Home view, with a "View all" anchor that switches to the
    Projects view.
    ============================================================ */
+.recent-projects__move-remind {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.recent-projects__move-remind input {
+  flex: 0 0 auto;
+  margin: 0;
+  cursor: pointer;
+}
+
 .recent-projects {
   display: flex;
   flex-direction: column;

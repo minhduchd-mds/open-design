@@ -70,6 +70,7 @@ import { smoothScrollToTop } from '../utils/smoothScrollToTop';
 import { missingRequiredInputs, pluginInputsAreValid } from '../utils/pluginRequiredInputs';
 import { HomeHero, type ExamplePromptInfo, type HomeHeroHandle } from './HomeHero';
 import { findChip, HOME_HERO_CHIPS, type HomeHeroChip } from './home-hero/chips';
+import { type DemoScenario } from './DemoControlBar';
 import { homeHeroChipLabel } from './home-hero/chip-labels';
 import type { PlaceholderScenario } from './home-hero/placeholderScenarios';
 import { consumePendingHomeChip, HOME_CHIP_INTENT_EVENT } from '../runtime/home-intent';
@@ -223,12 +224,14 @@ interface Props {
   connectors?: ConnectorDetail[];
   promptTemplates?: PromptTemplateSummary[];
   executionSwitcher?: ReactNode;
+  demoScenario?: DemoScenario;
 }
 
 const EMPTY_DESIGN_SYSTEMS: DesignSystemSummary[] = [];
 const EMPTY_SKILLS: SkillSummary[] = [];
 const EMPTY_CONNECTORS: ConnectorDetail[] = [];
 const EMPTY_PROMPT_TEMPLATES: PromptTemplateSummary[] = [];
+
 
 export function HomeView({
   isActive = true,
@@ -251,6 +254,7 @@ export function HomeView({
   connectors = EMPTY_CONNECTORS,
   promptTemplates = EMPTY_PROMPT_TEMPLATES,
   executionSwitcher,
+  demoScenario,
 }: Props) {
   const { locale, t } = useI18n();
   const analytics = useAnalytics();
@@ -1851,13 +1855,16 @@ export function HomeView({
         sessionMode={sessionMode}
         onSessionModeChange={setSessionMode}
         executionSwitcher={executionSwitcher}
+        demoScenario={demoScenario}
       />
 
-      <RecentProjectsStrip
+      {demoScenario === 'onboarding-new' ? null : <RecentProjectsStrip
         projects={projects}
         designSystems={designSystems}
         promptTemplates={promptTemplates}
         limit={1000}
+        heading="最近项目"
+        space="recent"
         {...(projectsLoading !== undefined ? { loading: projectsLoading } : {})}
         onOpen={(id) => {
           // P0 ui_click area=recent_projects element=project_card — emit
@@ -1884,7 +1891,7 @@ export function HomeView({
         }}
         {...(onDeleteProject ? { onDelete: onDeleteProject } : {})}
         {...(onRenameProject ? { onRename: onRenameProject } : {})}
-      />
+      />}
 
       {/* Community gallery now lives in the left-sidebar "Community" entry
           (PluginsView → PluginsHomeSection), so it is no longer embedded on

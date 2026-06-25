@@ -113,7 +113,6 @@ import { LanguageMenu } from './LanguageMenu';
 import { IntegrationsView, type IntegrationTab } from './IntegrationsView';
 import { InlineModelSwitcher } from './InlineModelSwitcher';
 import {
-  EntrySettingsMenu,
   type EntrySettingsSection,
 } from './EntrySettingsMenu';
 import { NewProjectModal } from './NewProjectModal';
@@ -122,6 +121,7 @@ import { CommunityView } from './CommunityView';
 import { ContentPlanView } from './ContentPlanView';
 import { MembersView } from './MembersView';
 import { RecentProjectsStrip } from './RecentProjectsStrip';
+import { EntryBlankState } from './EntryBlankState';
 import type { CreateInput, CreateTab, ImportClaudeDesignOutcome } from './NewProjectPanel';
 import type { PluginLoopSubmit } from './PluginLoopHome';
 import {
@@ -154,6 +154,9 @@ import { closeAmrActivationWindowBestEffort } from './AmrLoginPill';
 import { smoothScrollToTop } from '../utils/smoothScrollToTop';
 import { summarizeProjectNameFromPrompt } from '../utils/projectName';
 import { LIBRARY_UI_VISIBLE } from '../features/libraryUi';
+import { DemoControlBar, isInviteScenario, isSoloPlan, type DemoScenario, type DemoPlan } from './DemoControlBar';
+import { InsufficientCreditsDialog } from './InsufficientCreditsDialog';
+import { Confetti } from './Confetti';
 import {
   providerModelsCacheKey,
   type ProviderModelsCache,
@@ -498,6 +501,38 @@ export function EntryShell({
   // home -> project -> home round trip (EntryShell unmounts on the project
   // route) and a reload, instead of snapping back to collapsed.
   const [railOpen, setRailOpen] = useState<boolean>(readStoredRailOpen);
+  const [demoScenario, setDemoScenario] = useState<DemoScenario>('home');
+  const [demoPlan, setDemoPlan] = useState<DemoPlan>('free');
+  const [lowCreditsOpen, setLowCreditsOpen] = useState(false);
+  const [celebrate, setCelebrate] = useState(false);
+  const [demoToast, setDemoToast] = useState<string | null>(null);
+  function fireCelebration(message: string) {
+    setCelebrate(true);
+    setDemoToast(message);
+    window.setTimeout(() => setCelebrate(false), 2600);
+    window.setTimeout(() => setDemoToast(null), 3200);
+  }
+  const isNewUser = demoScenario === 'onboarding-new';
+  // Single-seat plans (免费版 / 个人版) drive solo behaviors: one team, only
+  // the owner in the member list, and invite → upgrade gating.
+  const isSolo = isSoloPlan(demoPlan);
+  // Demo credits shown in the ✨ chip + popover, varying by plan. Every tier
+  // below 团队版 surfaces an 升级 CTA (Plus→Pro/Max/Team, Pro→Max/Team, Max→Team).
+  const demoCredits = (() => {
+    switch (demoPlan) {
+      case 'plus':
+        return { planName: '标准版 Plus', tierLabel: 'Plus', showUpgrade: true, balance: 5000, grantTip: 'Plus 每日赠送 800 积分，可升级 Pro / Max / 团队版' };
+      case 'pro':
+        return { planName: 'Pro', tierLabel: 'Pro', showUpgrade: true, balance: 12000, grantTip: 'Pro 每日赠送 1,500 积分，可升级 Max / 团队版' };
+      case 'max':
+        return { planName: 'Max', tierLabel: 'Max', showUpgrade: true, balance: 30000, grantTip: 'Max 每日赠送 3,000 积分，可升级团队版' };
+      case 'team':
+        return { planName: '团队版', tierLabel: '团队版', showUpgrade: false, balance: 60000, grantTip: '团队版每日赠送 6,000 积分，按席位共享' };
+      case 'free':
+      default:
+        return { planName: '免费', tierLabel: '免费', showUpgrade: true, balance: 800, grantTip: '免费版每日赠送 300 积分，每天 08:00 刷新' };
+    }
+  })();
   useEffect(() => {
     writeStoredRailOpen(railOpen);
   }, [railOpen]);
@@ -578,6 +613,17 @@ export function EntryShell({
   function openNewProject(tab: CreateTab = 'prototype') {
     setNewProjectInitialTab(tab);
     setNewProjectOpen(true);
+  }
+
+  // Empty-state CTA for brand-new users: skip the modal, create a blank
+  // prototype project directly and let onCreateProject navigate into it.
+  function createBlankProject() {
+    return handleCreate({
+      name: t('common.untitled'),
+      skillId: null,
+      designSystemId: null,
+      metadata: { kind: 'prototype' },
+    });
   }
 
   function handleCreate(input: CreateInput) {
@@ -676,21 +722,6 @@ export function EntryShell({
     changeView('home');
   }
 
-  const avatarMenu = (
-    <EntrySettingsMenu
-      config={config}
-      onThemeChange={onThemeChange}
-      onOpenSettings={onOpenSettings}
-      onTrackTriggerClick={() => {
-        trackHomeToolbarClick(analytics.track, {
-          page_name: 'home',
-          area: 'toolbar',
-          element: 'settings',
-        });
-      }}
-    />
-  );
-
   // The GitHub star / Discord / Use-everywhere / settings cluster used to sit in
   // the top-right bar. Moved to the bottom-left of the nav rail so the home hero
   // and content can rise up a row.
@@ -736,10 +767,54 @@ export function EntryShell({
         <span className="use-everywhere-chip__label">{t('entry.useEverywhereTitle')}</span>
       </button>
       <UpdaterPopup />
-      {avatarMenu}
+      {null /* demo: hide settings cog entry */}
     </>
   );
 
+
+  const demoBar = (
+    <DemoControlBar
+      scenario={demoScenario}
+      plan={demoPlan}
+      onPlan={setDemoPlan}
+      onLowCredits={() => setLowCreditsOpen(true)}
+      onScenario={(s) => {
+        setDemoScenario(s);
+        // Sensible default plan per scenario (still overridable via 版本):
+        // a fresh sign-up starts on 免费版; an invited user joins a 团队版.
+        if (s === 'onboarding-new') setDemoPlan('free');
+        else if (isInviteScenario(s)) setDemoPlan('team');
+        if (s === 'home') {
+          navigate({ kind: 'home', view: 'home' });
+        } else {
+          window.history.replaceState(null, '', isInviteScenario(s) ? '/onboarding#invite' : '/onboarding');
+          navigate({ kind: 'home', view: 'onboarding' });
+        }
+      }}
+    />
+  );
+
+  const demoOverlays = (
+    <>
+      {demoBar}
+      <InsufficientCreditsDialog
+        open={lowCreditsOpen}
+        plan={demoPlan}
+        onClose={() => setLowCreditsOpen(false)}
+        onUpgrade={(target) => {
+          setLowCreditsOpen(false);
+          setDemoPlan(target);
+          fireCelebration('升级生效，额度已提升');
+        }}
+        onBuyPack={(packLabel) => {
+          setLowCreditsOpen(false);
+          fireCelebration(`${packLabel}已到账，额度已提升`);
+        }}
+      />
+      {demoToast ? <div className="demo-celebrate-toast">{demoToast}</div> : null}
+      {celebrate ? <Confetti /> : null}
+    </>
+  );
 
   if (view === 'onboarding') {
     return (
@@ -768,6 +843,7 @@ export function EntryShell({
             }}
           />
         </main>
+        {demoOverlays}
       </div>
     );
   }
@@ -814,6 +890,9 @@ export function EntryShell({
           open={railOpen}
           onClose={() => setRailOpen(false)}
           footerExtra={railFooterActions}
+          solo={isSolo}
+          credits={demoCredits}
+          onUpgrade={() => window.open('https://nexu.io/pricing', '_blank', 'noopener')}
         />
         <main className="entry-main entry-main--scroll" ref={entryMainScrollRef}>
           <div className="entry-main__topbar">
@@ -827,11 +906,7 @@ export function EntryShell({
             >
               <Icon name="panel-left" size={20} />
             </button>
-            {view === 'home' ? null : (
-              <div className="entry-main__topbar-chips entry-main__topbar-chips--icon-only">
-                {executionSwitcher}
-              </div>
-            )}
+            {null /* demo: hide model switcher from topbar */}
           </div>
           <div
             className={`entry-main__inner${
@@ -862,6 +937,7 @@ export function EntryShell({
                 connectors={connectors}
                 promptTemplates={promptTemplates}
                 executionSwitcher={view === 'home' ? homeExecutionSwitcher : undefined}
+                demoScenario={demoScenario}
               />
             </div>
             <div data-testid="entry-view-projects" data-active={view === 'projects' ? 'true' : 'false'} {...inactiveViewProps(view === 'projects')}>
@@ -908,6 +984,13 @@ export function EntryShell({
             <div data-testid="entry-view-drafts" data-active={view === 'drafts' ? 'true' : 'false'} {...inactiveViewProps(view === 'drafts')}>
               {projectsLoading ? (
                 <CenteredLoader label={t('common.loading')} />
+              ) : isNewUser ? (
+                <EntryBlankState
+                  heading="草稿"
+                  title="还没有草稿"
+                  description="从一个空白方案开始，描述你的想法，AI 会帮你把它变成现实。"
+                  onCreate={createBlankProject}
+                />
               ) : (
                 <RecentProjectsStrip
                   projects={projects}
@@ -924,6 +1007,13 @@ export function EntryShell({
             <div data-testid="entry-view-all-projects" data-active={view === 'all-projects' ? 'true' : 'false'} {...inactiveViewProps(view === 'all-projects')}>
               {projectsLoading ? (
                 <CenteredLoader label={t('common.loading')} />
+              ) : isNewUser ? (
+                <EntryBlankState
+                  heading="全部项目"
+                  title="还没有项目"
+                  description="创建你的第一个方案，开始用 AI 设计和构建。"
+                  onCreate={createBlankProject}
+                />
               ) : (
                 <RecentProjectsStrip
                   projects={projects}
@@ -941,7 +1031,7 @@ export function EntryShell({
               <ContentPlanView />
             </div>
             <div data-testid="entry-view-members" data-active={view === 'members' ? 'true' : 'false'} {...inactiveViewProps(view === 'members')}>
-              <MembersView />
+              <MembersView solo={isSolo} />
             </div>
             <div data-testid="entry-view-design-systems" data-active={view === 'design-systems' ? 'true' : 'false'} {...inactiveViewProps(view === 'design-systems')}>
               {designSystemsLoading ? (
@@ -966,7 +1056,7 @@ export function EntryShell({
                     <h1 className="entry-section__title">{t('entry.navDesignSystems')}</h1>
                   </header>
                   <DesignSystemsTab
-                    systems={designSystems}
+                    systems={isNewUser ? [] : designSystems}
                     templates={templates}
                     selectedId={defaultDesignSystemId}
                     onSelect={onChangeDefaultDesignSystem}
@@ -1027,6 +1117,7 @@ export function EntryShell({
         }}
         onClose={() => setNewProjectOpen(false)}
       />
+      {demoOverlays}
     </div>
   );
 }
@@ -1088,11 +1179,6 @@ function OnboardingView({
   const [amrLoginPending, setAmrLoginPending] = useState(false);
   const [amrLoginCancelPending, setAmrLoginCancelPending] = useState(false);
   const [newsletterSubmitting, setNewsletterSubmitting] = useState(false);
-  // Demo-only «邀请队友» step state. Pure mock — emails are parsed for the
-  // sent-count preview but never leave the client; "发送邀请" just advances
-  // the wizard like Continue does.
-  const [inviteEmails, setInviteEmails] = useState('');
-  const [inviteRole, setInviteRole] = useState<'admin' | 'member'>('member');
   const [amrLoginError, setAmrLoginError] = useState<string | null>(null);
   const [visibleAgentIds, setVisibleAgentIds] = useState<string[]>([]);
   const [providerTestState, setProviderTestState] = useState<
@@ -1377,7 +1463,6 @@ function OnboardingView({
     if (stepIdx === 0) return { area: 'runtime', stepIndex: '1', stepName: 'connect' };
     if (stepIdx === 1) return { area: 'about_you', stepIndex: '2', stepName: 'about_you' };
     if (stepIdx === 2) return { area: 'newsletter', stepIndex: '3', stepName: 'newsletter' };
-    if (stepIdx === 3) return { area: 'newsletter', stepIndex: '3', stepName: 'newsletter' };
     return { area: 'design_system', stepIndex: '4', stepName: 'design_system' };
   }
   function emitOnboardingClick(
@@ -1473,7 +1558,6 @@ function OnboardingView({
     t('settings.onboardingStepConnect'),
     t('settings.onboardingStepProfile'),
     t('settings.onboardingStepNewsletter'),
-    '邀请队友',
     t('settings.onboardingStepDesignSystem'),
   ];
   const isLastStep = step === steps.length - 1;
@@ -2357,8 +2441,17 @@ function OnboardingView({
     );
   }
 
+  const showInviteBanner = typeof window !== 'undefined' && window.location.hash === '#invite';
   return (
     <section className="onboarding-view" aria-label={t('settings.welcomeTitle')}>
+      {showInviteBanner ? (
+        <div className="ob-invite-banner">
+          <span className="ob-invite-banner__avatar">N</span>
+          <span>
+            <strong>张伟</strong> 邀请你加入 <strong>Nexu 团队</strong> 的工作空间
+          </span>
+        </div>
+      ) : null}
       {t('settings.welcomeKicker') || t('settings.welcomeSubtitle') ? (
         <header className="onboarding-view__hero">
           {t('settings.welcomeKicker') ? (
@@ -2574,81 +2667,8 @@ function OnboardingView({
             </div>
           ) : null}
 
-          {step === 3 ? (
-            <div className="onboarding-view__panel ob-invite">
-              <OnboardingPanelHeader
-                title="邀请你的队友"
-                body="现在就把团队拉进来一起协作（可跳过）"
-              />
-              <div className="ob-invite__form">
-                <label className="ob-invite__field">
-                  <span className="ob-invite__label">队友邮箱</span>
-                  <textarea
-                    className="ob-invite__textarea"
-                    rows={4}
-                    placeholder={'输入邮箱，用逗号或换行分隔\nlina@team.com, wangfang@team.com'}
-                    value={inviteEmails}
-                    onChange={(event) => setInviteEmails(event.target.value)}
-                  />
-                  <span className="ob-invite__hint">
-                    {(() => {
-                      const count = inviteEmails
-                        .split(/[\s,;]+/)
-                        .map((value) => value.trim())
-                        .filter((value) => value.includes('@')).length;
-                      return count > 0
-                        ? `将向 ${count} 位队友发送邀请`
-                        : '支持一次粘贴多个邮箱';
-                    })()}
-                  </span>
-                </label>
-                <div className="ob-invite__field ob-invite__field--role">
-                  <OnboardingDropdown
-                    label="默认角色"
-                    placeholder="选择角色"
-                    value={inviteRole}
-                    options={[
-                      { value: 'admin', label: '管理员' },
-                      { value: 'member', label: '成员' },
-                    ]}
-                    onChange={(value) => {
-                      if (value === 'admin' || value === 'member') {
-                        setInviteRole(value);
-                      }
-                    }}
-                  />
-                </div>
-              </div>
-              <div className="ob-invite__actions">
-                <button
-                  type="button"
-                  className="onboarding-view__secondary"
-                  onClick={handleBackWithTracking}
-                  disabled={onboardingNavigationLocked}
-                >
-                  {t('settings.onboardingBack')}
-                </button>
-                <button
-                  type="button"
-                  className="onboarding-view__ghost ob-invite__skip"
-                  onClick={() => setStep((current) => current + 1)}
-                  disabled={onboardingNavigationLocked}
-                >
-                  跳过
-                </button>
-                <button
-                  type="button"
-                  className="onboarding-view__primary"
-                  onClick={() => setStep((current) => current + 1)}
-                  disabled={onboardingNavigationLocked}
-                >
-                  <span>发送邀请</span>
-                </button>
-              </div>
-            </div>
-          ) : null}
 
-          {step === 4 ? (
+          {step === 3 ? (
             <div className="onboarding-view__panel onboarding-view__build">
               <span className="onboarding-view__build-badge">
                 <Icon name="sparkles" size={13} aria-hidden />
@@ -2745,7 +2765,7 @@ function OnboardingView({
             </div>
           ) : null}
 
-          {step === 3 || step === 4 ? null : (
+          {step === 3 ? null : (
             <div className="onboarding-view__actions">
               {step === 0 && amrLoginError ? (
                 <span className="onboarding-view__action-status is-error" role="alert">

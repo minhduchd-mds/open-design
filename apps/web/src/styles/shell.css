@@ -198,15 +198,27 @@
    visible even after the project tabs overflow into horizontal scroll. The
    opaque background keeps scrolled tabs from showing through it. */
 .workspace-tab.is-pinned {
-  width: 96px;
-  flex: 0 0 96px;
-  min-width: 96px;
-  max-width: 96px;
+  width: 18px;
+  flex: 0 0 18px;
+  min-width: 18px;
+  max-width: 18px;
   grid-template-columns: minmax(0, 1fr);
   position: sticky;
   left: 0;
   z-index: 2;
   background: color-mix(in srgb, var(--bg-panel) 88%, var(--bg-subtle));
+}
+.workspace-tab.is-pinned .workspace-tab__label {
+  display: none;
+}
+.workspace-tab.is-pinned .workspace-tab__icon {
+  opacity: 0.88;
+  margin: 0 auto;
+}
+.workspace-tab.is-pinned .workspace-tab__main {
+  padding: 0;
+  justify-content: center;
+  gap: 0;
 }
 .workspace-tab.is-dragging {
   opacity: 0.88;

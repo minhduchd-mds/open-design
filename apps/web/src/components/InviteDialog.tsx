@@ -1,99 +1,143 @@
 // Reusable "invite teammates" dialog for the team workspace.
 //
-// Extracted from EntryNavRail so multiple entry points (the team dropdown
-// in the left rail and the "全部项目" team header) can share one modal.
-// Demo-only: all data is hard-coded Chinese mock content, no backend.
+// Opened from the team dropdown in the left rail and the "全部项目" team
+// header. Demo-only: all data is hard-coded Chinese mock content, no backend.
+// Canva-style two-column layout — form on the left, decorative art on the right.
 
 import { useState } from 'react';
 import { Icon } from './Icon';
 
+export interface InviteRow {
+  email: string;
+  role: string;
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** Shows "你的团队有 1人" for single-seat plans (vs the team default). */
+  freePlan?: boolean;
+  /** Called with the entered rows when "确认并邀请" is pressed. The host
+   *  decides whether to send invites directly or route through upgrade. */
+  onSubmit?: (rows: InviteRow[]) => void;
 }
 
-const MOCK_MEMBERS = [
-  { name: '琼羽（你）', img: '/team-avatars/a2.png', role: '所有者' },
-  { name: '张伟', img: '/team-avatars/a1.png', role: '管理员' },
-  { name: '李娜', img: '/team-avatars/a3.png', role: '成员' },
-  { name: '王芳', img: '/team-avatars/a4.png', role: '成员' },
-  { name: '陈明', img: '/team-avatars/a6.png', role: '成员' },
-  { name: '刘洋', img: '/team-avatars/a7.png', role: '成员' },
-];
+const TEAM_SIZE = 3;
 
-export function InviteDialog({ open, onClose }: Props) {
-  const [inviteEmails, setInviteEmails] = useState('');
-  const [inviteRole, setInviteRole] = useState('成员');
+export function InviteDialog({ open, onClose, freePlan = false, onSubmit }: Props) {
+  const [rows, setRows] = useState<InviteRow[]>([{ email: '', role: '团队成员' }]);
+  const [visibilityOpen, setVisibilityOpen] = useState(false);
 
   if (!open) return null;
 
+  function updateRow(index: number, patch: Partial<InviteRow>) {
+    setRows((prev) => prev.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+  }
+  function addRow() {
+    setRows((prev) => [...prev, { email: '', role: '团队成员' }]);
+  }
+  function removeRow(index: number) {
+    setRows((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev));
+  }
+
+  function handleConfirm() {
+    const valid = rows.filter((r) => r.email.trim().length > 0);
+    onClose();
+    onSubmit?.(valid);
+    setRows([{ email: '', role: '团队成员' }]);
+  }
+
   return (
-    <div className="entry-invite" role="dialog" aria-modal="true" aria-label="邀请同事">
+    <div className="entry-invite" role="dialog" aria-modal="true" aria-label="邀请成员">
       <div className="entry-invite__backdrop" onClick={onClose} />
-      <div className="entry-invite__panel">
-        <div className="entry-invite__head">
-          <span className="entry-invite__team-avatar" aria-hidden>N</span>
-          <div className="entry-invite__head-text">
-            <h2 className="entry-invite__title">邀请同事加入 Nexu 团队</h2>
-            <p className="entry-invite__subtitle">受邀成员可以查看并协作团队空间内的所有项目</p>
+      <div className="entry-invite__panel entry-invite__panel--split">
+        <button
+          type="button"
+          className="entry-invite__close"
+          onClick={onClose}
+          aria-label="关闭"
+        >
+          <Icon name="close" size={16} />
+        </button>
+
+        <div className="entry-invite__form">
+          <h2 className="entry-invite__title">邀请成员加入你的团队</h2>
+          <p className="entry-invite__teamsize">
+            你的团队有 <span className="entry-invite__teamsize-link">{freePlan ? 1 : TEAM_SIZE}人</span>。
+          </p>
+
+          <div className="entry-invite__divider">
+            <span>或者</span>
           </div>
-        </div>
 
-        <label className="entry-invite__label" htmlFor="entry-invite-emails">邮箱地址</label>
-        <div className="entry-invite__row">
-          <textarea
-            id="entry-invite-emails"
-            className="entry-invite__input"
-            placeholder="输入邮箱，多个用逗号或换行分隔"
-            value={inviteEmails}
-            onChange={(e) => setInviteEmails(e.target.value)}
-            rows={3}
-          />
-          <select
-            className="entry-invite__role"
-            value={inviteRole}
-            onChange={(e) => setInviteRole(e.target.value)}
-            aria-label="成员角色"
-          >
-            <option value="管理员">管理员</option>
-            <option value="成员">成员</option>
-          </select>
-        </div>
-
-        <div className="entry-invite__link-block">
-          <span className="entry-invite__link-icon" aria-hidden><Icon name="link" size={15} /></span>
-          <div className="entry-invite__link-text">
-            <strong>通过链接邀请</strong>
-            <span>https://open.design/invite/nexu-team-4f2a</span>
+          <div className="entry-invite__field-labels">
+            <span className="entry-invite__label">通过电子邮件邀请成员</span>
+            <span className="entry-invite__label entry-invite__label--role">分配角色</span>
           </div>
-          <button type="button" className="entry-invite__copy">
-            <Icon name="copy" size={14} /> 复制链接
-          </button>
-        </div>
-
-        <div className="entry-invite__members">
-          <div className="entry-invite__members-title">团队成员 · {MOCK_MEMBERS.length}</div>
-          {MOCK_MEMBERS.map((member) => (
-            <div className="entry-invite__member" key={member.name}>
-              <img
-                className="entry-invite__member-avatar"
-                src={member.img}
-                alt=""
-                aria-hidden
+          {rows.map((row, i) => (
+            <div className="entry-invite__fields" key={i}>
+              <input
+                className="entry-invite__input"
+                placeholder="输入电子邮件地址……"
+                value={row.email}
+                onChange={(e) => updateRow(i, { email: e.target.value })}
               />
-              <span className="entry-invite__member-name">{member.name}</span>
-              <span className="entry-invite__member-role">{member.role}</span>
+              <select
+                className="entry-invite__role"
+                value={row.role}
+                onChange={(e) => updateRow(i, { role: e.target.value })}
+                aria-label="分配角色"
+              >
+                <option value="管理员">管理员</option>
+                <option value="团队成员">团队成员</option>
+                <option value="查看者">查看者</option>
+              </select>
+              {rows.length > 1 ? (
+                <button
+                  type="button"
+                  className="entry-invite__row-remove"
+                  onClick={() => removeRow(i)}
+                  aria-label="移除"
+                >
+                  <Icon name="close" size={15} />
+                </button>
+              ) : null}
             </div>
           ))}
+          <button type="button" className="entry-invite__add-row" onClick={addRow}>
+            <Icon name="plus" size={14} /> 添加成员
+          </button>
+
+          <button
+            type="button"
+            className="entry-invite__collapse"
+            onClick={() => setVisibilityOpen((v) => !v)}
+            aria-expanded={visibilityOpen}
+          >
+            团队成员会看到我的设计吗?
+            <Icon
+              name="chevron-down"
+              size={16}
+              style={visibilityOpen ? { transform: 'rotate(180deg)' } : undefined}
+            />
+          </button>
+          {visibilityOpen ? (
+            <p className="entry-invite__collapse-body">
+              团队成员可以看到你共享到团队空间的设计；保存在「草稿」中的私人设计不会对其他人可见。
+            </p>
+          ) : null}
+
+          <button type="button" className="entry-invite__submit" onClick={handleConfirm}>
+            确认并邀请
+          </button>
         </div>
 
-        <div className="entry-invite__foot">
-          <button type="button" className="entry-invite__btn" onClick={onClose}>
-            取消
-          </button>
-          <button type="button" className="entry-invite__btn is-primary" onClick={onClose}>
-            <Icon name="send" size={14} /> 发送邀请
-          </button>
+        <div className="entry-invite__art" aria-hidden>
+          <span className="entry-invite__art-blob entry-invite__art-blob--a" />
+          <span className="entry-invite__art-blob entry-invite__art-blob--b" />
+          <span className="entry-invite__art-card entry-invite__art-card--1" />
+          <span className="entry-invite__art-card entry-invite__art-card--2" />
+          <span className="entry-invite__art-card entry-invite__art-card--3" />
         </div>
       </div>
     </div>

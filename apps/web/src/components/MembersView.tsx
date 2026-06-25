@@ -9,6 +9,8 @@
 import { useState } from 'react';
 import { Icon } from './Icon';
 import { InviteDialog } from './InviteDialog';
+import { UpgradeTeamDialog } from './UpgradeTeamDialog';
+import { Confetti } from './Confetti';
 
 type Role = '所有者' | '管理员' | '成员';
 
@@ -35,15 +37,72 @@ const MOCK_MEMBERS: Member[] = [
 
 const ROLE_OPTIONS: Role[] = ['所有者', '管理员', '成员'];
 
-export function MembersView() {
+interface PendingInvite {
+  email: string;
+  role: string;
+}
+
+export function MembersView({ solo = false }: { solo?: boolean }) {
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  // Locally upgraded to team via the in-flow CTA (overrides the solo prop).
+  const [upgraded, setUpgraded] = useState(false);
+  const [confettiOn, setConfettiOn] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  // Invites entered before an upgrade was required — sent once upgraded.
+  const [queuedInvites, setQueuedInvites] = useState<PendingInvite[]>([]);
   // Per-member role state so the dropdowns are interactive in the demo.
   const [roles, setRoles] = useState<Record<string, Role>>(() =>
     Object.fromEntries(MOCK_MEMBERS.map((m) => [m.id, m.role])),
   );
 
+  // A solo plan that hasn't locally upgraded behaves single-seat.
+  const isSolo = solo && !upgraded;
+  // Demo team state: just the owner (你) as an active member.
+  const members = MOCK_MEMBERS.filter((m) => m.isYou);
+  // Team plan seeds one standing pending invite; solo starts empty.
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>(
+    solo ? [] : [{ email: 'li@example.com', role: '成员' }],
+  );
+  const seatsUsed = members.length + pendingInvites.length;
+  const seatsTotal = isSolo ? 1 : 3;
+
   function setRole(id: string, role: Role) {
     setRoles((prev) => ({ ...prev, [id]: role }));
+  }
+
+  // "确认并邀请" from the InviteDialog. Free/solo users must upgrade first;
+  // team users send invites immediately.
+  function handleInviteSubmit(rows: PendingInvite[]) {
+    if (rows.length === 0) return;
+    if (isSolo) {
+      setQueuedInvites(rows);
+      setUpgradeOpen(true);
+    } else {
+      sendInvites(rows);
+    }
+  }
+
+  function sendInvites(rows: PendingInvite[]) {
+    setPendingInvites((prev) => [...prev, ...rows]);
+    setToast(`已向 ${rows.length} 位同事发送邀请短信和邮件`);
+    window.setTimeout(() => setToast(null), 3200);
+  }
+
+  // "升级到团队版" confirmed → confetti, flip to team, then auto-send the
+  // queued invites so they land in the member list as pending.
+  function handleUpgradeConfirm() {
+    setUpgradeOpen(false);
+    setUpgraded(true);
+    setConfettiOn(true);
+    window.setTimeout(() => setConfettiOn(false), 2600);
+    if (queuedInvites.length > 0) {
+      sendInvites(queuedInvites);
+      setQueuedInvites([]);
+    } else {
+      setToast('已升级到团队版');
+      window.setTimeout(() => setToast(null), 3200);
+    }
   }
 
   return (
@@ -62,11 +121,19 @@ export function MembersView() {
         </button>
       </header>
 
+      {toast ? <div className="members__toast">{toast}</div> : null}
+
       <div className="members__seats">
         <Icon name="info" size={14} />
-        <span>
-          席位 <strong>3/3</strong> 已用 · 团队版默认含 3 个席位
-        </span>
+        {isSolo ? (
+          <span>
+            席位 <strong>{seatsUsed}/{seatsTotal}</strong> 已用 · 免费版仅含 1 个席位，升级团队版可邀请协作
+          </span>
+        ) : (
+          <span>
+            席位 <strong>{seatsUsed}/{seatsTotal}</strong> 已用 · 团队版默认含 3 个席位
+          </span>
+        )}
       </div>
 
       <div className="members__panel">
@@ -76,7 +143,7 @@ export function MembersView() {
           <span className="members__col members__col--action" />
         </div>
 
-        {MOCK_MEMBERS.map((member) => {
+        {members.map((member) => {
           const role = roles[member.id] ?? member.role;
           return (
             <div className="members__row" key={member.id}>
@@ -119,32 +186,47 @@ export function MembersView() {
         })}
       </div>
 
-      <div className="members__pending">
-        <h2 className="members__pending-title">待接受邀请 · 1</h2>
-        <div className="members__panel">
-          <div className="members__row members__row--pending">
-            <div className="members__col members__col--person">
-              <span className="members__avatar members__avatar--placeholder" aria-hidden>
-                <Icon name="send" size={14} />
-              </span>
-              <div className="members__person-text">
-                <span className="members__name">li@example.com</span>
-                <span className="members__email">角色：成员</span>
+      {pendingInvites.length > 0 ? (
+        <div className="members__pending">
+          <h2 className="members__pending-title">待接受邀请 · {pendingInvites.length}</h2>
+          <div className="members__panel">
+            {pendingInvites.map((invite, i) => (
+              <div className="members__row members__row--pending" key={`${invite.email}-${i}`}>
+                <div className="members__col members__col--person">
+                  <span className="members__avatar members__avatar--placeholder" aria-hidden>
+                    <Icon name="send" size={14} />
+                  </span>
+                  <div className="members__person-text">
+                    <span className="members__name">{invite.email}</span>
+                    <span className="members__email">角色：{invite.role} · 等待对方接受</span>
+                  </div>
+                </div>
+                <div className="members__col members__col--role">
+                  <span className="members__badge">等待中</span>
+                </div>
+                <div className="members__col members__col--action">
+                  <button type="button" className="members__resend">
+                    <Icon name="refresh" size={13} /> 重新发送
+                  </button>
+                </div>
               </div>
-            </div>
-            <div className="members__col members__col--role">
-              <span className="members__badge">待接受</span>
-            </div>
-            <div className="members__col members__col--action">
-              <button type="button" className="members__resend">
-                <Icon name="refresh" size={13} /> 重新发送
-              </button>
-            </div>
+            ))}
           </div>
         </div>
-      </div>
+      ) : null}
 
-      <InviteDialog open={inviteOpen} onClose={() => setInviteOpen(false)} />
+      <InviteDialog
+        open={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        freePlan={isSolo}
+        onSubmit={handleInviteSubmit}
+      />
+      <UpgradeTeamDialog
+        open={upgradeOpen}
+        onClose={() => setUpgradeOpen(false)}
+        onConfirm={handleUpgradeConfirm}
+      />
+      {confettiOn ? <Confetti /> : null}
     </div>
   );
 }

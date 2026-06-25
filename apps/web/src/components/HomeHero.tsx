@@ -93,6 +93,7 @@ import {
   PLACEHOLDER_SCENARIO_DEFS,
   type PlaceholderScenario,
 } from './home-hero/placeholderScenarios';
+import type { DemoScenario } from './DemoControlBar';
 
 export interface HomeHeroSubmitHandler {
   (): void;
@@ -211,6 +212,7 @@ interface Props {
   // no design system / template / prompt) and enters it. Omit to hide the link.
   onStartBlankProject?: () => void;
   executionSwitcher?: ReactNode;
+  demoScenario?: DemoScenario;
 }
 
 type HomeMentionTab = 'all' | 'files' | 'plugins' | 'skills' | 'mcp' | 'connectors';
@@ -323,6 +325,7 @@ export const HomeHero = forwardRef<HomeHeroHandle, Props>(function HomeHero(
     onExamplePromptStatusChange,
     onStartBlankProject,
     executionSwitcher,
+    demoScenario,
   },
   ref,
 ) {
@@ -334,8 +337,8 @@ export const HomeHero = forwardRef<HomeHeroHandle, Props>(function HomeHero(
   const [dragActive, setDragActive] = useState(false);
   const [libraryPickerOpen, setLibraryPickerOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  // Templates row is collapsed by default; the "从模板开始" toggle reveals it.
-  const [templatesExpanded, setTemplatesExpanded] = useState(false);
+  // Templates row is collapsed by default; expand immediately for new-user onboarding.
+  const [templatesExpanded, setTemplatesExpanded] = useState(() => demoScenario === 'onboarding-new');
   // Two-flash attention pulse on the send button; armed via the
   // imperative `pulseSend()` handle, cleared when the animation ends.
   const [sendAttention, setSendAttention] = useState(false);

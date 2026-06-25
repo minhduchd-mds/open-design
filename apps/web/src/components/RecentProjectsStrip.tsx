@@ -104,6 +104,8 @@ export function RecentProjectsStrip({
   const [inviteOpen, setInviteOpen] = useState(false);
   const [moveTarget, setMoveTarget] = useState<Project | null>(null);
   const [moveDontRemind, setMoveDontRemind] = useState(false);
+  // Projects flipped private → shared via "转入团队空间" (demo-local).
+  const [movedToTeam, setMovedToTeam] = useState<Set<string>>(() => new Set());
   const moveTitleId = useId();
 
   const sorted = useMemo(
@@ -300,7 +302,12 @@ export function RecentProjectsStrip({
       >
         {visibleProjects.map((project, index) => {
           const cover = projectCover(project, coverByProject[project.id] ?? null);
-          const meta = mockCardMeta(index, space);
+          const baseMeta = mockCardMeta(index, space);
+          // A project moved to the team space reads as shared regardless of its
+          // original mock visibility.
+          const meta = movedToTeam.has(project.id)
+            ? { ...baseMeta, badge: 'shared' as 'private' | 'shared' }
+            : baseMeta;
           const designSystemProject = isDesignSystemProject(project);
           const status: ProjectDisplayStatus = project.status?.value ?? 'not_started';
           const publishedDesignSystem = isPublishedDesignSystemProject(project, designSystems);
@@ -527,7 +534,14 @@ export function RecentProjectsStrip({
             <button type="button" onClick={() => setMoveTarget(null)}>
               {t('designs.renameCancel')}
             </button>
-            <button type="button" className="primary" onClick={() => setMoveTarget(null)}>
+            <button
+              type="button"
+              className="primary"
+              onClick={() => {
+                setMovedToTeam((prev) => new Set(prev).add(moveTarget.id));
+                setMoveTarget(null);
+              }}
+            >
               确认转入
             </button>
           </DialogFooter>

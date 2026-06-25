@@ -11,6 +11,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { EntryHelpMenu } from './EntryHelpMenu';
 import { InviteDialog } from './InviteDialog';
+import { CreateTeamDialog } from './CreateTeamDialog';
+import { UpgradeTeamDialog } from './UpgradeTeamDialog';
+import { CreditsPanel, type CreditsInfo } from './CreditsPanel';
 import { Icon } from './Icon';
 import { useT } from '../i18n';
 import { LIBRARY_UI_VISIBLE } from '../features/libraryUi';
@@ -42,6 +45,12 @@ interface Props {
   /** Extra controls pinned to the bottom-left of the rail (GitHub star, Discord,
    *  Use-everywhere, settings) — moved out of the top bar so content rises. */
   footerExtra?: ReactNode;
+  /** Solo plan (免费版 / 个人版): only one team, no other workspaces, and
+   *  inviting collaborators routes through the upgrade flow. */
+  solo?: boolean;
+  /** Credits popover data + upgrade handler for the ✨ credits chip. */
+  credits?: CreditsInfo;
+  onUpgrade?: () => void;
 }
 
 interface NavButtonProps {
@@ -69,7 +78,7 @@ function NavButton({ active, ariaLabel, tooltip, onClick, testId, children }: Na
   );
 }
 
-export function EntryNavRail({ view, onViewChange, onNewProject, open, onClose, footerExtra }: Props) {
+export function EntryNavRail({ view, onViewChange, onNewProject, open, onClose, footerExtra, solo = false, credits, onUpgrade }: Props) {
   const t = useT();
   const brandLabel = t('app.brand');
   const homeLabel = t('entry.navHome');
@@ -77,6 +86,9 @@ export function EntryNavRail({ view, onViewChange, onNewProject, open, onClose, 
   const [accountOpen, setAccountOpen] = useState(false);
   const [teamOpen, setTeamOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [createTeamOpen, setCreateTeamOpen] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [creditsOpen, setCreditsOpen] = useState(false);
 
   // Once opened the rail stays docked (Manus-style); navigating between
   // destinations no longer collapses it.
@@ -120,6 +132,31 @@ export function EntryNavRail({ view, onViewChange, onNewProject, open, onClose, 
             <span className="entry-nav-rail__account-name">琼羽</span>
             <Icon name="chevron-down" size={14} />
           </button>
+          {credits ? (
+            <button
+              type="button"
+              className="entry-nav-rail__credits-chip"
+              onClick={() => setCreditsOpen((v) => !v)}
+              aria-expanded={creditsOpen}
+              aria-label={`${credits.tierLabel} · 剩余积分 ${credits.balance}`}
+            >
+              <span className="entry-nav-rail__credits-tier">{credits.tierLabel}</span>
+              <span className="entry-nav-rail__credits-sep" aria-hidden>·</span>
+              <Icon name="sparkles" size={12} />
+              {credits.balance.toLocaleString('en-US')}
+            </button>
+          ) : null}
+          {credits ? (
+            <CreditsPanel
+              open={creditsOpen}
+              onClose={() => setCreditsOpen(false)}
+              info={credits}
+              onUpgrade={() => {
+                setCreditsOpen(false);
+                onUpgrade?.();
+              }}
+            />
+          ) : null}
           {accountOpen ? (
             <>
               <div className="entry-nav-rail__menu-backdrop" onClick={() => setAccountOpen(false)} />
@@ -184,10 +221,12 @@ export function EntryNavRail({ view, onViewChange, onNewProject, open, onClose, 
             <>
               <div className="entry-nav-rail__menu-backdrop" onClick={() => setTeamOpen(false)} />
               <div className="entry-nav-rail__team-menu" role="menu">
-                <button type="button" className="entry-nav-rail__menu-item" role="menuitem">
-                  <span className="entry-nav-rail__team-avatar entry-nav-rail__team-avatar--alt" aria-hidden>R</span>
-                  Refly
-                </button>
+                {solo ? null : (
+                  <button type="button" className="entry-nav-rail__menu-item" role="menuitem">
+                    <span className="entry-nav-rail__team-avatar entry-nav-rail__team-avatar--alt" aria-hidden>R</span>
+                    Refly
+                  </button>
+                )}
                 <button type="button" className="entry-nav-rail__menu-item is-current" role="menuitem">
                   <span className="entry-nav-rail__team-avatar" aria-hidden>N</span>
                   Nexu 团队
@@ -205,7 +244,15 @@ export function EntryNavRail({ view, onViewChange, onNewProject, open, onClose, 
                 >
                   <Icon name="share" size={15} /> 邀请同事
                 </button>
-                <button type="button" className="entry-nav-rail__menu-item" role="menuitem">
+                <button
+                  type="button"
+                  className="entry-nav-rail__menu-item"
+                  role="menuitem"
+                  onClick={() => {
+                    setTeamOpen(false);
+                    setCreateTeamOpen(true);
+                  }}
+                >
                   <Icon name="plus" size={15} /> 新建团队
                 </button>
               </div>
@@ -239,15 +286,7 @@ export function EntryNavRail({ view, onViewChange, onNewProject, open, onClose, 
         >
           <Icon name="palette" size={18} />
         </NavButton>
-        <NavButton
-          active={view === 'content-plan'}
-          ariaLabel="内容规划"
-          tooltip="内容规划"
-          onClick={() => selectView('content-plan')}
-          testId="entry-nav-content-plan"
-        >
-          <Icon name="kanban" size={18} />
-        </NavButton>
+{null /* demo: hide content-plan nav item */}
         <NavButton
           active={view === 'members'}
           ariaLabel="成员"
@@ -284,7 +323,14 @@ export function EntryNavRail({ view, onViewChange, onNewProject, open, onClose, 
         <EntryHelpMenu />
       </div>
 
-      <InviteDialog open={inviteOpen} onClose={() => setInviteOpen(false)} />
+      <InviteDialog
+        open={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        freePlan={solo}
+        onSubmit={() => { if (solo) setUpgradeOpen(true); }}
+      />
+      <CreateTeamDialog open={createTeamOpen} onClose={() => setCreateTeamOpen(false)} />
+      <UpgradeTeamDialog open={upgradeOpen} onClose={() => setUpgradeOpen(false)} />
     </nav>
   );
 }
