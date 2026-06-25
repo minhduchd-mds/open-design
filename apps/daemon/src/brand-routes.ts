@@ -22,6 +22,7 @@ import {
 } from './db.js';
 import { resolveProjectDir } from './projects.js';
 import {
+  continueBrandExtraction,
   extractBrandFromHtml,
   finalizeBrand,
   listBrandSummaries,
@@ -77,6 +78,20 @@ export function registerBrandRoutes(app: Application, deps: BrandRoutesDeps): vo
   const { brandsRoot, userDesignSystemsRoot, projectsRoot, skillsRoot, dataDir, db, randomId } = deps;
   const activeProgrammaticBrandExtractions = new Map<string, AbortController>();
 
+  function trackProgrammaticBrandExtraction(
+    brandId: string,
+    controller: AbortController,
+    backgroundExtraction: Promise<unknown> | null,
+  ): void {
+    if (!backgroundExtraction) return;
+    activeProgrammaticBrandExtractions.set(brandId, controller);
+    void backgroundExtraction.finally(() => {
+      if (activeProgrammaticBrandExtractions.get(brandId) === controller) {
+        activeProgrammaticBrandExtractions.delete(brandId);
+      }
+    });
+  }
+
   // GET /api/brands — list every stored brand as a summary.
   app.get('/api/brands', (_req: Request, res: Response) => {
     try {
@@ -131,24 +146,50 @@ export function registerBrandRoutes(app: Application, deps: BrandRoutesDeps): vo
       if (transcriptAgent) startOptions.transcriptAgent = transcriptAgent;
       const result = await startBrandExtraction(startOptions);
       const backgroundExtraction = backgroundExtractionRef.current;
-      if (backgroundExtraction) {
-        activeProgrammaticBrandExtractions.set(result.id, programmaticAbortController);
-        void backgroundExtraction.finally(() => {
-          const latestStatus = readBrandDetail(brandsRoot, result.id)?.meta.status;
-          if (
-            latestStatus !== 'extracting'
-            && activeProgrammaticBrandExtractions.get(result.id) === programmaticAbortController
-          ) {
-            activeProgrammaticBrandExtractions.delete(result.id);
-          }
-        });
-      }
+      trackProgrammaticBrandExtraction(result.id, programmaticAbortController, backgroundExtraction);
       res.json(result);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       // A bad URL is the only expected throw; everything else is a 500.
       const status = /valid http/i.test(message) ? 400 : 500;
       res.status(status).json({ error: message });
+    }
+  });
+
+  // POST /api/brands/:id/continue-extraction — restart the deterministic
+  // programmatic pass against the existing brand/project/design-system. Unlike
+  // POST /api/brands, this never creates a duplicate design system item.
+  app.post('/api/brands/:id/continue-extraction', async (req: Request, res: Response) => {
+    const id = String(req.params.id);
+    try {
+      const prior = activeProgrammaticBrandExtractions.get(id);
+      if (prior) {
+        prior.abort();
+        activeProgrammaticBrandExtractions.delete(id);
+      }
+      const programmaticAbortController = new AbortController();
+      const backgroundExtractionRef: { current: Promise<unknown> | null } = { current: null };
+      const transcriptAgent = await deps.resolveTranscriptAgent?.().catch(() => null);
+      const result = await continueBrandExtraction({
+        id,
+        brandsRoot,
+        projectsRoot,
+        skillsRoot,
+        db,
+        userDesignSystemsRoot,
+        dataDir,
+        ...(randomId ? { randomId } : {}),
+        ...(transcriptAgent ? { transcriptAgent } : {}),
+        programmaticAbortSignal: programmaticAbortController.signal,
+        onBackgroundExtraction: (settled) => {
+          backgroundExtractionRef.current = settled;
+        },
+      });
+      trackProgrammaticBrandExtraction(id, programmaticAbortController, backgroundExtractionRef.current);
+      res.json(result);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(/not found/i.test(message) ? 404 : 500).json({ error: message });
     }
   });
 

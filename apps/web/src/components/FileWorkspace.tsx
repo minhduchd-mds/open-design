@@ -172,6 +172,8 @@ interface Props {
   onFocusModeChange?: (next: boolean) => void;
   designSystemProject?: DesignSystemSummary | null;
   designSystemBrandId?: string | null;
+  /** False while a brand-extraction design system is still running. */
+  designSystemEditable?: boolean;
   defaultDesignSystemId?: string | null;
   onSetDefaultDesignSystem?: (id: string | null) => Promise<void> | void;
   onDesignSystemsRefresh?: () => Promise<void> | void;
@@ -431,6 +433,7 @@ export function FileWorkspace({
   onFocusModeChange,
   designSystemProject = null,
   designSystemBrandId = null,
+  designSystemEditable = true,
   defaultDesignSystemId = null,
   onSetDefaultDesignSystem,
   onDesignSystemsRefresh,
@@ -2155,6 +2158,7 @@ export function FileWorkspace({
             projectId={projectId}
             system={designSystemProject}
             brandId={designSystemBrandId}
+            editable={designSystemEditable}
             files={visibleFiles}
             streaming={Boolean(streaming)}
             activityEvents={designSystemActivityEvents}
@@ -2445,6 +2449,7 @@ function DesignSystemProjectPanel({
   projectId,
   system,
   brandId,
+  editable,
   files,
   streaming,
   activityEvents,
@@ -2466,6 +2471,7 @@ function DesignSystemProjectPanel({
   projectId: string;
   system: DesignSystemSummary;
   brandId?: string | null;
+  editable: boolean;
   files: ProjectFile[];
   streaming: boolean;
   activityEvents: AgentEvent[];
@@ -2589,7 +2595,7 @@ function DesignSystemProjectPanel({
     projectId,
     swatches: system.swatches,
     body: designMdBody,
-    editable: true,
+    editable,
     host: kitHost,
     reloadKey: kitReloadKey,
   });
@@ -2846,7 +2852,7 @@ function DesignSystemProjectPanel({
       })),
     }))
     .filter((group) => group.items.length > 0);
-  const creatingInitialDraft = streaming && !published;
+  const creatingInitialDraft = streaming && !published && !brandId;
   const generationSteps = designSystemInitialGenerationSteps({
     files,
     sectionReviews,
@@ -2856,6 +2862,7 @@ function DesignSystemProjectPanel({
   const generationProgress = designSystemGenerationProgress(generationSteps);
 
   async function togglePublished(nextPublished: boolean) {
+    if (!editable) return;
     if (nextPublished && !githubEvidence.ready) return;
     setStatusBusy(true);
     notifyKitLoading(publishActionLabel);
@@ -2874,6 +2881,7 @@ function DesignSystemProjectPanel({
   }
 
   async function toggleDefault(nextDefault: boolean) {
+    if (!editable) return;
     if (!onSetDefaultDesignSystem) return;
     setDefaultBusy(true);
     notifyKitLoading(nextDefault ? t('dsManager.makeDefault') : t('dsManager.badgeDefault'));
@@ -2908,6 +2916,7 @@ function DesignSystemProjectPanel({
   }
 
   function openNeedsWorkFeedback(sectionTitle: string, expansionKey: string) {
+    if (!editable) return;
     setReviewDecisions((current) => ({ ...current, [sectionTitle]: 'needs-work' }));
     setExpandedSections((current) => ({ ...current, [expansionKey]: true }));
     setFeedbackSection(sectionTitle);
@@ -3147,6 +3156,7 @@ function DesignSystemProjectPanel({
   // header's "More" dropdown so the sticky row reads as one clear action.
   const repoCopy = repoConnectCopy(t, githubConnected);
   const publishActionLabel = published ? t('ds.unpublishDesignSystem') : t('ds.publishDesignSystem');
+  const extractionRunning = !editable || streaming;
   const actionsSlot = (
     <span
       className="ds-project-publish-trigger"
@@ -3162,7 +3172,7 @@ function DesignSystemProjectPanel({
         data-testid="design-system-publish"
         aria-label={publishActionLabel}
         title={publishActionLabel}
-        disabled={statusBusy || (!published && !githubEvidence.ready)}
+        disabled={!editable || statusBusy || (!published && !githubEvidence.ready)}
         aria-busy={statusBusy || undefined}
         onClick={() => void togglePublished(!published)}
       >
@@ -3178,7 +3188,7 @@ function DesignSystemProjectPanel({
       label: t('ds.refresh'),
       icon: 'refresh',
       onClick: () => void refreshKit(),
-      disabled: Boolean(kitActionBusy) || statusBusy || defaultBusy,
+      disabled: !editable || Boolean(kitActionBusy) || statusBusy || defaultBusy,
       loading: kitActionBusy === 'refresh',
     },
     {
@@ -3186,7 +3196,7 @@ function DesignSystemProjectPanel({
       label: t('dsManager.downloadTitle'),
       icon: 'download',
       onClick: () => void downloadKit(),
-      disabled: Boolean(kitActionBusy) || statusBusy || defaultBusy,
+      disabled: !editable || Boolean(kitActionBusy) || statusBusy || defaultBusy,
       loading: kitActionBusy === 'download',
     },
     ...(published && onSetDefaultDesignSystem
@@ -3196,7 +3206,7 @@ function DesignSystemProjectPanel({
             label: isDefault ? t('dsManager.badgeDefault') : t('dsManager.makeDefault'),
             icon: (isDefault ? 'check' : 'star') as IconName,
             onClick: () => void toggleDefault(!isDefault),
-            disabled: statusBusy || defaultBusy || Boolean(kitActionBusy),
+            disabled: !editable || statusBusy || defaultBusy || Boolean(kitActionBusy),
             loading: defaultBusy,
             active: isDefault,
           } satisfies HeaderMenuAction,
@@ -3219,15 +3229,15 @@ function DesignSystemProjectPanel({
   const topSlot = (
     <>
       <div
-        className={`ds-project-extraction-status ${streaming ? 'is-running' : 'is-complete'}`}
+        className={`ds-project-extraction-status ${extractionRunning ? 'is-running' : 'is-complete'}`}
         role="status"
         data-testid="design-system-extraction-status"
       >
-        <Icon name={streaming ? 'sparkles' : 'check'} size={15} />
+        <Icon name={extractionRunning ? 'sparkles' : 'check'} size={15} />
         <span>
-          <strong>{streaming ? t('ds.extractionRunningTitle') : t('ds.extractionCompleteTitle')}</strong>
+          <strong>{extractionRunning ? t('ds.extractionRunningTitle') : t('ds.extractionCompleteTitle')}</strong>
           <small>
-            {streaming
+            {extractionRunning
               ? t('ds.extractionRunningBody')
               : t('ds.extractionCompleteBody')}
           </small>
@@ -3286,7 +3296,7 @@ function DesignSystemProjectPanel({
         </div>
       ) : null}
 
-      {fontFiles.length === 0 ? (
+      {editable && fontFiles.length === 0 ? (
         <MissingBrandFontsBanner projectId={projectId} onUploadAssets={onUploadAssets} />
       ) : null}
 
@@ -3332,18 +3342,22 @@ function DesignSystemProjectPanel({
           stickyHeader
           designMd={{
             body: designMdBody,
-            onSave: saveDesignMd,
-            onOpenFile: () => onOpenFile('DESIGN.md'),
             saving: savingDesignMd,
-            canEdit: true,
+            canEdit: editable,
+            ...(editable
+              ? {
+                  onSave: saveDesignMd,
+                  onOpenFile: () => onOpenFile('DESIGN.md'),
+                }
+              : {}),
           }}
-          onUploadModule={kitUploadModule}
-          onColorChange={(index, hex) => changeKitColor(index, hex)}
-          onColorReset={(index) => resetKitColor(index)}
-          onDeleteLogo={(index) => void removeKitLogo(index)}
-          onDeleteImage={(index) => void removeKitImage(index)}
-          onRefresh={() => void refreshKit()}
-          onDownload={() => void downloadKit()}
+          onUploadModule={editable ? kitUploadModule : undefined}
+          onColorChange={editable ? (index, hex) => changeKitColor(index, hex) : undefined}
+          onColorReset={editable ? (index) => resetKitColor(index) : undefined}
+          onDeleteLogo={editable ? (index) => void removeKitLogo(index) : undefined}
+          onDeleteImage={editable ? (index) => void removeKitImage(index) : undefined}
+          onRefresh={editable ? () => void refreshKit() : undefined}
+          onDownload={editable ? () => void downloadKit() : undefined}
           uploading={kitUploading}
           actionBusy={kitActionBusy}
           onActionFeedback={notifyKit}

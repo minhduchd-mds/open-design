@@ -12,7 +12,6 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AssistantMessage } from '../../src/components/AssistantMessage';
 import {
-  BRAND_CONTINUE_EXTRACTION_PROMPT,
   PROJECT_GENERATE_ARTIFACT_PROMPT,
 } from '../../src/components/NextStepActions';
 import { en } from '../../src/i18n/locales/en';
@@ -154,6 +153,7 @@ describe('AssistantMessage next-step affordance', () => {
 
   it('renders incomplete brand extraction next steps after cancellation without an artifact', () => {
     const h = handlers();
+    const onContinueExtraction = vi.fn();
     render(
       <AssistantMessage
         message={baseMessage({
@@ -166,6 +166,7 @@ describe('AssistantMessage next-step affordance', () => {
         isLast
         nextStepVariant="brand-extraction"
         onNextStepAiOptimize={vi.fn()}
+        onNextStepContinueExtraction={onContinueExtraction}
         {...h}
       />,
     );
@@ -174,7 +175,7 @@ describe('AssistantMessage next-step affordance', () => {
     expect(screen.getByText('Continue extraction')).toBeTruthy();
     expect(screen.getByText(en['nextStep.brandAiOptimizeTitle'])).toBeTruthy();
     fireEvent.click(screen.getByTestId('next-step-brand-action-brand-continue-extraction'));
-    expect(h.onNextStepPromptAction).toHaveBeenCalledWith(BRAND_CONTINUE_EXTRACTION_PROMPT);
+    expect(onContinueExtraction).toHaveBeenCalledTimes(1);
   });
 
   it('does not render when the handlers are not wired', () => {

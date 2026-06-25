@@ -323,6 +323,8 @@ interface Props {
   onNextStepPromptAction?: (prompt: string) => void;
   onNextStepAiOptimize?: () => void;
   nextStepAiOptimizeBusy?: boolean;
+  onNextStepContinueExtraction?: () => void;
+  nextStepContinueExtractionBusy?: boolean;
   onNextStepCreateDesign?: () => void;
   nextStepCreateDesignBusy?: boolean;
   onPickSkill?: (skillId: string) => void;
@@ -432,6 +434,8 @@ function AssistantMessageImpl({
   onNextStepPromptAction,
   onNextStepAiOptimize,
   nextStepAiOptimizeBusy,
+  onNextStepContinueExtraction,
+  nextStepContinueExtractionBusy,
   onNextStepCreateDesign,
   nextStepCreateDesignBusy,
   onPickSkill,
@@ -617,9 +621,9 @@ function AssistantMessageImpl({
         : nextStepVariant;
   const hasNextStepPrimary =
     effectiveNextStepVariant === 'brand-extraction'
-      ? !!onNextStepAiOptimize || !!onNextStepCreateDesign || !!onNextStepPromptAction
+      ? !!onNextStepAiOptimize || !!onNextStepCreateDesign || !!onNextStepContinueExtraction
       : effectiveNextStepVariant === 'brand-extraction-incomplete'
-        ? !!onNextStepPromptAction || !!onNextStepAiOptimize
+        ? !!onNextStepContinueExtraction || !!onNextStepAiOptimize
         : effectiveNextStepVariant === 'design-system'
           ? !!onNextStepPromptAction
           : effectiveNextStepVariant === 'project-incomplete'
@@ -848,6 +852,8 @@ function AssistantMessageImpl({
             onPromptAction={isLast ? onNextStepPromptAction : undefined}
             onAiOptimize={isLast ? onNextStepAiOptimize : undefined}
             aiOptimizeBusy={Boolean(isLast && nextStepAiOptimizeBusy)}
+            onContinueExtraction={isLast ? onNextStepContinueExtraction : undefined}
+            continueExtractionBusy={Boolean(isLast && nextStepContinueExtractionBusy)}
             onCreateDesign={isLast ? onNextStepCreateDesign : undefined}
             createDesignBusy={Boolean(isLast && nextStepCreateDesignBusy)}
             onPickSkill={isLast ? onPickSkill : undefined}

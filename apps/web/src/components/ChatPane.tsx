@@ -573,6 +573,10 @@ interface Props {
   // seeded enrichment prompt with the default per-turn skill bundle.
   onContinueBrandEnrichment?: () => void;
   brandEnrichmentBusy?: boolean;
+  // Restarts the deterministic programmatic pass for an incomplete brand
+  // extraction without creating a duplicate design-system item.
+  onContinueBrandExtraction?: () => void;
+  continueBrandExtractionBusy?: boolean;
   // Creates a fresh design project using the current extracted design system.
   onCreateDesignFromActiveDesignSystem?: () => void;
   createDesignFromActiveDesignSystemBusy?: boolean;
@@ -745,6 +749,8 @@ export function ChatPane({
   brandEnrichmentEligible,
   onContinueBrandEnrichment,
   brandEnrichmentBusy,
+  onContinueBrandExtraction,
+  continueBrandExtractionBusy,
   onCreateDesignFromActiveDesignSystem,
   createDesignFromActiveDesignSystemBusy,
   composerDraftSignal,
@@ -2159,6 +2165,8 @@ export function ChatPane({
                 onNextStepPromptAction={handleNextStepPromptAction}
                 onNextStepAiOptimize={onContinueBrandEnrichment}
                 nextStepAiOptimizeBusy={brandEnrichmentBusy}
+                onNextStepContinueExtraction={onContinueBrandExtraction}
+                nextStepContinueExtractionBusy={continueBrandExtractionBusy}
                 onNextStepCreateDesign={onCreateDesignFromActiveDesignSystem}
                 nextStepCreateDesignBusy={createDesignFromActiveDesignSystemBusy}
                 onPickSkill={handlePickSkill}
@@ -2553,6 +2561,8 @@ function ChatRows({
   onNextStepPromptAction,
   onNextStepAiOptimize,
   nextStepAiOptimizeBusy,
+  onNextStepContinueExtraction,
+  nextStepContinueExtractionBusy,
   onNextStepCreateDesign,
   nextStepCreateDesignBusy,
   onPickSkill,
@@ -2600,6 +2610,8 @@ function ChatRows({
   onNextStepPromptAction?: (prompt: string) => void;
   onNextStepAiOptimize?: () => void;
   nextStepAiOptimizeBusy?: boolean;
+  onNextStepContinueExtraction?: () => void;
+  nextStepContinueExtractionBusy?: boolean;
   onNextStepCreateDesign?: () => void;
   nextStepCreateDesignBusy?: boolean;
   onPickSkill?: (skillId: string) => void;
@@ -2732,6 +2744,8 @@ function ChatRows({
         onNextStepPromptAction={onNextStepPromptAction}
         onNextStepAiOptimize={onNextStepAiOptimize}
         nextStepAiOptimizeBusy={nextStepAiOptimizeBusy}
+        onNextStepContinueExtraction={onNextStepContinueExtraction}
+        nextStepContinueExtractionBusy={nextStepContinueExtractionBusy}
         onNextStepCreateDesign={onNextStepCreateDesign}
         nextStepCreateDesignBusy={nextStepCreateDesignBusy}
         onPickSkill={onPickSkill}

@@ -19,9 +19,10 @@ import {
   listMessages,
 } from '../../src/state/projects';
 import { fetchPreviewComments } from '../../src/providers/registry';
-import { cancelBrandExtraction } from '../../src/runtime/brands';
+import { cancelBrandExtraction, continueBrandExtraction } from '../../src/runtime/brands';
 
 const fileWorkspaceSpy = vi.hoisted(() => vi.fn());
+const chatPaneSpy = vi.hoisted(() => vi.fn());
 
 vi.mock('../../src/i18n', () => ({
   useI18n: () => ({
@@ -59,6 +60,17 @@ vi.mock('../../src/runtime/brands', async () => {
   return {
     ...actual,
     cancelBrandExtraction: vi.fn().mockResolvedValue({ ok: true, status: 'failed' }),
+    continueBrandExtraction: vi.fn().mockResolvedValue({
+      ok: true,
+      result: {
+        id: 'brand-retry',
+        projectId: 'brand-retry',
+        conversationId: 'conv-brand-retry',
+        sourceUrl: 'https://economist.com/',
+        status: 'extracting',
+        designSystemId: 'user:brand-retry',
+      },
+    }),
   };
 });
 
@@ -113,6 +125,7 @@ vi.mock('../../src/components/FileWorkspace', () => ({
   FileWorkspace: (props: {
     openRequest?: { name: string } | null;
     onBrandExtractionStopRequest?: () => void;
+    designSystemEditable?: boolean;
   }) => {
     fileWorkspaceSpy(props);
     return <div data-testid="file-workspace" />;
@@ -124,13 +137,20 @@ vi.mock('../../src/components/Loading', () => ({
 }));
 
 vi.mock('../../src/components/ChatPane', () => ({
-  ChatPane: ({ initialDraft }: { initialDraft?: string }) => (
-    <textarea
-      data-testid="chat-composer-input"
-      readOnly
-      value={initialDraft ?? ''}
-    />
-  ),
+  ChatPane: (props: {
+    initialDraft?: string;
+    onContinueBrandExtraction?: () => void;
+    continueBrandExtractionBusy?: boolean;
+  }) => {
+    chatPaneSpy(props);
+    return (
+      <textarea
+        data-testid="chat-composer-input"
+        readOnly
+        value={props.initialDraft ?? ''}
+      />
+    );
+  },
 }));
 
 const mockedListConversations = vi.mocked(listConversations);
@@ -138,6 +158,7 @@ const mockedCreateConversation = vi.mocked(createConversation);
 const mockedListMessages = vi.mocked(listMessages);
 const mockedFetchPreviewComments = vi.mocked(fetchPreviewComments);
 const mockedCancelBrandExtraction = vi.mocked(cancelBrandExtraction);
+const mockedContinueBrandExtraction = vi.mocked(continueBrandExtraction);
 
 const config: AppConfig = {
   mode: 'api',
@@ -334,6 +355,7 @@ describe('ProjectView pending prompt seeding', () => {
     await waitFor(() => {
       expect(fileWorkspaceSpy.mock.calls.at(-1)?.[0].onBrandExtractionStopRequest).toBeTypeOf('function');
     });
+    expect(fileWorkspaceSpy.mock.calls.at(-1)?.[0].designSystemEditable).toBe(false);
     fileWorkspaceSpy.mock.calls.at(-1)?.[0].onBrandExtractionStopRequest?.();
 
     await waitFor(() => expect(mockedCancelBrandExtraction).toHaveBeenCalledWith('brand-stop'));
@@ -342,6 +364,13 @@ describe('ProjectView pending prompt seeding', () => {
       expect(
         fileWorkspaceSpy.mock.calls.some(([props]) =>
           props.openRequest?.name === '__design_system__',
+        ),
+      ).toBe(true);
+    });
+    await waitFor(() => {
+      expect(
+        fileWorkspaceSpy.mock.calls.some(([props]) =>
+          props.designSystemEditable === true && props.openRequest?.name === '__design_system__',
         ),
       ).toBe(true);
     });

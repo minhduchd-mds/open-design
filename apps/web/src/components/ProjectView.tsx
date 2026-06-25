@@ -107,7 +107,12 @@ import { DEFAULT_NOTIFICATIONS } from '../state/config';
 import type { TodoItem } from '../runtime/todos';
 import { appendErrorStatusEvent } from '../runtime/chat-events';
 import { RESUME_CONTINUE_PROMPT } from '../runtime/resume';
-import { cancelBrandExtraction, extractBrandFromHtml, finalizeBrandProject } from '../runtime/brands';
+import {
+  cancelBrandExtraction,
+  continueBrandExtraction,
+  extractBrandFromHtml,
+  finalizeBrandProject,
+} from '../runtime/brands';
 import { getBrandBrowser, BRAND_BROWSER_TAB_ID } from '../runtime/brand-browser-bridge';
 import {
   BROWSER_SERIALIZE_HTML_SCRIPT,
@@ -148,7 +153,14 @@ import {
   type SaveMessageOptions,
   waitGeneratedPluginShareTask,
 } from '../state/projects';
-import type { AppliedPluginSnapshot, ChatAnalyticsEntryFrom, ChatSessionMode, InstalledPluginRecord, WorkspaceContextItem } from '@open-design/contracts';
+import type {
+  AppliedPluginSnapshot,
+  BrandStatus,
+  ChatAnalyticsEntryFrom,
+  ChatSessionMode,
+  InstalledPluginRecord,
+  WorkspaceContextItem,
+} from '@open-design/contracts';
 import type {
   AgentEvent,
   AgentInfo,
@@ -687,6 +699,14 @@ function fallbackDesignSystemSummaryForProject(
   };
 }
 
+function isBrandStatusValue(value: unknown): value is BrandStatus {
+  return value === 'extracting' || value === 'needs_input' || value === 'ready' || value === 'failed';
+}
+
+function brandExtractionAllowsEditing(status: BrandStatus | null): boolean {
+  return status === 'ready' || status === 'failed';
+}
+
 function workspaceContextItemEqual(
   a: WorkspaceContextItem | null,
   b: WorkspaceContextItem | null,
@@ -1113,12 +1133,38 @@ export function ProjectView({
   // one-shot "ready — preview it" prompt so the user knows to open the Design
   // systems tab. A no-op for every non-brand-extraction project.
   const {
+    status: polledBrandExtractionStatus,
     ready: brandReady,
     prompt: brandReadyPrompt,
     dismiss: dismissBrandReady,
     browserAssist: brandBrowserAssist,
     dismissBrowserAssist: dismissBrandBrowserAssist,
   } = useBrandReadyPrompt(currentProject.metadata);
+  const currentBrandExtractionId = projectIsProgrammaticBrandExtraction
+    ? currentProject.metadata?.brandId?.trim() || null
+    : null;
+  const [brandExtractionStatusOverride, setBrandExtractionStatusOverride] =
+    useState<{ brandId: string; status: BrandStatus } | null>(null);
+  useEffect(() => {
+    if (!currentBrandExtractionId) {
+      setBrandExtractionStatusOverride(null);
+      return;
+    }
+    if (
+      brandExtractionStatusOverride &&
+      brandExtractionStatusOverride.brandId !== currentBrandExtractionId
+    ) {
+      setBrandExtractionStatusOverride(null);
+    }
+  }, [brandExtractionStatusOverride, currentBrandExtractionId]);
+  const effectiveBrandExtractionStatus =
+    brandExtractionStatusOverride?.brandId === currentBrandExtractionId
+      ? brandExtractionStatusOverride.status
+      : polledBrandExtractionStatus;
+  const designSystemEditable =
+    !projectIsProgrammaticBrandExtraction ||
+    brandExtractionAllowsEditing(effectiveBrandExtractionStatus) ||
+    Boolean(brandReady);
   const pendingBrandDesignSystemOpenRef = useRef<string | null>(null);
   const handledBrandReadyDesignSystemRef = useRef<string | null>(null);
   const missingDesignSystemRefreshRef = useRef<string | null>(null);
@@ -4734,6 +4780,14 @@ export function ProjectView({
       : '';
     if (programmaticBrandId) {
       void Promise.resolve(cancelBrandExtraction(programmaticBrandId))
+        .then((result) => {
+          if (result.ok && isBrandStatusValue(result.status)) {
+            setBrandExtractionStatusOverride({
+              brandId: programmaticBrandId,
+              status: result.status,
+            });
+          }
+        })
         .finally(() => {
           void (async () => {
             await Promise.allSettled([
@@ -5838,6 +5892,9 @@ export function ProjectView({
     const skill = summary?.name;
     return skill ?? t('project.metaFreeform');
   }, [skills, designTemplates, project.skillId, t]);
+  const projectTypeLabel = projectIsDesignSystemProject
+    ? t('dsManager.tabDesignSystem')
+    : projectMeta;
 
   const activeDesignSystemSummary = useMemo(() => {
     if (!projectDesignSystemId) return null;
@@ -6240,12 +6297,60 @@ export function ProjectView({
     () => brandEnrichmentPromptSeed,
   );
   const [brandEnrichmentStarting, setBrandEnrichmentStarting] = useState(false);
+  const [brandProgrammaticContinueStarting, setBrandProgrammaticContinueStarting] = useState(false);
   const [brandCreateDesignStarting, setBrandCreateDesignStarting] = useState(false);
   useEffect(() => {
     if (brandEnrichmentPromptSeed) {
       setBrandEnrichmentPromptSeedCache(brandEnrichmentPromptSeed);
     }
   }, [brandEnrichmentPromptSeed]);
+
+  const handleContinueBrandExtraction = useCallback(() => {
+    if (brandProgrammaticContinueStarting) return;
+    const brandId = currentProject.metadata?.brandId?.trim();
+    if (!projectIsProgrammaticBrandExtraction || !brandId) return;
+    setBrandProgrammaticContinueStarting(true);
+    setBrandExtractionStatusOverride({ brandId, status: 'extracting' });
+    void continueBrandExtraction(brandId)
+      .then(async (outcome) => {
+        if (!outcome.ok) {
+          setBrandExtractionStatusOverride({ brandId, status: 'failed' });
+          setProjectActionsToast({
+            message: outcome.error,
+            details: null,
+            tone: 'error',
+            ttlMs: 5000,
+          });
+          return;
+        }
+        setBrandExtractionStatusOverride({
+          brandId,
+          status: isBrandStatusValue(outcome.result.status) ? outcome.result.status : 'extracting',
+        });
+        dismissBrandBrowserAssist();
+        await Promise.allSettled([
+          projectDetail.refresh(),
+          Promise.resolve(onProjectsRefresh()),
+          Promise.resolve(onDesignSystemsRefresh?.()),
+          refreshWorkspaceItems(),
+        ]);
+        setFilesRefresh((n) => n + 1);
+        requestOpenFile(DESIGN_SYSTEM_TAB);
+        scheduleConversationMessageRefresh(outcome.result.conversationId);
+      })
+      .finally(() => setBrandProgrammaticContinueStarting(false));
+  }, [
+    brandProgrammaticContinueStarting,
+    currentProject.metadata,
+    dismissBrandBrowserAssist,
+    onDesignSystemsRefresh,
+    onProjectsRefresh,
+    projectDetail,
+    projectIsProgrammaticBrandExtraction,
+    refreshWorkspaceItems,
+    requestOpenFile,
+    scheduleConversationMessageRefresh,
+  ]);
 
   // Run the deeper "AI Optimize" enrichment pass on a programmatically-extracted
   // brand: send the hidden seeded enrichment prompt + the default design-system
@@ -6688,6 +6793,8 @@ export function ProjectView({
               brandEnrichmentEligible={brandEnrichmentEligibleForProject}
               onContinueBrandEnrichment={handleBrandEnrichment}
               brandEnrichmentBusy={brandEnrichmentStarting}
+              onContinueBrandExtraction={handleContinueBrandExtraction}
+              continueBrandExtractionBusy={brandProgrammaticContinueStarting}
               onCreateDesignFromActiveDesignSystem={handleCreateDesignFromActiveDesignSystem}
               createDesignFromActiveDesignSystemBusy={brandCreateDesignStarting}
               onBrandBrowserAssistConfirm={handleBrandBrowserAssistConfirm}
@@ -6747,8 +6854,8 @@ export function ProjectView({
                   >
                     {project.name}
                   </span>
-                  {projectMeta !== t('project.metaFreeform') ? (
-                    <span className="meta" data-testid="project-meta">{projectMeta}</span>
+                  {projectTypeLabel !== t('project.metaFreeform') ? (
+                    <span className="meta" data-testid="project-meta">{projectTypeLabel}</span>
                   ) : null}
                 </span>
               )}
@@ -6829,6 +6936,7 @@ export function ProjectView({
           onFocusModeChange={setWorkspaceFocused}
           designSystemProject={designSystemProject}
           designSystemBrandId={designSystemBrandId}
+          designSystemEditable={designSystemEditable}
           defaultDesignSystemId={config.designSystemId}
           onSetDefaultDesignSystem={onChangeDefaultDesignSystem}
           onDesignSystemsRefresh={onDesignSystemsRefresh}

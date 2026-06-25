@@ -4,7 +4,6 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
-  BRAND_CONTINUE_EXTRACTION_PROMPT,
   NextStepActions,
   PROJECT_CONTINUE_PROMPT,
   PROJECT_GENERATE_ARTIFACT_PROMPT,
@@ -126,11 +125,11 @@ describe('NextStepActions', () => {
   });
 
   it('offers continue extraction and AI Optimize for incomplete brand extraction', () => {
-    const onPromptAction = vi.fn();
+    const onContinueExtraction = vi.fn();
     const onAiOptimize = vi.fn();
     renderActions({
       variant: 'brand-extraction-incomplete',
-      onPromptAction,
+      onContinueExtraction,
       onAiOptimize,
       onCreateDesign: undefined,
     });
@@ -140,7 +139,7 @@ describe('NextStepActions', () => {
     expect(screen.queryByText(en['nextStep.brandCreateDesignTitle'])).toBeNull();
 
     fireEvent.click(screen.getByTestId('next-step-brand-action-brand-continue-extraction'));
-    expect(onPromptAction).toHaveBeenCalledWith(BRAND_CONTINUE_EXTRACTION_PROMPT);
+    expect(onContinueExtraction).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByTestId('next-step-brand-action-brand-ai-optimize'));
     expect(onAiOptimize).toHaveBeenCalledTimes(1);
   });

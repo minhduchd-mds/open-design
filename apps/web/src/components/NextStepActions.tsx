@@ -136,6 +136,10 @@ interface Props {
   // design system.
   onAiOptimize?: () => void;
   aiOptimizeBusy?: boolean;
+  // Restart the deterministic programmatic pass for an incomplete brand
+  // extraction, reusing the same brand/project/design-system.
+  onContinueExtraction?: () => void;
+  continueExtractionBusy?: boolean;
   // Create a new design using the active brand/design system.
   onCreateDesign?: () => void;
   createDesignBusy?: boolean;
@@ -218,6 +222,8 @@ export function NextStepActions({
   onPromptAction,
   onAiOptimize,
   aiOptimizeBusy = false,
+  onContinueExtraction,
+  continueExtractionBusy = false,
   onCreateDesign,
   createDesignBusy = false,
   onPickSkill,
@@ -384,8 +390,9 @@ export function NextStepActions({
   const handleBrandAction = useCallback(
     (action: BrandExtractionAction) => {
       if (action.id === 'brand-continue-extraction') {
+        if (continueExtractionBusy) return;
         track('toolbox_action', action.id);
-        onPromptAction?.(action.prompt);
+        onContinueExtraction?.();
         closeAll();
         return;
       }
@@ -395,7 +402,14 @@ export function NextStepActions({
       }
       handleCreateDesign();
     },
-    [closeAll, handleAiOptimize, handleCreateDesign, onPromptAction, track],
+    [
+      closeAll,
+      continueExtractionBusy,
+      handleAiOptimize,
+      handleCreateDesign,
+      onContinueExtraction,
+      track,
+    ],
   );
 
   const handlePickSkill = useCallback(
@@ -450,7 +464,7 @@ export function NextStepActions({
     (variant === 'brand-extraction' || variant === 'brand-extraction-incomplete') &&
     (
       variant === 'brand-extraction-incomplete'
-        ? !!onPromptAction || !!onAiOptimize
+        ? !!onContinueExtraction || !!onAiOptimize
         : !!onAiOptimize || !!onCreateDesign
     );
 
@@ -465,10 +479,11 @@ export function NextStepActions({
           {showBrandRows
             ? brandActions.map((action) => {
                 const busy =
+                  (action.id === 'brand-continue-extraction' && continueExtractionBusy) ||
                   (action.id === 'brand-ai-optimize' && aiOptimizeBusy) ||
                   (action.id === 'brand-create-design' && createDesignBusy);
                 const unavailable =
-                  (action.id === 'brand-continue-extraction' && !onPromptAction) ||
+                  (action.id === 'brand-continue-extraction' && !onContinueExtraction) ||
                   (action.id === 'brand-ai-optimize' && !onAiOptimize) ||
                   (action.id === 'brand-create-design' && !onCreateDesign);
                 if (unavailable) return null;

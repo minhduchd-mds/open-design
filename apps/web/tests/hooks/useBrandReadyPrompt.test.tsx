@@ -52,6 +52,7 @@ describe('useBrandReadyPrompt', () => {
         brandName: 'Nexu',
       });
     });
+    expect(result.current.status).toBe('ready');
     expect(result.current.prompt).toBeNull();
   });
 });

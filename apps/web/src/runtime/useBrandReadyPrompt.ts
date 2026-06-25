@@ -16,7 +16,7 @@
 // sessionStorage flag so a later visit does not nag again.
 
 import { useCallback, useEffect, useState } from 'react';
-import type { ProjectMetadata } from '@open-design/contracts';
+import type { BrandStatus, ProjectMetadata } from '@open-design/contracts';
 import { fetchBrands } from './brands';
 
 const POLL_INTERVAL_MS = 5000;
@@ -89,6 +89,8 @@ export interface BrandBrowserAssistState {
 }
 
 export interface UseBrandReadyPrompt {
+  /** Current lifecycle for the backing brand. Null while the first poll is pending. */
+  status: BrandStatus | null;
   /** Current ready state for the brand, even if the user dismissed the prompt. */
   ready: BrandReadyPromptState | null;
   prompt: BrandReadyPromptState | null;
@@ -112,11 +114,13 @@ export function useBrandReadyPrompt(
     metadata?.importedFrom === 'brand-extraction' ? metadata?.brandId ?? null : null;
   const [ready, setReady] = useState<BrandReadyPromptState | null>(null);
   const [prompt, setPrompt] = useState<BrandReadyPromptState | null>(null);
+  const [status, setStatus] = useState<BrandStatus | null>(null);
   const [browserAssist, setBrowserAssist] = useState<BrandBrowserAssistState | null>(null);
 
   useEffect(() => {
     setReady(null);
     setPrompt(null);
+    setStatus(null);
     setBrowserAssist(null);
     if (!brandId) return undefined;
     const suppressPrompt = alreadyShown(brandId);
@@ -132,6 +136,7 @@ export function useBrandReadyPrompt(
       if (cancelled) return;
       const summary = brands.find((b) => b.meta.id === brandId);
       const status = summary?.meta.status;
+      setStatus(status ?? null);
       const designSystemId = summary?.meta.designSystemId;
       if (status === 'ready' && designSystemId) {
         const next = { designSystemId, brandName: summary?.brand?.name ?? null };
@@ -139,21 +144,27 @@ export function useBrandReadyPrompt(
         if (!suppressPrompt) setPrompt(next);
         return; // terminal — stop polling
       }
-      if (status === 'failed') return; // terminal — no prompt
 
       // Offer the browser-assisted fallback once, when an anti-bot wall is hit
-      // or extraction stalls past the timeout. Keep polling afterwards so a
-      // later `ready` (the user solved it) still fires the success prompt.
+      // or extraction stalls past the timeout. A blocked/network terminal can
+      // surface as `failed` once the synthetic programmatic row is reconciled,
+      // but the user still needs the Browser tab recovery path.
       const blocked = summary?.meta.blocked === true;
+      const stoppedByUser = /stopped by the user|you stopped/i.test(summary?.meta.error ?? '');
+      const failedWithRecoverableSource =
+        status === 'failed' &&
+        !stoppedByUser &&
+        /^https?:\/\//i.test(summary?.meta.sourceUrl ?? '');
       const stalled = status === 'extracting' && Date.now() - startedAt >= ASSIST_TIMEOUT_MS;
-      if ((blocked || stalled) && !assistAlreadyShown(brandId)) {
+      if ((blocked || failedWithRecoverableSource || stalled) && !assistAlreadyShown(brandId)) {
         markAssistShown(brandId);
         setBrowserAssist({
           brandId,
           sourceUrl: summary?.meta.sourceUrl ?? '',
-          reason: summary?.meta.blockedReason ?? (blocked ? 'Cloudflare' : 'timeout'),
+          reason: summary?.meta.blockedReason ?? (blocked ? 'Cloudflare' : summary?.meta.error ?? 'network'),
         });
       }
+      if (status === 'failed') return; // terminal after surfacing recovery.
 
       if (polls >= MAX_POLLS) return;
       timer = window.setTimeout(() => void check(), POLL_INTERVAL_MS);
@@ -174,6 +185,7 @@ export function useBrandReadyPrompt(
   const dismissBrowserAssist = useCallback(() => setBrowserAssist(null), []);
 
   return {
+    status,
     ready,
     prompt,
     dismiss,

@@ -212,6 +212,13 @@ export interface BrandExtractStartResponse {
 }
 
 /**
+ * POST /api/brands/:id/continue-extraction response. Reuses the existing
+ * brand/project/design-system, appends a fresh programmatic transcript turn,
+ * and restarts the deterministic extraction pass in the background.
+ */
+export interface BrandContinueExtractionResponse extends BrandExtractStartResponse {}
+
+/**
  * POST /api/brands/:id/finalize request. The extraction agent calls this (or
  * `od brand finalize`) once it has written `brand.json` (+ `BRAND.md`, logos,
  * fonts) into the backing project: the daemon validates the kit, derives the

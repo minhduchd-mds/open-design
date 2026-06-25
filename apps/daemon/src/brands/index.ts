@@ -39,6 +39,7 @@ import {
   getProject,
   insertConversation,
   insertProject,
+  listConversations,
   listMessages,
   setTabs,
   upsertMessage,
@@ -154,6 +155,24 @@ export interface StartBrandExtractionResult {
   brandName?: string;
 }
 
+export interface ContinueBrandExtractionOptions {
+  id: string;
+  brandsRoot: string;
+  projectsRoot: string;
+  skillsRoot: string;
+  db: Parameters<typeof insertProject>[0];
+  userDesignSystemsRoot: string;
+  dataDir?: string;
+  randomId?: () => string;
+  logoFallback?: LogoFallbackFn;
+  imageryFallback?: ImageryFallbackFn;
+  prefetch?: PrefetchFn;
+  programmaticAbortSignal?: AbortSignal;
+  onBackgroundExtraction?: (settled: Promise<unknown>) => void;
+  locale?: string;
+  transcriptAgent?: StartBrandExtractionOptions['transcriptAgent'];
+}
+
 /** Normalize a user-typed URL: prepend https:// when no scheme is present;
  *  reject anything that isn't http(s). Returns null when unusable. */
 function normalizeUrl(raw: string): string | null {
@@ -183,6 +202,16 @@ function writeDesignMdInput(brandsRoot: string, id: string, designMd: string): v
   if (!dir) return;
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'input-DESIGN.md'), designMd, 'utf8');
+}
+
+function readDesignMdInput(brandsRoot: string, id: string): string {
+  const file = resolveBrandFile(brandsRoot, id, ['context', 'input-DESIGN.md']);
+  if (!file) return '';
+  try {
+    return normalizeDesignMdInput(fs.readFileSync(file, 'utf8'));
+  } catch {
+    return '';
+  }
 }
 
 function hostnameOf(url: string): string {
@@ -423,84 +452,13 @@ export async function startBrandExtraction(
     if (opts.description) programmaticOptions.description = opts.description;
     if (designMd) programmaticOptions.designMd = designMd;
 
-    // Two independent clocks — never one that can kill a slow-but-succeeding
-    // origin:
-    //   - a 30s SOFT checkpoint flips the synthetic row to the actionable
-    //     "taking longer than usual — open the page in Browser / retry / use AI"
-    //     terminal WITHOUT aborting, so a heavy site (e.g. Whole Foods) still
-    //     finalizes in the background and overwrites the card with success. This
-    //     answers "30s with no result should surface a next step".
-    //   - a generous HARD cap aborts only as a runaway backstop; the per-fetch
-    //     8s timeouts already bound the real harvest, so this should never fire
-    //     for a healthy origin.
-    const hardCap = new AbortController();
-    const hardCapTimer = setTimeout(
-      () => hardCap.abort(new ProgrammaticExtractionAbortError()),
-      PROGRAMMATIC_EXTRACT_TIMEOUT_MS,
-    );
-    hardCapTimer.unref?.();
-    programmaticOptions.abortSignal = opts.programmaticAbortSignal
-      ? AbortSignal.any([opts.programmaticAbortSignal, hardCap.signal])
-      : hardCap.signal;
-
-    let extractionSettled = false;
-    const stallTimer = setTimeout(() => {
-      if (extractionSettled) return;
-      void reconcileProgrammaticExtractionTranscript({
-        db,
-        brandsRoot,
-        projectsRoot,
-        brandId: id,
-        outcome: 'needs_attention',
-        locale,
-      }).catch(() => {});
-    }, PROGRAMMATIC_STALL_CHECKPOINT_MS);
-    stallTimer.unref?.();
-
-    // Defer so the HTTP route returns the ids (making the transcript visible in
-    // the left pane) before any synchronous extraction work — notably DESIGN.md
-    // parsing — runs.
-    const settled = new Promise<BrandFinalizeResponse | null>((resolve) => {
-      setTimeout(() => {
-        runProgrammaticExtraction(programmaticOptions).then(resolve, (err) => {
-          if (!isProgrammaticExtractionAbortError(err) && !opts.programmaticAbortSignal?.aborted) {
-            console.warn(`[brand] programmatic extraction failed for ${id} — falling back to agent`, err);
-          }
-          resolve(null);
-        });
-      }, 0);
-    }).finally(() => {
-      extractionSettled = true;
-      clearTimeout(stallTimer);
-      clearTimeout(hardCapTimer);
+    launchProgrammaticBackgroundExtraction({
+      programmaticOptions,
+      programmaticAbortSignal: opts.programmaticAbortSignal,
+      fallbackPrompt,
+      onBackgroundExtraction: opts.onBackgroundExtraction,
+      locale,
     });
-    opts.onBackgroundExtraction?.(settled);
-
-    void settled
-      .then((result) => {
-        // A deliberate user Stop is reconciled by the cancel route, which knows
-        // the run was stopped (not given up on). Everything else settles here.
-        if (opts.programmaticAbortSignal?.aborted) return undefined;
-        // Success: finalizeBrandCore already flipped the row to `succeeded` from
-        // the authoritative completion point, so there is nothing to do.
-        if (result) return undefined;
-        // Give-up (blocked / too thin / unreachable / hard-cap backstop): hand
-        // the brand to the agent fallback and retire the synthetic row into the
-        // actionable "needs a hand" terminal so it stops counting up forever.
-        updateProject(db, projectId, { pendingPrompt: fallbackPrompt });
-        return reconcileProgrammaticExtractionTranscript({
-          db,
-          brandsRoot,
-          projectsRoot,
-          brandId: id,
-          outcome: 'needs_attention',
-          locale,
-        });
-      })
-      .catch((err) => {
-        if (isClosedDatabaseError(err)) return;
-        console.warn(`[brand] failed to reconcile programmatic extraction transcript for ${id}`, err);
-      });
   }
 
   return {
@@ -510,6 +468,226 @@ export async function startBrandExtraction(
     sourceUrl: url,
     status: meta.status,
     ...(draftDesignSystemId ? { designSystemId: draftDesignSystemId } : {}),
+  };
+}
+
+function launchProgrammaticBackgroundExtraction(input: {
+  programmaticOptions: RunProgrammaticExtractionOptions;
+  programmaticAbortSignal?: AbortSignal;
+  fallbackPrompt: string;
+  onBackgroundExtraction?: (settled: Promise<unknown>) => void;
+  locale?: string;
+}): Promise<BrandFinalizeResponse | null> {
+  const { programmaticOptions, programmaticAbortSignal, fallbackPrompt, locale } = input;
+  const { db, brandsRoot, projectsRoot, id, projectId } = programmaticOptions;
+
+  // Two independent clocks — never one that can kill a slow-but-succeeding
+  // origin:
+  //   - a 30s SOFT checkpoint flips the synthetic row to the actionable
+  //     "taking longer than usual — open the page in Browser / retry / use AI"
+  //     terminal WITHOUT aborting, so a heavy site can still finalize in the
+  //     background and overwrite the card with success.
+  //   - a generous HARD cap aborts only as a runaway backstop; the per-fetch
+  //     timeouts already bound the real harvest, so this should rarely fire.
+  const hardCap = new AbortController();
+  const hardCapTimer = setTimeout(
+    () => hardCap.abort(new ProgrammaticExtractionAbortError()),
+    PROGRAMMATIC_EXTRACT_TIMEOUT_MS,
+  );
+  hardCapTimer.unref?.();
+  const abortSignal = programmaticAbortSignal
+    ? AbortSignal.any([programmaticAbortSignal, hardCap.signal])
+    : hardCap.signal;
+
+  let extractionSettled = false;
+  const stallTimer = setTimeout(() => {
+    if (extractionSettled) return;
+    void reconcileProgrammaticExtractionTranscript({
+      db,
+      brandsRoot,
+      projectsRoot,
+      brandId: id,
+      outcome: 'needs_attention',
+      locale,
+    }).catch(() => {});
+  }, PROGRAMMATIC_STALL_CHECKPOINT_MS);
+  stallTimer.unref?.();
+
+  // Defer so the HTTP route returns the ids (making the transcript visible in
+  // the left pane) before any synchronous extraction work — notably DESIGN.md
+  // parsing — runs.
+  const settled = new Promise<BrandFinalizeResponse | null>((resolve) => {
+    setTimeout(() => {
+      runProgrammaticExtraction({ ...programmaticOptions, abortSignal }).then(resolve, (err) => {
+        if (!isProgrammaticExtractionAbortError(err) && !programmaticAbortSignal?.aborted) {
+          console.warn(`[brand] programmatic extraction failed for ${id} — falling back to agent`, err);
+        }
+        resolve(null);
+      });
+    }, 0);
+  }).finally(() => {
+    extractionSettled = true;
+    clearTimeout(stallTimer);
+    clearTimeout(hardCapTimer);
+  });
+  input.onBackgroundExtraction?.(settled);
+
+  void settled
+    .then((result) => {
+      // A deliberate user Stop is reconciled by the cancel route, which knows
+      // the run was stopped (not given up on). Everything else settles here.
+      if (programmaticAbortSignal?.aborted) return undefined;
+      // Success: finalizeBrandCore already flipped the row to `succeeded` from
+      // the authoritative completion point, so there is nothing to do.
+      if (result) return undefined;
+      // Give-up (blocked / too thin / unreachable / hard-cap backstop): hand
+      // the brand to the agent fallback and retire the synthetic row into the
+      // actionable "needs a hand" terminal so it stops counting up forever.
+      updateProject(db, projectId, { pendingPrompt: fallbackPrompt });
+      return reconcileProgrammaticExtractionTranscript({
+        db,
+        brandsRoot,
+        projectsRoot,
+        brandId: id,
+        outcome: 'needs_attention',
+        locale,
+      });
+    })
+    .catch((err) => {
+      if (isClosedDatabaseError(err)) return;
+      console.warn(`[brand] failed to reconcile programmatic extraction transcript for ${id}`, err);
+    });
+
+  return settled;
+}
+
+export async function continueBrandExtraction(
+  opts: ContinueBrandExtractionOptions,
+): Promise<StartBrandExtractionResult> {
+  const detail = readBrandDetail(opts.brandsRoot, opts.id);
+  if (!detail) throw new Error(`brand not found: ${opts.id}`);
+  const { meta } = detail;
+  const sourceUrl = meta.sourceUrl;
+  const projectId = meta.projectId ?? brandProjectId(opts.id);
+  const project = getProject(opts.db, projectId);
+  if (!project) throw new Error(`brand backing project not found: ${projectId}`);
+
+  const randomId = opts.randomId ?? randomUUID;
+  const locale = normalizeBrandKitLocale(opts.locale ?? meta.locale);
+  const hasWebsiteSource = /^https?:\/\//i.test(sourceUrl);
+  const designMd = readDesignMdInput(opts.brandsRoot, opts.id);
+  const hasDesignMdSource = Boolean(designMd) || sourceUrl.startsWith('designmd://');
+  const host = hostnameOf(sourceUrl);
+  let conversationId = meta.conversationId
+    ?? listConversations(opts.db, projectId)[0]?.id
+    ?? '';
+  const now = Date.now();
+  if (!conversationId) {
+    conversationId = randomId();
+    insertConversation(opts.db, {
+      id: conversationId,
+      projectId,
+      title: null,
+      sessionMode: 'design',
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  let nextMeta = patchMeta(opts.brandsRoot, opts.id, {
+    status: 'extracting',
+    error: undefined,
+    blocked: false,
+    blockedReason: undefined,
+    extractionTerminalRunId: undefined,
+    extractionTerminalError: undefined,
+    conversationId,
+  }) ?? { ...meta, status: 'extracting', conversationId, updatedAt: now };
+
+  updateProject(opts.db, projectId, {
+    pendingPrompt: null,
+    designSystemId: nextMeta.designSystemId ?? project.designSystemId ?? null,
+    metadata: {
+      ...(project.metadata ?? {}),
+      kind: 'brand',
+      importedFrom: 'brand-extraction',
+      entryFile: BRAND_KIT_FILE,
+      brandId: opts.id,
+      brandSourceUrl: sourceUrl,
+      ...(nextMeta.designSystemId ? { brandDesignSystemId: nextMeta.designSystemId } : {}),
+    },
+    updatedAt: now,
+  });
+
+  await renderBrandPreviewIntoProject({
+    id: opts.id,
+    brandsRoot: opts.brandsRoot,
+    skillsRoot: opts.skillsRoot,
+    projectsRoot: opts.projectsRoot,
+    projectId,
+    locale,
+  }).catch((err) => {
+    console.warn(`[brand] failed to render continuing preview for ${opts.id}`, err);
+  });
+
+  const transcript = seedProgrammaticExtractionStartTranscript({
+    db: opts.db,
+    conversationId,
+    randomId,
+    sourceUrl,
+    sourceLabel: host,
+    locale,
+    startedAt: now,
+    transcriptAgent: opts.transcriptAgent,
+  });
+  nextMeta = patchMeta(opts.brandsRoot, opts.id, {
+    conversationId,
+    extractionTranscriptMessageId: transcript.assistantMessageId,
+    extractionTranscriptUserMessageId: transcript.userMessageId,
+    extractionStartedAt: now,
+  }) ?? nextMeta;
+
+  const fallbackPrompt = brandExtractionFallbackPrompt({
+    url: sourceUrl,
+    brandId: opts.id,
+    host,
+    hasWebsiteSource,
+    hasDesignMdSource,
+  });
+  const programmaticOptions: RunProgrammaticExtractionOptions = {
+    id: opts.id,
+    meta: nextMeta,
+    projectId,
+    brandsRoot: opts.brandsRoot,
+    userDesignSystemsRoot: opts.userDesignSystemsRoot,
+    projectsRoot: opts.projectsRoot,
+    skillsRoot: opts.skillsRoot,
+    db: opts.db,
+    hasWebsiteSource,
+    locale,
+  };
+  if (opts.dataDir) programmaticOptions.dataDir = opts.dataDir;
+  if (opts.prefetch) programmaticOptions.prefetch = opts.prefetch;
+  if (opts.logoFallback) programmaticOptions.logoFallback = opts.logoFallback;
+  if (opts.imageryFallback) programmaticOptions.imageryFallback = opts.imageryFallback;
+  if (designMd) programmaticOptions.designMd = designMd;
+
+  launchProgrammaticBackgroundExtraction({
+    programmaticOptions,
+    programmaticAbortSignal: opts.programmaticAbortSignal,
+    fallbackPrompt,
+    onBackgroundExtraction: opts.onBackgroundExtraction,
+    locale,
+  });
+
+  return {
+    id: opts.id,
+    projectId,
+    conversationId,
+    sourceUrl,
+    status: 'extracting',
+    ...(nextMeta.designSystemId ? { designSystemId: nextMeta.designSystemId } : {}),
+    ...(detail.brand?.name ? { brandName: detail.brand.name } : {}),
   };
 }
 

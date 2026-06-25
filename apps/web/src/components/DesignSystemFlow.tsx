@@ -1019,11 +1019,7 @@ export function DesignSystemCreationFlow({
             disabled={!hasCreationSource(state)}
             onClick={() => {
               emitCreateFormClick('continue_to_generation');
-              if (!hasCreationSource(state)) {
-                setError(t('dsCreate.missingSourceError'));
-                return;
-              }
-              setStep('confirm');
+              void generate();
             }}
           >
             {t('dsCreate.continueToGeneration')}
@@ -1378,11 +1374,7 @@ export function DesignSystemCreationFlow({
               disabled={!hasCreationSource(state)}
               onClick={() => {
                 emitCreateFormClick('continue_to_generation');
-                if (!hasCreationSource(state)) {
-                  setError(t('dsCreate.missingSourceError'));
-                  return;
-                }
-                setStep('confirm');
+                void generate();
               }}
             >
               {t('dsCreate.generate')}

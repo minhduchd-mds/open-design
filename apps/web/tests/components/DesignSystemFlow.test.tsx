@@ -168,7 +168,8 @@ function continueToGeneration() {
 }
 
 function confirmExtraction() {
-  fireEvent.click(screen.getByRole('button', { name: /extract design system/i }));
+  const button = screen.queryByRole('button', { name: /extract design system/i });
+  if (button) fireEvent.click(button);
 }
 
 function addSourceUrl(value: string) {
@@ -379,7 +380,7 @@ describe('DesignSystemCreationFlow', () => {
       target: { value: 'https://acme.com' },
     });
     continueToGeneration();
-    fireEvent.click(screen.getByRole('button', { name: /extract design system/i }));
+    confirmExtraction();
 
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith(project.id, project, 'conv-acme'));
     expect(fetchMock).toHaveBeenCalledWith('/api/brands', expect.objectContaining({ method: 'POST' }));
@@ -445,7 +446,7 @@ describe('DesignSystemCreationFlow', () => {
       (screen.getByRole('button', { name: /continue to generation/i }) as HTMLButtonElement).disabled,
     ).toBe(false);
     continueToGeneration();
-    fireEvent.click(screen.getByRole('button', { name: /extract design system/i }));
+    confirmExtraction();
 
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith(project.id, project, 'conv-heritage'));
     const requestInit = fetchMock.mock.calls.find(([url]) => url === '/api/brands')?.[1] as unknown as { body: string };
@@ -582,7 +583,7 @@ describe('DesignSystemCreationFlow', () => {
       (screen.getByRole('button', { name: /continue to generation/i }) as HTMLButtonElement).disabled,
     ).toBe(false);
     continueToGeneration();
-    fireEvent.click(screen.getByRole('button', { name: /extract design system/i }));
+    confirmExtraction();
 
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith(project.id, project, 'conv-description-only'));
     const requestInit = fetchMock.mock.calls.find(([url]) => url === '/api/brands')?.[1] as unknown as { body: string };
@@ -616,7 +617,7 @@ describe('DesignSystemCreationFlow', () => {
       (screen.getByRole('button', { name: /continue to generation/i }) as HTMLButtonElement).disabled,
     ).toBe(false);
     continueToGeneration();
-    fireEvent.click(screen.getByRole('button', { name: /extract design system/i }));
+    confirmExtraction();
 
     await waitFor(() => expect(screen.getByText(/could not start the extraction/i)).toBeTruthy());
     expect(onCreated).not.toHaveBeenCalled();
