@@ -936,6 +936,10 @@ export function ChatPane({
     onArtifactShare,
     onForkFromMessage,
     onShareToOpenDesign,
+    onNextStepAiOptimize: onContinueBrandEnrichment,
+    onNextStepContinueExtraction: onContinueBrandExtraction,
+    onNextStepContinueAiExtraction: onContinueBrandAgentExtraction,
+    onNextStepCreateDesign: onCreateDesignFromActiveDesignSystem,
   });
   assistantCallbacksRef.current = {
     onContinueRemainingTasks,
@@ -944,6 +948,10 @@ export function ChatPane({
     onArtifactShare,
     onForkFromMessage,
     onShareToOpenDesign,
+    onNextStepAiOptimize: onContinueBrandEnrichment,
+    onNextStepContinueExtraction: onContinueBrandExtraction,
+    onNextStepContinueAiExtraction: onContinueBrandAgentExtraction,
+    onNextStepCreateDesign: onCreateDesignFromActiveDesignSystem,
   };
   // Featured design-toolbox follow-up rows on the assistant "next step" card.
   // The toolbox left the "+" menu, so these route straight into the composer
@@ -2586,6 +2594,10 @@ interface AssistantCallbacks {
   onArtifactShare: ((fileName: string) => void) | undefined;
   onForkFromMessage: ((message: ChatMessage) => void) | undefined;
   onShareToOpenDesign: ((assistantMessageId: string) => void) | undefined;
+  onNextStepAiOptimize: (() => void) | undefined;
+  onNextStepContinueExtraction: (() => void) | undefined;
+  onNextStepContinueAiExtraction: (() => void) | undefined;
+  onNextStepCreateDesign: (() => void) | undefined;
 }
 
 type ChatRenderItem = {
@@ -2831,13 +2843,29 @@ function ChatRows({
         }
         onToolboxAction={onToolboxAction}
         onNextStepPromptAction={onNextStepPromptAction}
-        onNextStepAiOptimize={onNextStepAiOptimize}
+        onNextStepAiOptimize={
+          onNextStepAiOptimize
+            ? () => assistantCallbacksRef.current.onNextStepAiOptimize?.()
+            : undefined
+        }
         nextStepAiOptimizeBusy={nextStepAiOptimizeBusy}
-        onNextStepContinueExtraction={onNextStepContinueExtraction}
+        onNextStepContinueExtraction={
+          onNextStepContinueExtraction
+            ? () => assistantCallbacksRef.current.onNextStepContinueExtraction?.()
+            : undefined
+        }
         nextStepContinueExtractionBusy={nextStepContinueExtractionBusy}
-        onNextStepContinueAiExtraction={onNextStepContinueAiExtraction}
+        onNextStepContinueAiExtraction={
+          onNextStepContinueAiExtraction
+            ? () => assistantCallbacksRef.current.onNextStepContinueAiExtraction?.()
+            : undefined
+        }
         nextStepContinueAiExtractionBusy={nextStepContinueAiExtractionBusy}
-        onNextStepCreateDesign={onNextStepCreateDesign}
+        onNextStepCreateDesign={
+          onNextStepCreateDesign
+            ? () => assistantCallbacksRef.current.onNextStepCreateDesign?.()
+            : undefined
+        }
         nextStepCreateDesignBusy={nextStepCreateDesignBusy}
         onPickSkill={onPickSkill}
         onArtifactDownload={onArtifactDownload}

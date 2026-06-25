@@ -301,9 +301,6 @@ export async function startBrandExtraction(
     projectId,
     locale,
   };
-  createBrandDir(brandsRoot, id, meta);
-  if (designMd) writeDesignMdInput(brandsRoot, id, designMd);
-
   const metadata: ProjectMetadata = {
     kind: 'brand',
     importedFrom: 'brand-extraction',
@@ -335,179 +332,183 @@ export async function startBrandExtraction(
   // draft cannot be registered, the extraction should not create a project that
   // looks like a design system but has no backing editable system.
   let draftDesignSystemId: string | null = null;
-  if (runProgrammatic && opts.userDesignSystemsRoot) {
-    const draft = await createUserDesignSystem(opts.userDesignSystemsRoot, {
-      title: host,
-      category: 'Brands',
-      surface: 'web',
-      status: 'draft',
-      artifactMode: 'agent-managed',
-      provenance: {
-        sourceUrls: [url],
-        sourceNotes: `Extracting from ${url}`,
-      },
-    });
-    draftDesignSystemId = draft.id;
-    meta.designSystemId = draft.id;
-    patchMeta(brandsRoot, id, { designSystemId: draft.id });
-    metadata.brandDesignSystemId = draft.id;
-  }
   try {
-  insertProject(db, {
-    id: projectId,
-    name,
-    skillId: null,
-    designSystemId: draftDesignSystemId,
-    pendingPrompt,
-    metadata,
-    customInstructions: null,
-    createdAt: now,
-    updatedAt: now,
-  });
-  if (draftDesignSystemId && opts.userDesignSystemsRoot) {
-    try {
-      await linkUserDesignSystemProject(opts.userDesignSystemsRoot, draftDesignSystemId, projectId);
-    } catch (err) {
-      console.warn(`[brand] failed to link draft design system to project for ${id}`, err);
+    createBrandDir(brandsRoot, id, meta);
+    if (designMd) writeDesignMdInput(brandsRoot, id, designMd);
+
+    if (runProgrammatic && opts.userDesignSystemsRoot) {
+      const draft = await createUserDesignSystem(opts.userDesignSystemsRoot, {
+        title: host,
+        category: 'Brands',
+        surface: 'web',
+        status: 'draft',
+        artifactMode: 'agent-managed',
+        provenance: {
+          sourceUrls: [url],
+          sourceNotes: `Extracting from ${url}`,
+        },
+      });
+      draftDesignSystemId = draft.id;
+      meta.designSystemId = draft.id;
+      patchMeta(brandsRoot, id, { designSystemId: draft.id });
+      metadata.brandDesignSystemId = draft.id;
     }
-  }
-  const conversationId = randomId();
-  insertConversation(db, {
-    id: conversationId,
-    projectId,
-    title: null,
-    sessionMode: 'design',
-    createdAt: now,
-    updatedAt: now,
-  });
 
-  // Seed the design-system page immediately so the user sees a real, on-brand
-  // scaffold the moment the project opens — not just a scrolling chat. It
-  // starts as skeletons + "Extracting…" and is replaced by the programmatic
-  // first paint (below) or filled in by the agent's `od brand preview` passes.
-  //
-  // When programmatic-first extraction is going to run (the common path —
-  // `userDesignSystemsRoot` is wired by the route), skip the legacy seed
-  // harvest entirely: the synchronous programmatic finalize re-fetches the
-  // same material and produces a complete, ready page anyway, so a second
-  // network harvest here would only add latency. Otherwise (legacy / tests),
-  // run the bounded parallel seed harvest so the first paint already shows a
-  // real logo / palette / fonts / cover imagery before the agent measures.
-  const seedBrand: Record<string, unknown> = { name: host, sourceUrl: url, colors: [], typography: {} };
-  if (!runProgrammatic) {
-    try {
-      const projectDir = resolveProjectDir(projectsRoot, projectId, metadata);
-      const logo = { primary: null as string | null, alternates: [] as string[], notes: '' };
-      const seedSlot: SeedSlot = {};
-      const imagery: ImagerySlot = { samples: [] };
-      const noChange = () => ({ changed: false });
-      const [logoRes] = await Promise.all([
-        logoFallback(url, path.join(projectDir, 'logos'), logo).catch(noChange),
-        seedFallback(url, seedSlot).catch(noChange),
-        imageryFallback(url, path.join(projectDir, 'imagery'), imagery).catch(noChange),
-      ]);
-      if (logoRes.changed) seedBrand.logo = logo;
-      if (seedSlot.colors && seedSlot.colors.length) seedBrand.colors = seedSlot.colors;
-      if (seedSlot.typography) seedBrand.typography = seedSlot.typography;
-      if (imagery.samples && imagery.samples.length) seedBrand.imagery = { samples: imagery.samples };
-    } catch {
-      // Best-effort only — never block project creation on the seed harvest.
-    }
-  }
-  await writeBrandKitPreview({
-    skillsRoot,
-    projectsRoot,
-    projectId,
-    brand: seedBrand,
-    status: 'extracting',
-    host,
-    metadata,
-    locale,
-  });
-  if (designMd) {
-    await writeProjectFile(projectsRoot, projectId, 'context/input-DESIGN.md', designMd, { overwrite: true }, metadata);
-  }
-
-  // brand.html is the star of the workspace (active tab). The target site stays
-  // available as a secondary in-app browser tab so the user can glance at it /
-  // clear an anti-bot wall by hand when the agent asks.
-  setTabs(db, projectId, {
-    tabs: [BRAND_KIT_FILE],
-    active: BRAND_KIT_FILE,
-    ...(hasWebsiteSource
-      ? { browserTabs: [{ id: BRAND_BROWSER_TAB_ID, label: 'Browser', url, title: host }] }
-      : {}),
-  });
-
-  // Programmatic-first runs immediately, but never blocks the start response.
-  // The caller should land in the project with a real user/assistant transcript
-  // and the extracting skeleton already persisted while the deterministic
-  // harvester finalizes the design system in the background. Best-effort: a
-  // blocked, thin, or failing origin leaves the brand `extracting` for the
-  // agent/browser fallback to drive from the scaffold instead.
-  const programmaticStartedAt = Date.now();
-  const programmaticTranscript = runProgrammatic && opts.userDesignSystemsRoot
-    ? seedProgrammaticExtractionStartTranscript({
-        db,
-        conversationId,
-        randomId,
-        sourceUrl: url,
-        sourceLabel: host,
-        locale,
-        startedAt: programmaticStartedAt,
-        transcriptAgent: opts.transcriptAgent,
-      })
-    : null;
-  // Persist the transcript handles so EVERY terminal point — finalize success,
-  // soft-fail/blocked/timeout, and user stop — can reconcile the synthetic
-  // "AMR · Working" row out of its perpetual `running` state, regardless of the
-  // racy background timer. Without this the row stays "Working 13m…" forever
-  // even after the brand finalizes `ready` in the background.
-  if (programmaticTranscript) {
-    patchMeta(brandsRoot, id, {
-      conversationId,
-      extractionTranscriptMessageId: programmaticTranscript.assistantMessageId,
-      extractionTranscriptUserMessageId: programmaticTranscript.userMessageId,
-      extractionStartedAt: programmaticStartedAt,
+    insertProject(db, {
+      id: projectId,
+      name,
+      skillId: null,
+      designSystemId: draftDesignSystemId,
+      pendingPrompt,
+      metadata,
+      customInstructions: null,
+      createdAt: now,
+      updatedAt: now,
     });
-  }
-  if (runProgrammatic && opts.userDesignSystemsRoot) {
-    const programmaticOptions: RunProgrammaticExtractionOptions = {
-      id,
-      meta,
+    if (draftDesignSystemId && opts.userDesignSystemsRoot) {
+      try {
+        await linkUserDesignSystemProject(opts.userDesignSystemsRoot, draftDesignSystemId, projectId);
+      } catch (err) {
+        console.warn(`[brand] failed to link draft design system to project for ${id}`, err);
+      }
+    }
+    const conversationId = randomId();
+    insertConversation(db, {
+      id: conversationId,
       projectId,
-      brandsRoot,
-      userDesignSystemsRoot: opts.userDesignSystemsRoot,
-      projectsRoot,
-      skillsRoot,
-      db,
-      logoFallback,
-      imageryFallback,
-      hasWebsiteSource,
-      locale,
-    };
-    if (opts.dataDir) programmaticOptions.dataDir = opts.dataDir;
-    if (opts.prefetch) programmaticOptions.prefetch = opts.prefetch;
-    if (opts.description) programmaticOptions.description = opts.description;
-    if (designMd) programmaticOptions.designMd = designMd;
+      title: null,
+      sessionMode: 'design',
+      createdAt: now,
+      updatedAt: now,
+    });
 
-    launchProgrammaticBackgroundExtraction({
-      programmaticOptions,
-      programmaticAbortSignal: opts.programmaticAbortSignal,
-      fallbackPrompt,
-      onBackgroundExtraction: opts.onBackgroundExtraction,
+    // Seed the design-system page immediately so the user sees a real, on-brand
+    // scaffold the moment the project opens — not just a scrolling chat. It
+    // starts as skeletons + "Extracting…" and is replaced by the programmatic
+    // first paint (below) or filled in by the agent's `od brand preview` passes.
+    //
+    // When programmatic-first extraction is going to run (the common path —
+    // `userDesignSystemsRoot` is wired by the route), skip the legacy seed
+    // harvest entirely: the synchronous programmatic finalize re-fetches the
+    // same material and produces a complete, ready page anyway, so a second
+    // network harvest here would only add latency. Otherwise (legacy / tests),
+    // run the bounded parallel seed harvest so the first paint already shows a
+    // real logo / palette / fonts / cover imagery before the agent measures.
+    const seedBrand: Record<string, unknown> = { name: host, sourceUrl: url, colors: [], typography: {} };
+    if (!runProgrammatic) {
+      try {
+        const projectDir = resolveProjectDir(projectsRoot, projectId, metadata);
+        const logo = { primary: null as string | null, alternates: [] as string[], notes: '' };
+        const seedSlot: SeedSlot = {};
+        const imagery: ImagerySlot = { samples: [] };
+        const noChange = () => ({ changed: false });
+        const [logoRes] = await Promise.all([
+          logoFallback(url, path.join(projectDir, 'logos'), logo).catch(noChange),
+          seedFallback(url, seedSlot).catch(noChange),
+          imageryFallback(url, path.join(projectDir, 'imagery'), imagery).catch(noChange),
+        ]);
+        if (logoRes.changed) seedBrand.logo = logo;
+        if (seedSlot.colors && seedSlot.colors.length) seedBrand.colors = seedSlot.colors;
+        if (seedSlot.typography) seedBrand.typography = seedSlot.typography;
+        if (imagery.samples && imagery.samples.length) seedBrand.imagery = { samples: imagery.samples };
+      } catch {
+        // Best-effort only — never block project creation on the seed harvest.
+      }
+    }
+    await writeBrandKitPreview({
+      skillsRoot,
+      projectsRoot,
+      projectId,
+      brand: seedBrand,
+      status: 'extracting',
+      host,
+      metadata,
       locale,
     });
-  }
+    if (designMd) {
+      await writeProjectFile(projectsRoot, projectId, 'context/input-DESIGN.md', designMd, { overwrite: true }, metadata);
+    }
 
-  return {
-    id,
-    projectId,
-    conversationId,
-    sourceUrl: url,
-    status: meta.status,
-    ...(draftDesignSystemId ? { designSystemId: draftDesignSystemId } : {}),
-  };
+    // brand.html is the star of the workspace (active tab). The target site stays
+    // available as a secondary in-app browser tab so the user can glance at it /
+    // clear an anti-bot wall by hand when the agent asks.
+    setTabs(db, projectId, {
+      tabs: [BRAND_KIT_FILE],
+      active: BRAND_KIT_FILE,
+      ...(hasWebsiteSource
+        ? { browserTabs: [{ id: BRAND_BROWSER_TAB_ID, label: 'Browser', url, title: host }] }
+        : {}),
+    });
+
+    // Programmatic-first runs immediately, but never blocks the start response.
+    // The caller should land in the project with a real user/assistant transcript
+    // and the extracting skeleton already persisted while the deterministic
+    // harvester finalizes the design system in the background. Best-effort: a
+    // blocked, thin, or failing origin leaves the brand `extracting` for the
+    // agent/browser fallback to drive from the scaffold instead.
+    const programmaticStartedAt = Date.now();
+    const programmaticTranscript = runProgrammatic && opts.userDesignSystemsRoot
+      ? seedProgrammaticExtractionStartTranscript({
+          db,
+          conversationId,
+          randomId,
+          sourceUrl: url,
+          sourceLabel: host,
+          locale,
+          startedAt: programmaticStartedAt,
+          transcriptAgent: opts.transcriptAgent,
+        })
+      : null;
+    // Persist the transcript handles so EVERY terminal point — finalize success,
+    // soft-fail/blocked/timeout, and user stop — can reconcile the synthetic
+    // "AMR · Working" row out of its perpetual `running` state, regardless of the
+    // racy background timer. Without this the row stays "Working 13m…" forever
+    // even after the brand finalizes `ready` in the background.
+    if (programmaticTranscript) {
+      patchMeta(brandsRoot, id, {
+        conversationId,
+        extractionTranscriptMessageId: programmaticTranscript.assistantMessageId,
+        extractionTranscriptUserMessageId: programmaticTranscript.userMessageId,
+        extractionStartedAt: programmaticStartedAt,
+      });
+    }
+    if (runProgrammatic && opts.userDesignSystemsRoot) {
+      const programmaticOptions: RunProgrammaticExtractionOptions = {
+        id,
+        meta,
+        projectId,
+        brandsRoot,
+        userDesignSystemsRoot: opts.userDesignSystemsRoot,
+        projectsRoot,
+        skillsRoot,
+        db,
+        logoFallback,
+        imageryFallback,
+        hasWebsiteSource,
+        locale,
+      };
+      if (opts.dataDir) programmaticOptions.dataDir = opts.dataDir;
+      if (opts.prefetch) programmaticOptions.prefetch = opts.prefetch;
+      if (opts.description) programmaticOptions.description = opts.description;
+      if (designMd) programmaticOptions.designMd = designMd;
+
+      launchProgrammaticBackgroundExtraction({
+        programmaticOptions,
+        programmaticAbortSignal: opts.programmaticAbortSignal,
+        fallbackPrompt,
+        onBackgroundExtraction: opts.onBackgroundExtraction,
+        locale,
+      });
+    }
+
+    return {
+      id,
+      projectId,
+      conversationId,
+      sourceUrl: url,
+      status: meta.status,
+      ...(draftDesignSystemId ? { designSystemId: draftDesignSystemId } : {}),
+    };
   } catch (err) {
     await rollbackBrandExtractionStartup({
       db,

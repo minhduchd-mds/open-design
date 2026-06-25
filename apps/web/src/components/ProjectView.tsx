@@ -6434,6 +6434,7 @@ export function ProjectView({
   const [brandEnrichmentStarting, setBrandEnrichmentStarting] = useState(false);
   const [brandAgentExtractionStarting, setBrandAgentExtractionStarting] = useState(false);
   const [brandProgrammaticContinueStarting, setBrandProgrammaticContinueStarting] = useState(false);
+  const brandProgrammaticContinueStartingRef = useRef(false);
   const [brandCreateDesignStarting, setBrandCreateDesignStarting] = useState(false);
   useEffect(() => {
     if (brandEnrichmentPromptSeed) {
@@ -6442,9 +6443,10 @@ export function ProjectView({
   }, [brandEnrichmentPromptSeed]);
 
   const handleContinueBrandExtraction = useCallback(() => {
-    if (brandProgrammaticContinueStarting) return;
+    if (brandProgrammaticContinueStartingRef.current) return;
     const brandId = currentProject.metadata?.brandId?.trim();
     if (!projectIsProgrammaticBrandExtraction || !brandId) return;
+    brandProgrammaticContinueStartingRef.current = true;
     setBrandProgrammaticContinueStarting(true);
     setBrandExtractionStatusOverride({ brandId, status: 'extracting' });
     const brandPreviewFile = brandExtractionPreviewFileName(projectFiles);
@@ -6538,10 +6540,12 @@ export function ProjectView({
           ttlMs: 5000,
         });
       })
-      .finally(() => setBrandProgrammaticContinueStarting(false));
+      .finally(() => {
+        brandProgrammaticContinueStartingRef.current = false;
+        setBrandProgrammaticContinueStarting(false);
+      });
   }, [
     activeConversationId,
-    brandProgrammaticContinueStarting,
     currentProject.metadata,
     dismissBrandBrowserAssist,
     failedMessagesConversationId,

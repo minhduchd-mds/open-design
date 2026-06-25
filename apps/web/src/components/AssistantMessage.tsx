@@ -367,6 +367,10 @@ const ASSISTANT_MESSAGE_COMPARED_PROPS: Array<keyof Props> = [
   'shareToOpenDesignBusy',
   'suppressDirectionForms',
   'hasDesignSystemContext',
+  'nextStepAiOptimizeBusy',
+  'nextStepContinueExtractionBusy',
+  'nextStepContinueAiExtractionBusy',
+  'nextStepCreateDesignBusy',
   // Memoized + stable from ChatPane; compared so a late skill-list load
   // refreshes the featured next-step rows' `@skill` hover detail and the
   // More → Design toolbox global resources.

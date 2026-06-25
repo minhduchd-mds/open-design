@@ -181,6 +181,50 @@ describe('AssistantMessage next-step affordance', () => {
     expect(onContinueAiExtraction).toHaveBeenCalledTimes(1);
   });
 
+  it('refreshes the incomplete brand continuation busy state on memoized rows', () => {
+    const h = handlers();
+    const onContinueExtraction = vi.fn();
+    const message = baseMessage({
+      runStatus: 'canceled',
+      content: 'Stopped.',
+      producedFiles: [],
+    });
+    const view = render(
+      <AssistantMessage
+        message={message}
+        streaming={false}
+        projectId="proj-brand"
+        isLast
+        nextStepVariant="brand-extraction"
+        onNextStepContinueExtraction={onContinueExtraction}
+        nextStepContinueExtractionBusy={false}
+        {...h}
+      />,
+    );
+
+    const firstButton = screen.getByTestId('next-step-brand-action-brand-continue-extraction');
+    fireEvent.click(firstButton);
+    expect(onContinueExtraction).toHaveBeenCalledTimes(1);
+
+    view.rerender(
+      <AssistantMessage
+        message={message}
+        streaming={false}
+        projectId="proj-brand"
+        isLast
+        nextStepVariant="brand-extraction"
+        onNextStepContinueExtraction={onContinueExtraction}
+        nextStepContinueExtractionBusy
+        {...h}
+      />,
+    );
+
+    const busyButton = screen.getByTestId('next-step-brand-action-brand-continue-extraction');
+    expect((busyButton as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(busyButton);
+    expect(onContinueExtraction).toHaveBeenCalledTimes(1);
+  });
+
   it('does not render when the handlers are not wired', () => {
     render(
       <AssistantMessage

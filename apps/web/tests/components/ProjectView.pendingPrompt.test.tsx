@@ -35,6 +35,23 @@ const brandBrowserBridgeMocks = vi.hoisted(() => ({
 const fileWorkspaceSpy = vi.hoisted(() => vi.fn());
 const chatPaneSpy = vi.hoisted(() => vi.fn());
 
+type MockChatPaneProps = {
+  messages?: ChatMessage[];
+  activeConversationId?: string | null;
+  initialDraft?: string;
+  onBrandBrowserAssistConfirm?: (card: {
+    kind: 'brand-browser-assist';
+    brandId: string;
+    browserTabId?: string;
+    url?: string;
+    reason?: string;
+  }) => Promise<{ ok: boolean; action?: 'opened' | 'confirmed'; message?: string } | void>;
+  onContinueBrandExtraction?: () => void;
+  continueBrandExtractionBusy?: boolean;
+  onContinueBrandAgentExtraction?: () => void;
+  continueBrandAgentExtractionBusy?: boolean;
+};
+
 vi.mock('../../src/i18n', () => ({
   useI18n: () => ({
     locale: 'en',
@@ -166,22 +183,7 @@ vi.mock('../../src/components/Loading', () => ({
 }));
 
 vi.mock('../../src/components/ChatPane', () => ({
-  ChatPane: (props: {
-    messages?: ChatMessage[];
-    activeConversationId?: string | null;
-    initialDraft?: string;
-    onBrandBrowserAssistConfirm?: (card: {
-      kind: 'brand-browser-assist';
-      brandId: string;
-      browserTabId?: string;
-      url?: string;
-      reason?: string;
-    }) => Promise<{ ok: boolean; action?: 'opened' | 'confirmed'; message?: string } | void>;
-    onContinueBrandExtraction?: () => void;
-    continueBrandExtractionBusy?: boolean;
-    onContinueBrandAgentExtraction?: () => void;
-    continueBrandAgentExtractionBusy?: boolean;
-  }) => {
+  ChatPane: (props: MockChatPaneProps) => {
     chatPaneSpy(props);
     return (
       <>
@@ -676,6 +678,56 @@ describe('ProjectView pending prompt seeding', () => {
     ).toBe(false);
   });
 
+  it('dedupes rapid programmatic brand continuation before the busy rerender lands', async () => {
+    let resolveContinue:
+      | ((value: Awaited<ReturnType<typeof continueBrandExtraction>>) => void)
+      | undefined;
+    mockedContinueBrandExtraction.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveContinue = resolve;
+      }),
+    );
+
+    renderProjectView(
+      {
+        ...project('brand-retry'),
+        metadata: {
+          kind: 'brand',
+          importedFrom: 'brand-extraction',
+          brandId: 'brand-retry',
+          brandSourceUrl: 'https://economist.com/',
+          brandDesignSystemId: 'user:brand-retry',
+        },
+      },
+    );
+
+    await waitFor(() => expect(latestChatPaneProps().onContinueBrandExtraction).toBeTruthy());
+    const { onContinueBrandExtraction } = latestChatPaneProps();
+    onContinueBrandExtraction?.();
+    onContinueBrandExtraction?.();
+
+    await waitFor(() => {
+      expect(mockedContinueBrandExtraction).toHaveBeenCalledTimes(1);
+      expect(latestChatPaneProps().continueBrandExtractionBusy).toBe(true);
+    });
+
+    resolveContinue?.({
+      ok: true,
+      result: {
+        id: 'brand-retry',
+        projectId: 'brand-retry',
+        conversationId: 'conv-brand-retry',
+        sourceUrl: 'https://economist.com/',
+        status: 'extracting',
+        designSystemId: 'user:brand-retry',
+      },
+    });
+
+    await waitFor(() => {
+      expect(latestChatPaneProps().continueBrandExtractionBusy).toBe(false);
+    });
+  });
+
   it('refreshes brand.html when the brand extraction reaches a failed terminal state', async () => {
     mockedFetchBrands.mockResolvedValue([
       {
@@ -753,4 +805,10 @@ describe('ProjectView pending prompt seeding', () => {
 function composerValue(): string {
   return (screen.getByTestId('chat-composer-input') as HTMLTextAreaElement)
     .value;
+}
+
+function latestChatPaneProps(): MockChatPaneProps {
+  const latest = chatPaneSpy.mock.calls.at(-1);
+  if (!latest) throw new Error('ChatPane was not rendered');
+  return latest[0] as MockChatPaneProps;
 }

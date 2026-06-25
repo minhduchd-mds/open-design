@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync, readFileSync, existsSync, readdirSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import fs, { mkdtempSync, rmSync, writeFileSync, mkdirSync, readFileSync, existsSync, readdirSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -442,6 +442,42 @@ describe('agent-driven brand extraction engine', () => {
         throw new Error('conversation id failed');
       },
     })).rejects.toThrow('conversation id failed');
+
+    expect(listProjects(db)).toHaveLength(0);
+    expect(readdirSync(projectsRoot)).toEqual([]);
+    expect(readdirSync(brandsRoot)).toEqual([]);
+    const systems = await listDesignSystems(userDesignSystemsRoot, {
+      idPrefix: 'user:',
+      source: 'user',
+      isEditable: true,
+      defaultStatus: 'draft',
+    });
+    expect(systems).toHaveLength(0);
+  });
+
+  it('rolls back brand startup state when design-md staging fails before draft reservation', async () => {
+    const db = openDatabase(tempDir, { dataDir: tempDir });
+    const mkdirSyncOriginal = fs.mkdirSync.bind(fs);
+    const mkdirSpy = vi.spyOn(fs, 'mkdirSync').mockImplementation(((target, options) => {
+      if (String(target).endsWith(`${path.sep}context`)) {
+        throw new Error('design-md staging failed');
+      }
+      return mkdirSyncOriginal(target, options as fs.MakeDirectoryOptions);
+    }) as typeof fs.mkdirSync);
+
+    try {
+      await expect(startOfflineBrandExtraction({
+        designMd: DESIGN_MD_INPUT,
+        brandsRoot,
+        projectsRoot,
+        userDesignSystemsRoot,
+        skillsRoot: SKILLS_ROOT,
+        db,
+        logoFallback: NO_LOGO_FALLBACK,
+      })).rejects.toThrow('design-md staging failed');
+    } finally {
+      mkdirSpy.mockRestore();
+    }
 
     expect(listProjects(db)).toHaveLength(0);
     expect(readdirSync(projectsRoot)).toEqual([]);
