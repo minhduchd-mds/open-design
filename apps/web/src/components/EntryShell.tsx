@@ -790,9 +790,8 @@ export function EntryShell({
               area: 'nav',
               element: 'new_project_plus',
             });
-            void startBlankProject().catch(() => undefined);
+            openNewProject();
           }}
-          newProjectDisabled={blankProjectCreating}
           open={railOpen}
           onClose={() => setRailOpen(false)}
         />
@@ -910,7 +909,7 @@ export function EntryShell({
                     onRefresh={onProjectsRefresh}
                     isActive={view === 'projects'}
                     onNewProject={() => {
-                      void startBlankProject().catch(() => undefined);
+                      openNewProject();
                     }}
                   />
                 </div>

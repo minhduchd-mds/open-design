@@ -354,7 +354,7 @@ describe('EntryShell design systems view', () => {
 });
 
 describe('EntryShell new project rail', () => {
-  it('creates a blank project directly from the rail plus', async () => {
+  it('opens the new project modal from the rail plus', async () => {
     window.localStorage.setItem('od.entry.railOpen', 'false');
     const fetchMock = vi.fn(
       async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
@@ -397,19 +397,15 @@ describe('EntryShell new project rail', () => {
     fireEvent.click(screen.getByTestId('entry-nav-new-project'));
 
     await waitFor(() => {
-      expect(props.onOpenProject).toHaveBeenCalledWith('blank-project-1');
+      expect(screen.getByTestId('new-project-modal')).toBeTruthy();
     });
-    expect(screen.queryByTestId('new-project-modal')).toBeNull();
+    expect(screen.getByTestId('new-project-panel')).toBeTruthy();
+    expect(props.onOpenProject).not.toHaveBeenCalled();
     expect(props.onCreateProject).not.toHaveBeenCalled();
     const createCall = fetchMock.mock.calls.find(
       ([input, init]) => input === '/api/projects' && init?.method === 'POST',
     );
-    expect(createCall).toBeTruthy();
-    expect(JSON.parse(String(createCall?.[1]?.body))).toMatchObject({
-      name: 'Untitled',
-      skillId: null,
-      designSystemId: null,
-    });
+    expect(createCall).toBeUndefined();
     expect(analyticsMocks.track).toHaveBeenCalledWith(
       'ui_click',
       expect.objectContaining({
@@ -421,7 +417,7 @@ describe('EntryShell new project rail', () => {
     );
   });
 
-  it('creates a blank project directly from the Projects tab button', async () => {
+  it('opens the new project modal from the Projects tab button', async () => {
     window.localStorage.setItem('od.entry.railOpen', 'false');
     const fetchMock = vi.fn(
       async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
@@ -483,19 +479,15 @@ describe('EntryShell new project rail', () => {
     fireEvent.click(screen.getByTestId('designs-new-project'));
 
     await waitFor(() => {
-      expect(props.onOpenProject).toHaveBeenCalledWith('blank-project-from-projects');
+      expect(screen.getByTestId('new-project-modal')).toBeTruthy();
     });
-    expect(screen.queryByTestId('new-project-modal')).toBeNull();
+    expect(screen.getByTestId('new-project-panel')).toBeTruthy();
+    expect(props.onOpenProject).not.toHaveBeenCalled();
     expect(props.onCreateProject).not.toHaveBeenCalled();
     const createCall = fetchMock.mock.calls.find(
       ([input, init]) => input === '/api/projects' && init?.method === 'POST',
     );
-    expect(createCall).toBeTruthy();
-    expect(JSON.parse(String(createCall?.[1]?.body))).toMatchObject({
-      name: 'Untitled',
-      skillId: null,
-      designSystemId: null,
-    });
+    expect(createCall).toBeUndefined();
     expect(analyticsMocks.track).toHaveBeenCalledWith(
       'ui_click',
       expect.objectContaining({
