@@ -24,7 +24,7 @@ A few things that make it worth a look:
 - **Runs locally** — your projects live in your own folders on your machine, not in someone else's cloud.
 - **Agent-pluggable** — 21+ coding agents are supported; you pick which CLI drives generation.
 - **More than prototypes** — prototypes, live artifacts, slide decks, magazine layouts, image generation, and even video, all from one workspace.
-- **129 design systems and 100+ skills** built in, so you are not starting from a blank canvas.
+- **A deep library of design systems and skills** built in, so you are not starting from a blank canvas.
 
 If you have used Claude Design, the look and feel will be instantly familiar — Open Design deliberately keeps the same calm aesthetic, then adds capabilities on top.
 
