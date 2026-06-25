@@ -684,11 +684,16 @@ function handleCodexEvent(obj: unknown, onEvent: StreamEventHandler, state: Pars
   }
 
   if (obj.type === 'thread.started') {
-    // `thread_id` is Codex's own session handle (capture-style resume). Surface
-    // it on the status event so the daemon can persist it to `agent_sessions`
-    // and replay it as `exec resume <thread_id>` on the next turn. Codex emits
-    // this both for a fresh `exec` and for `exec resume` (echoing the resumed
-    // id), so it is a stable capture point either way.
+    // `thread_id` is Codex's own session handle, surfaced on the same
+    // `sessionId` status channel claude uses (claude-stream.ts). It serves two
+    // consumers: (1) the daemon persists it to `agent_sessions` and replays it
+    // as `exec resume <thread_id>` on the next turn (capture-style resume), and
+    // (2) it identifies this run's rollout file
+    // (`$CODEX_HOME/sessions/**/rollout-*-<thread_id>.jsonl`), the only place
+    // codex records per-call usage, which run_finished reads to recover the
+    // turn's first-call cache hit (codex's stream usage is cumulative only).
+    // Codex emits this both for a fresh `exec` and for `exec resume` (echoing
+    // the resumed id), so it is a stable capture point either way.
     const threadId =
       typeof obj.thread_id === 'string' && obj.thread_id.length > 0
         ? obj.thread_id
