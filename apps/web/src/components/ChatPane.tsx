@@ -3013,6 +3013,23 @@ function includeVirtualRowByKey<T extends { key: string }>(
   ].sort((a, b) => a.index - b.index);
 }
 
+// Demo-only mock senders for the AI send queue (UC-9): in a real product each
+// queued item would carry who enqueued it; the demo cycles through the shared
+// mock team members so the queue visibly reflects multi-person collaboration.
+const QUEUED_SEND_MOCK_SENDERS: ReadonlyArray<{ name: string; avatar: string }> = [
+  { name: '琼羽（你）', avatar: '/team-avatars/a2.png' },
+  { name: '张伟', avatar: '/team-avatars/a1.png' },
+  { name: '李娜', avatar: '/team-avatars/a3.png' },
+  { name: '王芳', avatar: '/team-avatars/a4.png' },
+  { name: '陈明', avatar: '/team-avatars/a6.png' },
+  { name: '刘洋', avatar: '/team-avatars/a7.png' },
+];
+
+function mockSenderForIndex(index: number): { name: string; avatar: string } {
+  const count = QUEUED_SEND_MOCK_SENDERS.length;
+  return QUEUED_SEND_MOCK_SENDERS[((index % count) + count) % count] ?? QUEUED_SEND_MOCK_SENDERS[0]!;
+}
+
 function QueuedSendStrip({
   containerRef,
   editingId,
@@ -3148,6 +3165,23 @@ function QueuedSendStrip({
                 <Icon name="grip-vertical" size={14} />
               </button>
               <div className="chat-queued-send-main">
+                {(() => {
+                  const sender = mockSenderForIndex(index);
+                  return (
+                    <div className="chat-queued-send-sender">
+                      <img
+                        className="chat-queued-send-sender__avatar"
+                        src={sender.avatar}
+                        alt=""
+                        aria-hidden
+                        width={22}
+                        height={22}
+                        draggable={false}
+                      />
+                      <span className="chat-queued-send-sender__name">{sender.name}</span>
+                    </div>
+                  );
+                })()}
                 <span className="chat-queued-send-title">{summarizeQueuedPrompt(item, t)}</span>
                 <QueuedSendMetaChips item={item} />
               </div>

@@ -650,6 +650,36 @@ function isDesignSystemWorkspaceMetadata(metadata: ProjectMetadata | undefined):
   return metadata?.importedFrom === 'design-system';
 }
 
+// --- Realtime collaboration presence (UC-8, demo-only mock) -----------------
+// Mock collaborators kept in sync with RecentProjectsStrip's MOCK_MEMBERS so the
+// avatars read as the same team across the app. Online presence + collaboration
+// cursors are purely visual; nothing here talks to a backend.
+const PRESENCE_COLLABORATORS = [
+  { name: '张伟', img: '/team-avatars/a1.png', color: '#f97316' },
+  { name: '李娜', img: '/team-avatars/a3.png', color: '#6366f1' },
+  { name: '王芳', img: '/team-avatars/a4.png', color: '#10b981' },
+];
+// Stacked online-collaborator avatars for the workspace header (right side).
+// Uses local /team-avatars assets (same-origin) so they load in every context.
+function PresenceAvatarStack() {
+  return (
+    <div className="presence__stack" aria-label="在线协作成员">
+      {PRESENCE_COLLABORATORS.map((m) => (
+        <span
+          key={m.name}
+          className="presence__avatar"
+          title={`${m.name} · 在线`}
+          style={{ '--presence-ring': m.color } as CSSProperties}
+        >
+          <img src={m.img} alt={m.name} className="presence__avatar-img" />
+          <span className="presence__dot" aria-hidden />
+        </span>
+      ))}
+      <span className="presence__more" title="还有 2 位成员在线">+2</span>
+    </div>
+  );
+}
+
 function isStoredChatAttachment(value: unknown): value is ChatAttachment {
   if (value === null || typeof value !== 'object') return false;
   const record = value as Record<string, unknown>;
@@ -6763,6 +6793,7 @@ export function ProjectView({
           conversationId={activeConversationId}
           headerActions={(
             <>
+              <PresenceAvatarStack />
               <HandoffButton
                 projectId={project.id}
                 projectName={project.name}

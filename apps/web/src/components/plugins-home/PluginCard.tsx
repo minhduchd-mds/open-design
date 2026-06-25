@@ -48,6 +48,16 @@ interface Props {
 
 const MAX_VISIBLE_TAGS = 3;
 
+// Demo-only 私有/共享 visibility for plugin cards, mirroring the
+// project-card semantics (创建即私有 → 可共享给团队). Seeded from the
+// plugin id so the mix is stable; the card toggle overrides locally.
+type PluginVisibility = 'private' | 'shared';
+function seedPluginVisibility(id: string): PluginVisibility {
+  let h = 0;
+  for (let i = 0; i < id.length; i += 1) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return h % 3 === 0 ? 'shared' : 'private';
+}
+
 export function PluginCard({
   record,
   isActive,
@@ -64,6 +74,11 @@ export function PluginCard({
 }: Props) {
   const { locale } = useI18n();
   const [useMenuOpen, setUseMenuOpen] = useState(false);
+  // Demo-only 私有/共享 state — pure front-end toggle, no backend.
+  const [visibility, setVisibility] = useState<PluginVisibility>(() =>
+    seedPluginVisibility(record.id),
+  );
+  const shared = visibility === 'shared';
   // Tiles prefer the cheap pre-baked hover-pan clip; the detail modal still
   // opens the live interactive page (it calls inferPluginPreview without this).
   const preview = useMemo(() => inferPluginPreview(record, { preferBaked: true }), [record]);
@@ -335,6 +350,26 @@ export function PluginCard({
         <span className="plugins-home__card-title" title={title}>
           <span className="plugins-home__card-title-text">{title}</span>
         </span>
+        <span
+          className={[
+            'plugins-home__visibility',
+            shared ? 'plugins-home__visibility--shared' : 'plugins-home__visibility--private',
+          ].join(' ')}
+        >
+          <Icon name={shared ? 'share' : 'eye-off'} size={10} />
+          {shared ? '共享' : '私有'}
+        </span>
+        <button
+          type="button"
+          className="plugins-home__visibility-toggle"
+          title={shared ? '设为私有' : '共享给团队'}
+          aria-label={shared ? `将「${title}」设为私有` : `将「${title}」共享给团队`}
+          data-testid={`plugins-home-share-${record.id}`}
+          onClick={() => setVisibility(shared ? 'private' : 'shared')}
+        >
+          <Icon name={shared ? 'eye-off' : 'share'} size={12} />
+          <span>{shared ? '设为私有' : '共享给团队'}</span>
+        </button>
         <TrustBadge trust={record.trust} />
       </div>
     </article>

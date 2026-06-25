@@ -65,6 +65,17 @@ type SurfaceFilter = 'all' | Surface;
 type DesignSystemCollection = 'mine' | 'team' | 'official' | 'enterprise';
 type DesignSystemActionKind = 'edit' | 'publish' | 'default' | 'delete';
 
+// Demo-only "私有/共享" visibility for design systems. Mirrors the
+// project-card semantics (创建即私有 → 可共享给团队). Seeded from the
+// system id so the mix is stable across renders; user toggles override.
+type DsVisibility = 'private' | 'shared';
+function seedDsVisibility(id: string): DsVisibility {
+  let h = 0;
+  for (let i = 0; i < id.length; i += 1) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  // ~1/3 of systems start out already shared with the team.
+  return h % 3 === 0 ? 'shared' : 'private';
+}
+
 const SURFACE_PILLS: { value: SurfaceFilter; labelKey: 'examples.modeAll' | 'ds.surfaceWeb' | 'ds.surfaceImage' | 'ds.surfaceVideo' | 'ds.surfaceAudio' }[] = [
   { value: 'all', labelKey: 'examples.modeAll' },
   { value: 'web', labelKey: 'ds.surfaceWeb' },
@@ -280,6 +291,20 @@ export function DesignSystemsTab({
   // sessionStorage exactly once; applied by the effect below once the system
   // actually shows up in the loaded list (which may arrive after a refresh).
   const [pendingFocus, setPendingFocus] = useState<string | null>(() => takeDesignSystemFocus());
+  const [thumbs, setThumbs] = useState<Record<string, string | null>>({});
+  const [visibilityOverrides, setVisibilityOverrides] = useState<Record<string, DsVisibility>>({});
+
+  function visibilityOf(system: DesignSystemSummary): DsVisibility {
+    return visibilityOverrides[system.id] ?? seedDsVisibility(system.id);
+  }
+  function toggleVisibility(system: DesignSystemSummary): void {
+    setVisibilityOverrides((cur) => ({
+      ...cur,
+      [system.id]: visibilityOf(system) === 'shared' ? 'private' : 'shared',
+    }));
+  }
+
+
   const q = filter.trim().toLowerCase();
 
   const librarySystems = useMemo(
@@ -831,10 +856,7 @@ export function DesignSystemsTab({
         system={system}
         active={system.id === previewId}
         isDefault={system.id === selectedId}
-        subtitle={
-          // User systems: prefer the scenario (summary), then the source link
-          // (host, truncated by CSS), then the generic placeholder. Presets keep
-          // their localized category, which already reads as their scenario.
+        categoryLabel={
           isUserSystem(system)
             ? (system.summary?.trim()
               || designSystemLogoHost(system)
@@ -842,6 +864,8 @@ export function DesignSystemsTab({
             : localizeDesignSystemCategory(locale, system.category || 'Uncategorized')
         }
         statusLabel={(system.status ?? 'draft') === 'published' ? t('dsManager.statusPublished') : t('dsManager.statusDraft')}
+        visibility={visibilityOf(system)}
+        onToggleVisibility={() => toggleVisibility(system)}
         onSelect={() => handleSelectSystem(system)}
       />
     ));
@@ -908,9 +932,29 @@ interface SystemRowProps {
   system: DesignSystemSummary;
   active: boolean;
   isDefault: boolean;
-  subtitle: string;
+  categoryLabel: string;
   statusLabel: string;
+  visibility: DsVisibility;
+  onToggleVisibility: () => void;
   onSelect: () => void;
+}
+
+// Small 私有/共享 capsule badge, mirroring the project-card角标 visual.
+function DsVisibilityBadge({ visibility }: { visibility: DsVisibility }) {
+  if (visibility === 'shared') {
+    return (
+      <span className={`${styles.visibilityBadge} ${styles.visibilityBadgeShared}`}>
+        <Icon name="share" size={10} />
+        共享
+      </span>
+    );
+  }
+  return (
+    <span className={`${styles.visibilityBadge} ${styles.visibilityBadgePrivate}`}>
+      <Icon name="eye-off" size={10} />
+      私有
+    </span>
+  );
 }
 
 function fallbackSwatches(seed: string): string[] {
@@ -1011,36 +1055,66 @@ function SystemRowLogo({ system }: { system: DesignSystemSummary }) {
   );
 }
 
-function SystemRow({ system, active, isDefault, subtitle, statusLabel, onSelect }: SystemRowProps) {
+function SystemRow({
+  system,
+  active,
+  isDefault,
+  categoryLabel,
+  statusLabel,
+  visibility,
+  onToggleVisibility,
+  onSelect,
+}: SystemRowProps) {
   const { t } = useI18n();
   const status = system.status ?? 'draft';
   const isUser = isUserSystem(system);
+  const shared = visibility === 'shared';
   return (
-    <button
-      type="button"
-      data-testid={`design-system-card-${system.id}`}
-      className={`${styles.item} ${active ? styles.itemActive : ''}`}
-      aria-pressed={active}
-      onClick={onSelect}
-    >
-      <span className={styles.itemThumb}>
-        <SystemRowLogo system={system} />
-      </span>
-      <span className={styles.itemMeta}>
-        <span className={styles.itemNameRow}>
-          <span className={styles.itemName}>{system.title}</span>
-          {isDefault ? <span className={styles.badgeDefault}>{t('dsManager.badgeDefault')}</span> : null}
+    <div className={styles.itemRow}>
+      <button
+        type="button"
+        data-testid={`design-system-card-${system.id}`}
+        className={`${styles.item} ${active ? styles.itemActive : ''}`}
+        aria-pressed={active}
+        onClick={onSelect}
+      >
+        <span className={styles.itemThumb}>
+          <SystemRowLogo system={system} />
         </span>
-        <span className={styles.itemSub}>{subtitle}</span>
-      </span>
-      {isUser ? (
-        <span
-          className={`${styles.statusDot} ${status === 'published' ? styles.statusDotPublished : styles.statusDotDraft}`}
-          title={statusLabel}
-          aria-label={statusLabel}
-        />
-      ) : null}
-    </button>
+        <span className={styles.itemMeta}>
+          <span className={styles.itemNameRow}>
+            <span className={styles.itemName}>{system.title}</span>
+            {isDefault ? <span className={styles.badgeDefault}>{t('dsManager.badgeDefault')}</span> : null}
+          </span>
+          <span className={styles.itemSubRow}>
+            <DsVisibilityBadge visibility={visibility} />
+            <span className={styles.itemSub}>{categoryLabel}</span>
+          </span>
+        </span>
+        {isUser ? (
+          <span
+            className={`${styles.statusDot} ${status === 'published' ? styles.statusDotPublished : styles.statusDotDraft}`}
+            title={statusLabel}
+            aria-label={statusLabel}
+          />
+        ) : null}
+      </button>
+      {/* Demo-only 私有↔共享 切换：纯前端切角标，不接后端 */}
+      <button
+        type="button"
+        className={styles.visibilityToggle}
+        title={shared ? '设为私有' : '共享给团队'}
+        aria-label={shared ? `将「${system.title}」设为私有` : `将「${system.title}」共享给团队`}
+        data-testid={`design-system-share-${system.id}`}
+        onClick={(event) => {
+          event.stopPropagation();
+          onToggleVisibility();
+        }}
+      >
+        <Icon name={shared ? 'eye-off' : 'share'} size={13} />
+        <span>{shared ? '设为私有' : '共享给团队'}</span>
+      </button>
+    </div>
   );
 }
 

@@ -197,6 +197,19 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Bottom row: owner·time on the left, kind tag (原型/幻灯片…) pushed to the
+   bottom-right corner. */
+.recent-projects__card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.recent-projects__card-footer .design-card-tag-row {
+  flex: 0 0 auto;
+  margin: 0;
+}
 .recent-projects__card-time {
   font-size: 11.5px;
   color: var(--text-muted);
@@ -204,6 +217,9 @@
   align-items: center;
   gap: 4px;
   min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  white-space: nowrap;
 }
 .recent-projects__card-sep {
   color: var(--text-muted);
@@ -497,6 +513,28 @@
 }
 .recent-projects__filter svg {
   color: var(--text-soft);
+}
+
+/* "邀请同事" entry on the team "全部项目" header (UC-2 entry point 2). */
+.recent-projects__invite {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  margin-right: 4px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--accent-contrast, #fff);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.recent-projects__invite:hover {
+  filter: brightness(1.05);
 }
 
 /* "私人" badge on the thumbnail + creator avatar in the meta row (Canva-style). */

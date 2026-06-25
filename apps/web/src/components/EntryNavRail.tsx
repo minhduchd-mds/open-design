@@ -10,6 +10,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { EntryHelpMenu } from './EntryHelpMenu';
+import { InviteDialog } from './InviteDialog';
 import { Icon } from './Icon';
 import { useT } from '../i18n';
 import { LIBRARY_UI_VISIBLE } from '../features/libraryUi';
@@ -23,6 +24,8 @@ export type EntryView =
   | 'community'
   | 'drafts'
   | 'all-projects'
+  | 'content-plan'
+  | 'members'
   | 'design-systems'
   | 'library'
   | 'brands'
@@ -36,6 +39,9 @@ interface Props {
   open: boolean;
   /** Collapse the rail — called after a destination is chosen or the user dismisses it. */
   onClose: () => void;
+  /** Extra controls pinned to the bottom-left of the rail (GitHub star, Discord,
+   *  Use-everywhere, settings) — moved out of the top bar so content rises. */
+  footerExtra?: ReactNode;
 }
 
 interface NavButtonProps {
@@ -63,13 +69,14 @@ function NavButton({ active, ariaLabel, tooltip, onClick, testId, children }: Na
   );
 }
 
-export function EntryNavRail({ view, onViewChange, onNewProject, open, onClose }: Props) {
+export function EntryNavRail({ view, onViewChange, onNewProject, open, onClose, footerExtra }: Props) {
   const t = useT();
   const brandLabel = t('app.brand');
   const homeLabel = t('entry.navHome');
   const isHome = view === 'home';
   const [accountOpen, setAccountOpen] = useState(false);
   const [teamOpen, setTeamOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   // Once opened the rail stays docked (Manus-style); navigating between
   // destinations no longer collapses it.
@@ -187,6 +194,17 @@ export function EntryNavRail({ view, onViewChange, onNewProject, open, onClose }
                   <Icon name="check" size={14} />
                 </button>
                 <div className="entry-nav-rail__menu-divider" />
+                <button
+                  type="button"
+                  className="entry-nav-rail__menu-item"
+                  role="menuitem"
+                  onClick={() => {
+                    setTeamOpen(false);
+                    setInviteOpen(true);
+                  }}
+                >
+                  <Icon name="share" size={15} /> 邀请同事
+                </button>
                 <button type="button" className="entry-nav-rail__menu-item" role="menuitem">
                   <Icon name="plus" size={15} /> 新建团队
                 </button>
@@ -221,6 +239,24 @@ export function EntryNavRail({ view, onViewChange, onNewProject, open, onClose }
         >
           <Icon name="palette" size={18} />
         </NavButton>
+        <NavButton
+          active={view === 'content-plan'}
+          ariaLabel="内容规划"
+          tooltip="内容规划"
+          onClick={() => selectView('content-plan')}
+          testId="entry-nav-content-plan"
+        >
+          <Icon name="kanban" size={18} />
+        </NavButton>
+        <NavButton
+          active={view === 'members'}
+          ariaLabel="成员"
+          tooltip="成员"
+          onClick={() => selectView('members')}
+          testId="entry-nav-members"
+        >
+          <Icon name="share" size={18} />
+        </NavButton>
 
         <div className="entry-nav-rail__section">更多</div>
         <NavButton
@@ -243,9 +279,12 @@ export function EntryNavRail({ view, onViewChange, onNewProject, open, onClose }
         </NavButton>
       </div>
       <div className="entry-nav-rail__footer">
+        {footerExtra ? <div className="entry-rail-actions">{footerExtra}</div> : null}
         <div className="entry-nav-rail__divider" role="separator" />
         <EntryHelpMenu />
       </div>
+
+      <InviteDialog open={inviteOpen} onClose={() => setInviteOpen(false)} />
     </nav>
   );
 }

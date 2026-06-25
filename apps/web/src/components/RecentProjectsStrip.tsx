@@ -19,6 +19,7 @@ import type {
   PromptTemplateSummary,
 } from '../types';
 import { Icon } from './Icon';
+import { InviteDialog } from './InviteDialog';
 import { STATUS_LABEL_KEYS } from './DesignsTab';
 import { isDesignSystemProject, isPublishedDesignSystemProject } from './design-system-project';
 
@@ -51,16 +52,16 @@ const EMPTY_DESIGN_SYSTEMS: DesignSystemSummary[] = [];
 // Demo-only mocked metadata so the grid shows a believable mix of owners,
 // visibility, and recency instead of the seeded "我创建 · just now" uniformity.
 const MOCK_MEMBERS = [
-  { name: '我', initial: '我', img: 'https://i.pravatar.cc/80?img=12' },
-  { name: '张伟', initial: '张', img: 'https://i.pravatar.cc/80?img=33' },
-  { name: '李娜', initial: '李', img: 'https://i.pravatar.cc/80?img=45' },
-  { name: '王芳', initial: '王', img: 'https://i.pravatar.cc/80?img=24' },
-  { name: '陈明', initial: '陈', img: 'https://i.pravatar.cc/80?img=51' },
-  { name: '刘洋', initial: '刘', img: 'https://i.pravatar.cc/80?img=60' },
+  { name: '我', initial: '我', img: '/team-avatars/a2.png' },
+  { name: '张伟', initial: '张', img: '/team-avatars/a1.png' },
+  { name: '李娜', initial: '李', img: '/team-avatars/a3.png' },
+  { name: '王芳', initial: '王', img: '/team-avatars/a4.png' },
+  { name: '陈明', initial: '陈', img: '/team-avatars/a6.png' },
+  { name: '刘洋', initial: '刘', img: '/team-avatars/a7.png' },
 ];
 const MOCK_TIMES = ['刚刚', '12 分钟前', '1 小时前', '3 小时前', '昨天', '2 天前', '上周', '3 周前'];
 
-const ME = { name: '我', initial: '我', img: 'https://i.pravatar.cc/80?img=12' };
+const ME = { name: '我', initial: '我', img: '/team-avatars/a2.png' };
 type SpaceKind = 'recent' | 'drafts' | 'team';
 function mockCardMeta(index: number, space: SpaceKind) {
   const time = MOCK_TIMES[index % MOCK_TIMES.length] ?? '刚刚';
@@ -100,6 +101,7 @@ export function RecentProjectsStrip({
 }: Props) {
   const t = useT();
   const [view, setView] = useState<'grid' | 'list'>('grid');
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [moveTarget, setMoveTarget] = useState<Project | null>(null);
   const [moveDontRemind, setMoveDontRemind] = useState(false);
   const moveTitleId = useId();
@@ -247,6 +249,15 @@ export function RecentProjectsStrip({
       <header className="recent-projects__head">
         <h2 className="recent-projects__heading">{heading}</h2>
         <div className="recent-projects__controls">
+          {space === 'team' ? (
+            <button
+              type="button"
+              className="recent-projects__invite"
+              onClick={() => setInviteOpen(true)}
+            >
+              <Icon name="share" size={15} /> 邀请同事
+            </button>
+          ) : null}
           <button type="button" className="recent-projects__filter" aria-hidden>
             所有者
             <Icon name="chevron-down" size={13} />
@@ -356,21 +367,23 @@ export function RecentProjectsStrip({
                   ) : null}
                 </div>
                 <div className="recent-projects__card-meta">
-                  <div className="design-card-tag-row">
-                    {designSystemProject ? (
-                      <DesignSystemProjectTag />
-                    ) : (
-                      <ProjectTag category={projectCategory(project)} />
-                    )}
-                  </div>
                   <div className="recent-projects__card-name">{project.name}</div>
-                  <div className="recent-projects__card-time">
-                    <span className="recent-projects__card-owner" aria-hidden>
-                      {meta.ownerImg ? <img src={meta.ownerImg} alt="" loading="lazy" /> : meta.ownerInitial}
-                    </span>
-                    <span>{meta.ownerName}创建</span>
-                    <span className="recent-projects__card-sep" aria-hidden>·</span>
-                    {meta.time}
+                  <div className="recent-projects__card-footer">
+                    <div className="recent-projects__card-time">
+                      <span className="recent-projects__card-owner" aria-hidden>
+                        {meta.ownerImg ? <img src={meta.ownerImg} alt="" loading="lazy" /> : meta.ownerInitial}
+                      </span>
+                      <span>{meta.ownerName}创建</span>
+                      <span className="recent-projects__card-sep" aria-hidden>·</span>
+                      {meta.time}
+                    </div>
+                    <div className="design-card-tag-row">
+                      {designSystemProject ? (
+                        <DesignSystemProjectTag />
+                      ) : (
+                        <ProjectTag category={projectCategory(project)} />
+                      )}
+                    </div>
                   </div>
                 </div>
               </button>
@@ -520,6 +533,7 @@ export function RecentProjectsStrip({
           </DialogFooter>
         </Dialog>
       ) : null}
+      <InviteDialog open={inviteOpen} onClose={() => setInviteOpen(false)} />
     </section>
   );
 }

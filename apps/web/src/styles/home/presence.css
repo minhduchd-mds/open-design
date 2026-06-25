@@ -1,0 +1,141 @@
+/* Realtime collaboration presence (UC-8) — demo-only mock visuals.
+ *
+ * Two pieces:
+ *   1. .presence__stack  — online-collaborator avatar stack that sits in the
+ *      workspace header (FileWorkspace's .ws-tabs-project-actions slot).
+ *   2. .presence__cursor-layer — floating collaboration cursors layered over
+ *      the workspace column inside .split. Non-interactive overlay.
+ *
+ * Nothing here is wired to a backend; positions/avatars are hard-coded so the
+ * demo reads as "multiple people editing together right now".
+ */
+
+/* ---- Online avatar stack ------------------------------------------------- */
+.presence__stack {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 6px;
+  padding-right: 8px;
+}
+
+.presence__avatar {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  margin-left: -8px;
+  box-shadow: 0 0 0 2px var(--bg-app, #fff);
+  transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.presence__avatar:first-child {
+  margin-left: 0;
+}
+.presence__avatar:hover {
+  transform: translateY(-2px);
+  z-index: 2;
+}
+
+.presence__avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  /* Tint ring matching the collaborator's cursor color. */
+  outline: 1.5px solid var(--presence-ring, transparent);
+  outline-offset: -1.5px;
+}
+
+/* Online indicator (green dot, bottom-right). */
+.presence__dot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 2px var(--bg-app, #fff);
+}
+
+.presence__more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  margin-left: -8px;
+  border-radius: 13px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  background: var(--bg-subtle, #f1f5f9);
+  box-shadow: 0 0 0 2px var(--bg-app, #fff);
+}
+
+/* ---- Collaboration cursors over the canvas ------------------------------- */
+/* Grid item spanning the workspace column (3rd column of .split). In focus
+ * mode .split collapses to a single column, so column 1 covers the canvas too;
+ * we span from column 1 to the end to stay correct in both layouts. */
+.presence__cursor-layer {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  position: relative;
+  pointer-events: none;
+  z-index: 5;
+  overflow: hidden;
+}
+/* When the chat panel is visible, keep cursors off the chat side by anchoring
+ * the layer to the workspace column only. */
+.split:not(.split-focus) .presence__cursor-layer {
+  grid-column: 3 / -1;
+}
+
+.presence__cursor {
+  position: absolute;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  transform: translate(-2px, -2px);
+  animation: presence-cursor-float 6s ease-in-out infinite;
+}
+.presence__cursor:nth-child(2) {
+  animation-delay: -3s;
+}
+
+.presence__cursor-arrow {
+  display: block;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25));
+  flex: 0 0 auto;
+}
+
+.presence__cursor-label {
+  margin-top: 10px;
+  padding: 2px 7px;
+  border-radius: 4px 9px 9px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #fff;
+  white-space: nowrap;
+  background: var(--presence-cursor, #6366f1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+/* Subtle idle drift so the cursors feel "live" without being distracting. */
+@keyframes presence-cursor-float {
+  0%,
+  100% {
+    transform: translate(-2px, -2px);
+  }
+  50% {
+    transform: translate(6px, 4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .presence__cursor {
+    animation: none;
+  }
+}

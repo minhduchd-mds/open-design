@@ -119,6 +119,8 @@ import {
 import { NewProjectModal } from './NewProjectModal';
 import { PluginsView } from './PluginsView';
 import { CommunityView } from './CommunityView';
+import { ContentPlanView } from './ContentPlanView';
+import { MembersView } from './MembersView';
 import { RecentProjectsStrip } from './RecentProjectsStrip';
 import type { CreateInput, CreateTab, ImportClaudeDesignOutcome } from './NewProjectPanel';
 import type { PluginLoopSubmit } from './PluginLoopHome';
@@ -689,6 +691,55 @@ export function EntryShell({
     />
   );
 
+  // The GitHub star / Discord / Use-everywhere / settings cluster used to sit in
+  // the top-right bar. Moved to the bottom-left of the nav rail so the home hero
+  // and content can rise up a row.
+  const railFooterActions = (
+    <>
+      <GithubStarBadge />
+      <a
+        className="entry-discord-badge od-tooltip"
+        href={DISCORD_URL}
+        aria-label={discordAriaLabel}
+        data-tooltip={discordAriaLabel}
+        data-tooltip-placement="right"
+        data-testid="entry-discord-badge"
+      >
+        <Icon name="discord" size={14} className="entry-discord-badge__icon" />
+        <span className="entry-discord-badge__label">{t('entry.discordLabel')}</span>
+        {discordOnlineLabel ? (
+          <>
+            <span className="entry-discord-badge__sep" aria-hidden>·</span>
+            <span className="entry-discord-badge__online">{discordOnlineLabel}</span>
+          </>
+        ) : null}
+      </a>
+      <button
+        type="button"
+        className="use-everywhere-chip od-tooltip"
+        onClick={() => {
+          trackHomeToolbarClick(analytics.track, {
+            page_name: 'home',
+            area: 'toolbar',
+            element: 'use_everywhere',
+          });
+          openIntegrationTab('use-everywhere');
+        }}
+        data-tooltip={t('entry.useEverywhereTitle')}
+        data-tooltip-placement="right"
+        aria-label={t('entry.useEverywhereAria')}
+        data-testid="entry-use-everywhere-button"
+      >
+        <span className="use-everywhere-chip__icon" aria-hidden>
+          <Icon name="hammer" size={13} />
+        </span>
+        <span className="use-everywhere-chip__label">{t('entry.useEverywhereTitle')}</span>
+      </button>
+      <UpdaterPopup />
+      {avatarMenu}
+    </>
+  );
+
 
   if (view === 'onboarding') {
     return (
@@ -762,6 +813,7 @@ export function EntryShell({
           onNewProject={() => openNewProject()}
           open={railOpen}
           onClose={() => setRailOpen(false)}
+          footerExtra={railFooterActions}
         />
         <main className="entry-main entry-main--scroll" ref={entryMainScrollRef}>
           <div className="entry-main__topbar">
@@ -775,56 +827,11 @@ export function EntryShell({
             >
               <Icon name="panel-left" size={20} />
             </button>
-            <div className="entry-main__topbar-chips entry-main__topbar-chips--icon-only">
-              <GithubStarBadge />
-              <a
-                className="entry-discord-badge od-tooltip"
-                href={DISCORD_URL}
-                aria-label={discordAriaLabel}
-                data-tooltip={discordAriaLabel}
-                data-tooltip-placement="bottom"
-                data-testid="entry-discord-badge"
-              >
-                <Icon name="discord" size={14} className="entry-discord-badge__icon" />
-                <span className="entry-discord-badge__label">{t('entry.discordLabel')}</span>
-                {discordOnlineLabel ? (
-                  <>
-                    <span className="entry-discord-badge__sep" aria-hidden>
-                      ·
-                    </span>
-                    <span className="entry-discord-badge__online">
-                      {discordOnlineLabel}
-                    </span>
-                  </>
-                ) : null}
-              </a>
-              {view === 'home' ? null : executionSwitcher}
-              <button
-                type="button"
-                className="use-everywhere-chip od-tooltip"
-                onClick={() => {
-                  trackHomeToolbarClick(analytics.track, {
-                    page_name: 'home',
-                    area: 'toolbar',
-                    element: 'use_everywhere',
-                  });
-                  openIntegrationTab('use-everywhere');
-                }}
-                data-tooltip={t('entry.useEverywhereTitle')}
-                data-tooltip-placement="bottom"
-                aria-label={t('entry.useEverywhereAria')}
-                data-testid="entry-use-everywhere-button"
-              >
-                <span className="use-everywhere-chip__icon" aria-hidden>
-                  <Icon name="hammer" size={13} />
-                </span>
-                <span className="use-everywhere-chip__label">
-                  {t('entry.useEverywhereTitle')}
-                </span>
-              </button>
-            </div>
-            <UpdaterPopup />
-            {avatarMenu}
+            {view === 'home' ? null : (
+              <div className="entry-main__topbar-chips entry-main__topbar-chips--icon-only">
+                {executionSwitcher}
+              </div>
+            )}
           </div>
           <div
             className={`entry-main__inner${
@@ -929,6 +936,12 @@ export function EntryShell({
                   onRename={onRenameProject}
                 />
               )}
+            </div>
+            <div data-testid="entry-view-content-plan" data-active={view === 'content-plan' ? 'true' : 'false'} {...inactiveViewProps(view === 'content-plan')}>
+              <ContentPlanView />
+            </div>
+            <div data-testid="entry-view-members" data-active={view === 'members' ? 'true' : 'false'} {...inactiveViewProps(view === 'members')}>
+              <MembersView />
             </div>
             <div data-testid="entry-view-design-systems" data-active={view === 'design-systems' ? 'true' : 'false'} {...inactiveViewProps(view === 'design-systems')}>
               {designSystemsLoading ? (
@@ -1075,6 +1088,11 @@ function OnboardingView({
   const [amrLoginPending, setAmrLoginPending] = useState(false);
   const [amrLoginCancelPending, setAmrLoginCancelPending] = useState(false);
   const [newsletterSubmitting, setNewsletterSubmitting] = useState(false);
+  // Demo-only «邀请队友» step state. Pure mock — emails are parsed for the
+  // sent-count preview but never leave the client; "发送邀请" just advances
+  // the wizard like Continue does.
+  const [inviteEmails, setInviteEmails] = useState('');
+  const [inviteRole, setInviteRole] = useState<'admin' | 'member'>('member');
   const [amrLoginError, setAmrLoginError] = useState<string | null>(null);
   const [visibleAgentIds, setVisibleAgentIds] = useState<string[]>([]);
   const [providerTestState, setProviderTestState] = useState<
@@ -1359,6 +1377,7 @@ function OnboardingView({
     if (stepIdx === 0) return { area: 'runtime', stepIndex: '1', stepName: 'connect' };
     if (stepIdx === 1) return { area: 'about_you', stepIndex: '2', stepName: 'about_you' };
     if (stepIdx === 2) return { area: 'newsletter', stepIndex: '3', stepName: 'newsletter' };
+    if (stepIdx === 3) return { area: 'newsletter', stepIndex: '3', stepName: 'newsletter' };
     return { area: 'design_system', stepIndex: '4', stepName: 'design_system' };
   }
   function emitOnboardingClick(
@@ -1450,7 +1469,14 @@ function OnboardingView({
     });
   }
 
-  const isLastStep = step === 3;
+  const steps = [
+    t('settings.onboardingStepConnect'),
+    t('settings.onboardingStepProfile'),
+    t('settings.onboardingStepNewsletter'),
+    '邀请队友',
+    t('settings.onboardingStepDesignSystem'),
+  ];
+  const isLastStep = step === steps.length - 1;
 
   const roleOptions = [
     { value: 'agency', label: t('settings.onboardingRoleAgency') },
@@ -2549,6 +2575,80 @@ function OnboardingView({
           ) : null}
 
           {step === 3 ? (
+            <div className="onboarding-view__panel ob-invite">
+              <OnboardingPanelHeader
+                title="邀请你的队友"
+                body="现在就把团队拉进来一起协作（可跳过）"
+              />
+              <div className="ob-invite__form">
+                <label className="ob-invite__field">
+                  <span className="ob-invite__label">队友邮箱</span>
+                  <textarea
+                    className="ob-invite__textarea"
+                    rows={4}
+                    placeholder={'输入邮箱，用逗号或换行分隔\nlina@team.com, wangfang@team.com'}
+                    value={inviteEmails}
+                    onChange={(event) => setInviteEmails(event.target.value)}
+                  />
+                  <span className="ob-invite__hint">
+                    {(() => {
+                      const count = inviteEmails
+                        .split(/[\s,;]+/)
+                        .map((value) => value.trim())
+                        .filter((value) => value.includes('@')).length;
+                      return count > 0
+                        ? `将向 ${count} 位队友发送邀请`
+                        : '支持一次粘贴多个邮箱';
+                    })()}
+                  </span>
+                </label>
+                <div className="ob-invite__field ob-invite__field--role">
+                  <OnboardingDropdown
+                    label="默认角色"
+                    placeholder="选择角色"
+                    value={inviteRole}
+                    options={[
+                      { value: 'admin', label: '管理员' },
+                      { value: 'member', label: '成员' },
+                    ]}
+                    onChange={(value) => {
+                      if (value === 'admin' || value === 'member') {
+                        setInviteRole(value);
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="ob-invite__actions">
+                <button
+                  type="button"
+                  className="onboarding-view__secondary"
+                  onClick={handleBackWithTracking}
+                  disabled={onboardingNavigationLocked}
+                >
+                  {t('settings.onboardingBack')}
+                </button>
+                <button
+                  type="button"
+                  className="onboarding-view__ghost ob-invite__skip"
+                  onClick={() => setStep((current) => current + 1)}
+                  disabled={onboardingNavigationLocked}
+                >
+                  跳过
+                </button>
+                <button
+                  type="button"
+                  className="onboarding-view__primary"
+                  onClick={() => setStep((current) => current + 1)}
+                  disabled={onboardingNavigationLocked}
+                >
+                  <span>发送邀请</span>
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {step === 4 ? (
             <div className="onboarding-view__panel onboarding-view__build">
               <span className="onboarding-view__build-badge">
                 <Icon name="sparkles" size={13} aria-hidden />
@@ -2645,7 +2745,7 @@ function OnboardingView({
             </div>
           ) : null}
 
-          {step === 3 ? null : (
+          {step === 3 || step === 4 ? null : (
             <div className="onboarding-view__actions">
               {step === 0 && amrLoginError ? (
                 <span className="onboarding-view__action-status is-error" role="alert">

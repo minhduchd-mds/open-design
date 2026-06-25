@@ -1,0 +1,305 @@
+/* ============================================================
+   Content plan view (demo) — UC-9b team content scheduling.
+
+   A Canva/Notion-style weekly content calendar: a 7-column CSS
+   grid (周一~周日) with channel-tagged content cards. Demo-only,
+   hard-coded Chinese mock data. Mirrors the .recent-projects /
+   .entry-section visual language (tokens, radii, hover lift).
+   ============================================================ */
+
+.content-plan {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ---------- Header ---------- */
+.content-plan__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.content-plan__head-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.content-plan__title {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-strong);
+}
+.content-plan__subtitle {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.content-plan__head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* 周 / 月 segmented switch (presentational only) */
+.content-plan__range {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg-subtle);
+}
+.content-plan__range-btn {
+  appearance: none;
+  border: 0;
+  min-width: 38px;
+  height: 26px;
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 120ms var(--ease-out), color 120ms var(--ease-out);
+}
+.content-plan__range-btn:hover {
+  color: var(--text);
+}
+.content-plan__range-btn.is-active {
+  background: var(--bg-panel);
+  color: var(--text-strong);
+  box-shadow: var(--shadow-xs);
+}
+
+/* "新建内容" primary button */
+.content-plan__new {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--accent-contrast, #fff);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.content-plan__new:hover {
+  filter: brightness(1.05);
+}
+
+/* ---------- Weekly calendar grid ---------- */
+.content-plan__calendar {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+  align-items: stretch;
+}
+
+.content-plan__col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 12px);
+  background: var(--bg-subtle);
+  overflow: hidden;
+}
+.content-plan__col.is-today {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.content-plan__col-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--bg-panel);
+}
+.content-plan__col-weekday {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+.content-plan__col-date {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.content-plan__col.is-today .content-plan__col-weekday {
+  color: var(--accent-strong, var(--accent));
+}
+
+.content-plan__col-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  min-height: 120px;
+}
+
+/* ---------- Content card ---------- */
+.content-plan__card {
+  --channel-color: var(--text-muted);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 11px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 10px);
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-xs);
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 140ms cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 140ms cubic-bezier(0.23, 1, 0.32, 1),
+    border-color 140ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+/* Colored channel strip along the card's top edge. */
+.content-plan__card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--channel-color);
+}
+.content-plan__card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md, 0 10px 24px rgba(0, 0, 0, 0.1));
+  border-color: var(--border-strong);
+}
+
+/* Channel accents */
+.content-plan__card--wechat { --channel-color: #07c160; }
+.content-plan__card--xhs { --channel-color: #ff2442; }
+.content-plan__card--x { --channel-color: #1a1917; }
+.content-plan__card--video { --channel-color: #ff7a00; }
+
+.content-plan__channel {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  height: 19px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--channel-color);
+  background: color-mix(in srgb, var(--channel-color) 12%, transparent);
+}
+
+.content-plan__card-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text-strong);
+  /* Keep titles to two lines max. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.content-plan__card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+/* Status badge — distinct soft fills per state. */
+.content-plan__badge {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+.content-plan__badge--draft {
+  color: var(--text-muted);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+}
+.content-plan__badge--review {
+  color: #b26200;
+  background: color-mix(in srgb, #f59e0b 16%, transparent);
+}
+.content-plan__badge--scheduled {
+  color: #2563eb;
+  background: color-mix(in srgb, #2563eb 14%, transparent);
+}
+.content-plan__badge--published {
+  color: #15803d;
+  background: color-mix(in srgb, #22c55e 16%, transparent);
+}
+
+/* Owner avatar (re-uses the mock team head shots). */
+.content-plan__owner {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--bg-panel);
+}
+.content-plan__owner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* ---------- Dark mode tweaks ---------- */
+[data-theme="dark"] .content-plan__card--x { --channel-color: #e7e5e2; }
+[data-theme="dark"] .content-plan__badge--review {
+  color: #fbbf24;
+}
+[data-theme="dark"] .content-plan__badge--scheduled {
+  color: #60a5fa;
+}
+[data-theme="dark"] .content-plan__badge--published {
+  color: #4ade80;
+}
+
+/* ---------- Narrow screens: horizontal scroll, no overflow ---------- */
+@media (max-width: 900px) {
+  .content-plan__calendar {
+    grid-template-columns: repeat(7, minmax(180px, 1fr));
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding-bottom: 6px;
+    scrollbar-width: thin;
+  }
+}

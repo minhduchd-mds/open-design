@@ -1,0 +1,78 @@
+/* ============================================================
+   Onboarding — «邀请你的队友» step (demo).
+
+   Lightweight invite step inserted after the newsletter step in the
+   first-run wizard (UC-2 entry point 3). Visual language mirrors the
+   surrounding .onboarding-view__panel surfaces: token-driven colors,
+   soft borders, the shared ease-out easing.
+   ============================================================ */
+.ob-invite {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.ob-invite__form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.ob-invite__field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ob-invite__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ob-invite__textarea {
+  width: 100%;
+  min-height: 104px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 12px);
+  background: var(--surface-2, var(--surface));
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+  transition:
+    border-color 0.15s cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 0.15s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.ob-invite__textarea::placeholder {
+  color: var(--text-muted);
+}
+.ob-invite__textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft, rgba(99, 102, 241, 0.18));
+}
+
+.ob-invite__hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Role dropdown reuses the wizard's OnboardingDropdown; cap its width so
+   the role picker reads as a compact secondary control. */
+.ob-invite__field--role {
+  max-width: 240px;
+}
+
+.ob-invite__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+/* Push the primary "发送邀请" to the right, keep Back + 跳过 grouped left. */
+.ob-invite__skip {
+  margin-right: auto;
+}

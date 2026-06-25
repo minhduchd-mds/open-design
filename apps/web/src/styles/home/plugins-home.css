@@ -497,7 +497,11 @@
 }
 .plugins-home__gallery-frame {
   position: relative;
-  height: 300px;
+  /* Keep the original landscape preview proportion (≈4:3) regardless of how
+     wide the fixed 4-column grid makes each card, instead of a fixed pixel
+     height that turns narrower cards squarish. */
+  height: auto;
+  aspect-ratio: 4 / 3;
   background: #fff;
   overflow: hidden;
 }
@@ -956,6 +960,7 @@
 .plugins-home__card-title {
   display: inline-flex;
   align-items: center;
+  flex: 1 1 auto;
   font-weight: 600;
   color: var(--text-strong);
   font-size: 13px;
@@ -968,6 +973,70 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 私有/共享 capsule + hover-revealed toggle in the card foot. Mirrors the
+   project-card角标: 小圆角胶囊, 共享=蓝(accent), 私有=灰. */
+.plugins-home__visibility {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: 0 0 auto;
+  height: 18px;
+  padding: 0 7px 0 6px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  color: var(--text-faint);
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.plugins-home__visibility--shared {
+  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+.plugins-home__visibility--private {
+  border-color: var(--border);
+  background: var(--bg-subtle);
+  color: var(--text-faint);
+}
+
+/* Compact inline toggle, revealed on card hover so the resting foot stays clean. */
+.plugins-home__visibility-toggle {
+  appearance: none;
+  display: none;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 560;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 120ms var(--ease-out), color 120ms var(--ease-out),
+    background-color 120ms var(--ease-out);
+}
+.plugins-home__card:hover .plugins-home__visibility-toggle,
+.plugins-home__card:focus-within .plugins-home__visibility-toggle {
+  display: inline-flex;
+}
+.plugins-home__visibility-toggle:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+.plugins-home__visibility-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 /* Card action buttons — overlay variant */
