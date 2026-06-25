@@ -154,57 +154,13 @@
       });
     }
 
-    // Product and Resources are category labels (not pages), rendered as
-    // <button data-nav-dropdown-toggle> disclosures that open their own
-    // dropdown instead of navigating (Product used to bounce to the homepage,
-    // Resources to /blog/). They are real disclosures at EVERY breakpoint,
-    // driven solely by the JS-toggled .is-open class — `.has-dropdown-click`
-    // opts them out of the CSS :hover / :focus-within reveal AND collapses
-    // them on the flattened mobile menu, so the SSR aria-expanded="false" is
-    // truthful even before/without JS (the panel is CSS-collapsed by default
-    // at every width: desktop flyout, mobile accordion). On desktop this also
-    // handles tap on touch laptops/tablets that have no hover.
-    const dropdownToggles = document.querySelectorAll('[data-nav-dropdown-toggle]');
-    if (dropdownToggles.length > 0) {
-      const closeDropdown = (li) => {
-        li.classList.remove('is-open');
-        const btn = li.querySelector('[data-nav-dropdown-toggle]');
-        if (btn) btn.setAttribute('aria-expanded', 'false');
-      };
-      const closeAllDropdowns = (except) => {
-        document.querySelectorAll('li.has-dropdown.is-open').forEach((li) => {
-          if (li !== except) closeDropdown(li);
-        });
-      };
-      dropdownToggles.forEach((btn) => {
-        const li = btn.closest('li.has-dropdown');
-        if (!li) return;
-        btn.addEventListener('click', (ev) => {
-          ev.stopPropagation();
-          const open = !li.classList.contains('is-open');
-          closeAllDropdowns(li);
-          li.classList.toggle('is-open', open);
-          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-        });
-      });
-      // The four hub menus still open on pure CSS :hover / :focus-within. When
-      // any other header item becomes active, close a click-pinned disclosure
-      // so a pinned panel and a hovered panel can't show at once.
-      document.querySelectorAll('li.has-dropdown').forEach((li) => {
-        const closeOthers = () => closeAllDropdowns(li);
-        li.addEventListener('mouseenter', closeOthers);
-        li.addEventListener('focusin', closeOthers);
-      });
-      // Outside-click and Escape close any open disclosure dropdown.
-      document.addEventListener('click', (ev) => {
-        document.querySelectorAll('li.has-dropdown.is-open').forEach((li) => {
-          if (!li.contains(ev.target)) closeDropdown(li);
-        });
-      });
-      document.addEventListener('keydown', (ev) => {
-        if (ev.key === 'Escape') closeAllDropdowns(null);
-      });
-    }
+    // Product and Resources are category labels (not pages): they render as
+    // <button class="nav-trigger"> so they never navigate (Product used to
+    // bounce to the homepage, Resources to /blog/), and their dropdown is
+    // revealed by the SAME pure-CSS :hover / :focus-within rule as the hub
+    // menus — no JS, so it works on first paint / with JS disabled, and on
+    // touch (tapping the button focuses it → :focus-within reveals the menu).
+    // No JS enhancement is needed here.
 
     const starSlots = document.querySelectorAll('[data-github-stars]');
     if (starSlots.length > 0) {

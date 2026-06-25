@@ -179,17 +179,14 @@ export function Header({
             {/* Product — the Open Design products. The trigger lights up only
                 for its own family; every other section maps to its own
                 trigger below, so a sub-page never marks Product by accident.
-                `has-dropdown-click` opts this menu out of the CSS :hover /
-                :focus-within reveal so it is driven solely by the JS .is-open
-                toggle (disclosure-button semantics) — otherwise a retained
-                hover/focus would re-open the panel right after an explicit
-                click/Escape close. */}
-            <li className='has-dropdown has-dropdown-click'>
+                It is a <button> (not a link) so it never navigates — Product
+                used to bounce to the homepage — but its dropdown is revealed
+                by the SAME pure-CSS :hover / :focus-within rule as the hub
+                menus, so it works with no JS (first paint / script failure)
+                and on touch (tapping focuses the button → :focus-within). */}
+            <li className='has-dropdown'>
               <button
                 type='button'
-                data-nav-dropdown-toggle
-                aria-haspopup='true'
-                aria-expanded='false'
                 className={
                   'nav-trigger' +
                   (active === 'product' ||
@@ -345,15 +342,12 @@ export function Header({
             </li>
 
             {/* Resources — a category label (Blog / Tutorials / Compare), not
-                a page. `has-dropdown-click` opts it out of the CSS hover /
-                focus-within reveal so the JS .is-open toggle is the single
-                source of truth for open/close (see Product above). */}
-            <li className='has-dropdown has-dropdown-click'>
+                a page; a <button> so it never navigates (it used to bounce to
+                /blog/), with its dropdown revealed by the same pure-CSS
+                :hover / :focus-within rule as the hub menus (see Product). */}
+            <li className='has-dropdown'>
               <button
                 type='button'
-                data-nav-dropdown-toggle
-                aria-haspopup='true'
-                aria-expanded='false'
                 className={
                   'nav-trigger' +
                   (active === 'resources' ||
