@@ -8073,6 +8073,35 @@ export async function startServer({
               return;
             }
           }
+          // Hold back the `resume_failed` error so the same-turn reseed stays
+          // transparent. When this run is resuming an upstream session via
+          // `session/load` and the agent reports that session is gone, the ACP
+          // bridge has already called `fail()` -> `send('error')` for the failed
+          // load. The child-close handler then clears the stale handle and
+          // re-runs this turn fresh (the resume-target-missing block below), so
+          // forwarding this error would flash an execution failure — and trip
+          // clients that treat an SSE `error` as terminal — a beat before the
+          // invisible recovery. Suppress it and leave a diagnostic instead; the
+          // close handler is the sole authority on whether this turn ends in an
+          // error or a transparent reseed. The `resumeAutoReseeded` guard lets a
+          // second resume failure in one run fall through to the explicit
+          // "resend your message" affordance the close handler emits.
+          if (
+            event === 'error' &&
+            def.resumesSessionViaAcpLoad === true &&
+            agentResumeCtx.isResuming &&
+            agentResumeCtx.resumeSessionId &&
+            !run.resumeAutoReseeded &&
+            isAgentResumeFailure(def.id, agentStderrTail, agentStdoutTail)
+          ) {
+            design.runs.emit(run, 'diagnostic', {
+              type: 'agent_resume_failed_suppressed',
+              agent_id: def.id,
+              reason: 'resume_failed',
+              previous_session_id: agentResumeCtx.resumeSessionId ?? null,
+            });
+            return;
+          }
           if (event === 'agent' && data?.type === 'text_delta' && typeof data.delta === 'string') {
             if (emitTitleFilteredGuardedTextDelta(data.delta)) {
               noteFirstTokenAt();

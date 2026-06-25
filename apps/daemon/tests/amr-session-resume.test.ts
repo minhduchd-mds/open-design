@@ -127,6 +127,49 @@ describe('AMR (vela) ACP session resume — full server cycle', () => {
     expect(await readInvocations(logPath)).toEqual(['new', 'load', 'new']);
   });
 
+  it('does not flash a client-visible error event during the transparent reseed', async () => {
+    binDir = await mkdtemp(path.join(os.tmpdir(), 'od-amr-reseed-noerror-bin-'));
+    const logPath = path.join(binDir, 'invocations.jsonl');
+    const bin = await writeVelaWrapper(binDir, 'vela-deadresume-noerror', { logPath, resumeFailed: true });
+
+    clearTelemetryEnv();
+    started = (await startServer({ port: 0, returnServer: true })) as StartedServer;
+    await putConfig(started.url, {
+      agentId: 'amr',
+      agentCliEnv: { amr: { VELA_BIN: bin } },
+      telemetry: { metrics: true, content: false, artifactManifest: false },
+      privacyDecisionAt: Date.now(),
+    });
+
+    const conversationId = await createConversation(started.url);
+
+    expect((await sendRunAndWait(started.url, conversationId, 'first request')).status)
+      .toBe('succeeded');
+
+    // Turn 2 resumes a now-dead session: vela returns resume_failed and the ACP
+    // bridge calls fail() -> send('error') for the failed session/load BEFORE the
+    // close handler clears the stale handle and re-runs the turn fresh. That
+    // recovery is meant to be INVISIBLE, so the run's event log must carry no
+    // client-visible `error` event — only the internal suppression diagnostic.
+    const turn2 = await sendRunAndWait(started.url, conversationId, 'second request');
+    expect(turn2.status).toBe('succeeded');
+
+    const events = await readRunEvents(turn2.eventsLogPath);
+    // Red before the fix: an `error` event flashes here even though turn 2
+    // ultimately succeeds via the reseed, tripping any client that treats an SSE
+    // `error` as terminal.
+    expect(events.filter((e) => e.event === 'error')).toEqual([]);
+    // The failure is held back as a non-user-visible diagnostic instead.
+    expect(
+      events.some(
+        (e) => e.event === 'diagnostic'
+          && (e.data as { type?: string } | null)?.type === 'agent_resume_failed_suppressed',
+      ),
+    ).toBe(true);
+    // The transparent reseed still happened: new → load (dead) → new.
+    expect(await readInvocations(logPath)).toEqual(['new', 'load', 'new']);
+  });
+
   it('opens a fresh session next turn when turn 1 yields no durable handle', async () => {
     binDir = await mkdtemp(path.join(os.tmpdir(), 'od-amr-nohandle-bin-'));
     const logPath = path.join(binDir, 'invocations.jsonl');
@@ -254,6 +297,22 @@ async function readInvocations(logPath: string): Promise<string[]> {
     .split('\n')
     .filter(Boolean)
     .map((line) => (JSON.parse(line) as { method: string }).method);
+}
+
+async function readRunEvents(
+  eventsLogPath: string,
+): Promise<Array<{ event: string; data: unknown }>> {
+  let raw = '';
+  try {
+    raw = await readFile(eventsLogPath, 'utf8');
+  } catch {
+    return [];
+  }
+  return raw
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as { event: string; data: unknown });
 }
 
 function snapshotEnv(): Record<string, string | undefined> {
