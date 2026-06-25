@@ -20,12 +20,9 @@ test.describe.configure({ timeout: T.long });
 
 test('[P0] after local Sign out, AMR runs require re-login and Settings keeps AMR selected', async ({ page }) => {
   const root = join(tmpdir(), `open-design-amr-logout-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-  const successVelaBin = await writeFakeVelaBin(join(root, 'bin-success'), {
-    assistantText: 'Hello from the e2e fake vela.',
-    requireLoginConfig: false,
-  });
   const reloginVelaBin = await writeFakeVelaBin(join(root, 'bin-relogin'), {
     failAuthAtPrompt: true,
+    requireLoginConfig: false,
   });
   await mkdir(root, { recursive: true });
   let loggedIn = true;
@@ -67,7 +64,7 @@ test('[P0] after local Sign out, AMR runs require re-login and Settings keeps AM
       amr: { model: 'default', reasoning: 'default' },
     },
     agentCliEnv: {
-      amr: { VELA_BIN: successVelaBin },
+      amr: { VELA_BIN: reloginVelaBin },
     },
   };
 
@@ -92,14 +89,6 @@ test('[P0] after local Sign out, AMR runs require re-login and Settings keeps AM
   await expect(reopenedSettings.getByRole('button', { name: /^Authorize$|^Sign in$/i })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(reopenedSettings).toHaveCount(0);
-  const reloginConfig = {
-    ...config,
-    agentCliEnv: {
-      amr: { VELA_BIN: reloginVelaBin },
-    },
-  };
-  await seedBrowserConfig(page, reloginConfig);
-  await putAppConfig(page, reloginConfig);
   await sendPrompt(page, 'AMR logout should require relogin');
 
   await expect(runErrorCard(page)).toContainText(/authorize|sign in again|login missing|expired|ACP session exited before completion/i, {
