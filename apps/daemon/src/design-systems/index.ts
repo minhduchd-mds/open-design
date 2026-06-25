@@ -1131,37 +1131,45 @@ export async function createUserDesignSystem(
     sourceNotes,
   });
   const surface = input.surface ?? extractSurface(body) ?? 'web';
-  await mkdir(path.join(root, dirId), { recursive: true });
-  await writeFile(path.join(root, dirId, 'DESIGN.md'), body, 'utf8');
-  const artifactMode = normalizeArtifactMode(input.artifactMode);
-  await writeUserMetadata(root, dirId, {
-    title,
-    category: cleanText(input.category) || extractCategory(body) || 'Custom',
-    surface,
-    status: input.status ?? 'draft',
-    ...(artifactMode ? { artifactMode } : {}),
-    createdAt: now,
-    updatedAt: now,
-    ...(provenance ? { provenance } : {}),
-  });
-  if (artifactMode !== 'agent-managed') {
-    await writeGeneratedDesignSystemFiles(root, dirId, {
+  const dir = path.join(root, dirId);
+  let createdDir = false;
+  try {
+    await mkdir(dir, { recursive: true });
+    createdDir = true;
+    await writeFile(path.join(dir, 'DESIGN.md'), body, 'utf8');
+    const artifactMode = normalizeArtifactMode(input.artifactMode);
+    await writeUserMetadata(root, dirId, {
       title,
       category: cleanText(input.category) || extractCategory(body) || 'Custom',
       surface,
-      summary: summarize(body),
+      status: input.status ?? 'draft',
+      ...(artifactMode ? { artifactMode } : {}),
+      createdAt: now,
+      updatedAt: now,
       ...(provenance ? { provenance } : {}),
-      ...(sourceNotes ? { sourceNotes } : {}),
-      body,
     });
+    if (artifactMode !== 'agent-managed') {
+      await writeGeneratedDesignSystemFiles(root, dirId, {
+        title,
+        category: cleanText(input.category) || extractCategory(body) || 'Custom',
+        surface,
+        summary: summarize(body),
+        ...(provenance ? { provenance } : {}),
+        ...(sourceNotes ? { sourceNotes } : {}),
+        body,
+      });
+    }
+    const listed = await listDesignSystems(root, {
+      idPrefix: 'user:',
+      source: 'user',
+      isEditable: true,
+      defaultStatus: 'draft',
+    });
+    return listed.find((s) => s.id === `user:${dirId}`)!;
+  } catch (err) {
+    if (createdDir) await rm(dir, { recursive: true, force: true });
+    throw err;
   }
-  const listed = await listDesignSystems(root, {
-    idPrefix: 'user:',
-    source: 'user',
-    isEditable: true,
-    defaultStatus: 'draft',
-  });
-  return listed.find((s) => s.id === `user:${dirId}`)!;
 }
 
 export async function updateUserDesignSystem(
