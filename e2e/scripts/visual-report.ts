@@ -13,6 +13,8 @@ const marker = '<!-- visual-regression-bot -->';
 const visualPrefix = 'visual-regression';
 const inlineCaseLimit = 20;
 const pixelThreshold = 0.1;
+const changedPixelFloor = 500;
+const changedPixelRatioFloor = 0.02;
 const diffBoxPadding = 6;
 const diffBoxMergeDistance = 12;
 const diffBoxStrokeWidth = 3;
@@ -46,6 +48,7 @@ type ComparedCase = {
   name: string;
   status: 'changed' | 'unchanged' | 'missing-baseline' | 'failed';
   diffPixels?: number;
+  diffPixelRatio?: number;
   baselineSha?: string;
   baselineBehindBy?: number;
   mainUrl?: string;
@@ -228,16 +231,22 @@ export async function compareCase(input: {
   await putFileOp(r2, mainKey, mainPath);
   await putFileOp(r2, diffKey, diffPath);
 
+  const diffPixelRatio = diffPixels / pngPixelCount(visualBuffer, visualCase.path);
   return {
     name: visualCase.name,
-    status: diffPixels > 0 ? 'changed' : 'unchanged',
+    status: isChangedVisualDiff(diffPixels, diffPixelRatio) ? 'changed' : 'unchanged',
     diffPixels,
+    diffPixelRatio,
     baselineSha: baseline.sha,
     baselineBehindBy: baseline.behindBy,
     mainUrl: publicUrl(r2, mainKey),
     prUrl: publicUrl(r2, prKey),
     diffUrl: publicUrl(r2, diffKey),
   };
+}
+
+export function isChangedVisualDiff(diffPixels: number, diffPixelRatio: number): boolean {
+  return diffPixels >= changedPixelFloor && diffPixelRatio >= changedPixelRatioFloor;
 }
 
 async function writeDiffPng(mainPath: string, prPath: string, diffPath: string): Promise<number> {
@@ -478,6 +487,16 @@ function assertPngHeaderSize(buffer: Buffer, filePath: string): void {
   assertPngPixels(buffer.readUInt32BE(16), buffer.readUInt32BE(20), filePath);
 }
 
+function pngPixelCount(buffer: Buffer, filePath: string): number {
+  if (buffer.length < 24) {
+    throw new Error(`Visual case ${filePath} is not a valid PNG file`);
+  }
+  const width = buffer.readUInt32BE(16);
+  const height = buffer.readUInt32BE(20);
+  assertPngPixels(width, height, filePath);
+  return width * height;
+}
+
 function assertPngSize(png: PNG, filePath: string): void {
   assertPngPixels(png.width, png.height, filePath);
 }
@@ -588,7 +607,7 @@ function renderComment(input: { compared: ComparedCase[]; headSha: string; baseS
   lines.push('', summaryLine({ changed, unchanged, missing, failed }), '');
 
   if (changed.length > 0) {
-    lines.push('### Changed cases', '', ...renderCaseTable(changed.slice(0, inlineCaseLimit)), '');
+    lines.push('### Changed cases', '', ...renderCaseList(changed.slice(0, inlineCaseLimit)), '');
     if (changed.length > inlineCaseLimit) {
       lines.push(`_${changed.length - inlineCaseLimit} additional changed case(s) omitted from this comment._`, '');
     }
@@ -603,11 +622,11 @@ function renderComment(input: { compared: ComparedCase[]; headSha: string; baseS
   }
 
   if (missing.length > 0) {
-    lines.push('<details><summary>PR screenshots without baselines</summary>', '', ...renderCaseTable(missing.slice(0, inlineCaseLimit), false), '</details>', '');
+    lines.push('<details><summary>PR screenshots without baselines</summary>', '', ...renderCaseList(missing.slice(0, inlineCaseLimit), false), '</details>', '');
   }
 
   if (unchanged.length > 0) {
-    lines.push('<details><summary>Unchanged cases</summary>', '', ...renderCaseTable(unchanged.slice(0, inlineCaseLimit)), '</details>', '');
+    lines.push('<details><summary>Unchanged cases</summary>', '', ...renderCaseList(unchanged.slice(0, inlineCaseLimit)), '</details>', '');
   }
 
   lines.push('_Visual diff is advisory only and does not block merging._', '');
@@ -623,21 +642,32 @@ function summaryLine(groups: { changed: ComparedCase[]; unchanged: ComparedCase[
   ].join(' · ');
 }
 
-function renderCaseTable(cases: ComparedCase[], includeDiff = true): string[] {
-  const lines = includeDiff
-    ? ['| Case | Main | PR | Diff |', '| --- | --- | --- | --- |']
-    : ['| Case | PR |', '| --- | --- |'];
-
+function renderCaseList(cases: ComparedCase[], includeDiff = true): string[] {
+  const lines: string[] = [];
   for (const visualCase of cases) {
     const baselineNote = visualCase.baselineBehindBy != null && visualCase.baselineBehindBy > 0
-      ? `<br><sub>baseline ${visualCase.baselineBehindBy} commit(s) behind</sub>`
+      ? ` · baseline ${visualCase.baselineBehindBy} commit(s) behind`
       : '';
+    const diffNote = visualCase.diffPixels == null
+      ? ''
+      : ` · ${visualCase.diffPixels.toLocaleString('en-US')} px${visualCase.diffPixelRatio == null ? '' : ` (${formatPercent(visualCase.diffPixelRatio)})`}`;
+    lines.push(`#### ${escapeMarkdown(visualCase.name)}`);
+    const notes = `${diffNote}${baselineNote}`.replace(/^ · /u, '');
+    if (notes.length > 0) {
+      lines.push(`<sub>${escapeHtml(notes)}</sub>`);
+    }
     if (includeDiff) {
       lines.push(
-        `| ${escapeMarkdown(visualCase.name)}${baselineNote} | ${imageCell(visualCase.mainUrl, 'main')} | ${imageCell(visualCase.prUrl, 'pr')} | ${imageCell(visualCase.diffUrl, 'diff')} |`,
+        '',
+        `<strong>Main</strong><br>${imageCell(visualCase.mainUrl, 'main')}`,
+        '',
+        `<strong>PR</strong><br>${imageCell(visualCase.prUrl, 'pr')}`,
+        '',
+        `<strong>Diff</strong><br>${imageCell(visualCase.diffUrl, 'diff')}`,
+        '',
       );
     } else {
-      lines.push(`| ${escapeMarkdown(visualCase.name)} | ${imageCell(visualCase.prUrl, 'pr')} |`);
+      lines.push('', `<strong>PR</strong><br>${imageCell(visualCase.prUrl, 'pr')}`, '');
     }
   }
 
@@ -645,7 +675,11 @@ function renderCaseTable(cases: ComparedCase[], includeDiff = true): string[] {
 }
 
 function imageCell(url: string | undefined, alt: string): string {
-  return url == null ? 'n/a' : `<img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}" width="280">`;
+  return url == null ? 'n/a' : `<img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}" width="640">`;
+}
+
+function formatPercent(value: number): string {
+  return `${(value * 100).toFixed(2)}%`;
 }
 
 async function objectExists(r2: R2Config, key: string): Promise<boolean> {
