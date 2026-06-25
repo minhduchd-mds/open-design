@@ -180,20 +180,24 @@ export function Header({
                 for its own family; every other section maps to its own
                 trigger below, so a sub-page never marks Product by accident. */}
             <li className='has-dropdown'>
-              <a
-                href={href('/')}
+              <button
+                type='button'
+                data-nav-dropdown-toggle
+                aria-haspopup='true'
+                aria-expanded='false'
                 className={
-                  active === 'product' ||
+                  'nav-trigger' +
+                  (active === 'product' ||
                   active === 'home' ||
                   active === 'html-anything' ||
                   active === 'html-video'
-                    ? 'is-active'
-                    : undefined
+                    ? ' is-active'
+                    : '')
                 }
               >
                 {productMenuCopy.product}
                 <span className='dropdown-caret' aria-hidden='true'>▾</span>
-              </a>
+              </button>
               <ul className='nav-dropdown' aria-label={productMenuCopy.product}>
                 <li>
                   <a href={href('/')}>
@@ -338,20 +342,24 @@ export function Header({
             {/* Resources — the top-level link mirrors the live site, which
                 points it at the blog index. */}
             <li className='has-dropdown'>
-              <a
-                href={href('/blog/')}
+              <button
+                type='button'
+                data-nav-dropdown-toggle
+                aria-haspopup='true'
+                aria-expanded='false'
                 className={
-                  active === 'resources' ||
+                  'nav-trigger' +
+                  (active === 'resources' ||
                   active === 'blog' ||
                   active === 'tutorials' ||
                   active === 'download'
-                    ? 'is-active'
-                    : undefined
+                    ? ' is-active'
+                    : '')
                 }
               >
                 {productMenuCopy.resources}
                 <span className='dropdown-caret' aria-hidden='true'>▾</span>
-              </a>
+              </button>
               <ul className='nav-dropdown' aria-label={productMenuCopy.resources}>
                 <li>
                   <a href={href('/blog/')}>

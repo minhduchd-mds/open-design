@@ -139,9 +139,10 @@
         ev.stopPropagation();
         setOpen(!navEl.classList.contains('is-open'));
       });
-      // Close when clicking any actual nav link (but not the Product
-      // parent trigger — its href='/' is a real page link, so we let it
-      // navigate which closes the menu naturally).
+      // Close when clicking any actual nav link. The Product and Resources
+      // parent triggers are <button>s (category labels that only open their
+      // dropdown), not <a>s, so they are naturally excluded here and never
+      // close the mobile menu on tap.
       primaryNav.querySelectorAll('a').forEach((link) => {
         link.addEventListener('click', () => setOpen(false));
       });
@@ -150,6 +151,48 @@
       });
       document.addEventListener('keydown', (ev) => {
         if (ev.key === 'Escape') setOpen(false);
+      });
+    }
+
+    // Dropdown disclosure toggles. Product and Resources are category labels
+    // (not pages), rendered as <button data-nav-dropdown-toggle> that open
+    // their own dropdown instead of navigating (Product used to bounce to the
+    // homepage, Resources to /blog/). On pointer devices CSS :hover still
+    // opens them; this handles click and — crucially — TAP on touch devices
+    // with no hover (touch laptops / tablets at desktop width), where the
+    // dropdown was otherwise unreachable. On the flattened mobile menu the
+    // dropdown is always shown, so toggling is a harmless no-op.
+    const dropdownToggles = document.querySelectorAll('[data-nav-dropdown-toggle]');
+    if (dropdownToggles.length > 0) {
+      const closeDropdown = (li) => {
+        li.classList.remove('is-open');
+        const btn = li.querySelector('[data-nav-dropdown-toggle]');
+        if (btn) btn.setAttribute('aria-expanded', 'false');
+      };
+      const closeAllDropdowns = (except) => {
+        document.querySelectorAll('li.has-dropdown.is-open').forEach((li) => {
+          if (li !== except) closeDropdown(li);
+        });
+      };
+      dropdownToggles.forEach((btn) => {
+        const li = btn.closest('li.has-dropdown');
+        if (!li) return;
+        btn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const open = !li.classList.contains('is-open');
+          closeAllDropdowns(li);
+          li.classList.toggle('is-open', open);
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+      });
+      // Outside-click and Escape close any open disclosure dropdown.
+      document.addEventListener('click', (ev) => {
+        document.querySelectorAll('li.has-dropdown.is-open').forEach((li) => {
+          if (!li.contains(ev.target)) closeDropdown(li);
+        });
+      });
+      document.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape') closeAllDropdowns(null);
       });
     }
 

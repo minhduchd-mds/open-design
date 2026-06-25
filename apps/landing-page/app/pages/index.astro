@@ -1430,6 +1430,45 @@ const matterRuntime = readFileSync(
             if (ev.key === 'Escape') setNavOpen(false);
           });
         })();
+        // Dropdown disclosure toggles. Product and Resources are category
+        // labels rendered as <button data-nav-dropdown-toggle> that open their
+        // own dropdown instead of navigating. CSS :hover still opens them on
+        // pointer devices; this handles click and TAP on touch devices with no
+        // hover (touch laptops / tablets at desktop width). Mirrors the same
+        // wiring in `header-enhancer.astro` (used by every sub-page).
+        (function enhanceNavDropdownToggles() {
+          const toggles = document.querySelectorAll('[data-nav-dropdown-toggle]');
+          if (toggles.length === 0) return;
+          const closeDropdown = (li) => {
+            li.classList.remove('is-open');
+            const btn = li.querySelector('[data-nav-dropdown-toggle]');
+            if (btn) btn.setAttribute('aria-expanded', 'false');
+          };
+          const closeAllDropdowns = (except) => {
+            document.querySelectorAll('li.has-dropdown.is-open').forEach((li) => {
+              if (li !== except) closeDropdown(li);
+            });
+          };
+          toggles.forEach((btn) => {
+            const li = btn.closest('li.has-dropdown');
+            if (!li) return;
+            btn.addEventListener('click', (ev) => {
+              ev.stopPropagation();
+              const open = !li.classList.contains('is-open');
+              closeAllDropdowns(li);
+              li.classList.toggle('is-open', open);
+              btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+            });
+          });
+          document.addEventListener('click', (ev) => {
+            document.querySelectorAll('li.has-dropdown.is-open').forEach((li) => {
+              if (!li.contains(ev.target)) closeDropdown(li);
+            });
+          });
+          document.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Escape') closeAllDropdowns(null);
+          });
+        })();
         enhanceDragIcon();
         enhanceWire();
         enhanceStatementReveal();
