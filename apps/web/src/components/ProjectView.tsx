@@ -6566,17 +6566,6 @@ export function ProjectView({
         await refreshAfterProgrammaticContinue('ready');
         return;
       }
-      if (snapshot.status === 'read-failed') {
-        setBrandExtractionStatusOverride({ brandId, status: 'failed' });
-        setProjectActionsToast({
-          message: snapshot.message,
-          details: null,
-          tone: 'error',
-          ttlMs: 5000,
-        });
-        return;
-      }
-
       const outcome = await continueBrandExtraction(brandId);
       if (!outcome.ok) {
         setBrandExtractionStatusOverride({ brandId, status: 'failed' });

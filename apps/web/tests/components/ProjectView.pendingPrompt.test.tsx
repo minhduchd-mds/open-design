@@ -730,6 +730,36 @@ describe('ProjectView pending prompt seeding', () => {
     expect(mockedExtractBrandFromHtml).not.toHaveBeenCalled();
   });
 
+  it('falls back to programmatic retry when the Browser tab DOM read fails', async () => {
+    const executeJavaScript = vi.fn().mockRejectedValueOnce(new Error('bridge timed out'));
+    brandBrowserBridgeMocks.getBrandBrowser.mockReturnValue({
+      isDesktopWebview: true,
+      getURL: () => 'https://economist.com/',
+      executeJavaScript,
+    });
+
+    renderProjectView(
+      {
+        ...project('brand-retry'),
+        metadata: {
+          kind: 'brand',
+          importedFrom: 'brand-extraction',
+          brandId: 'brand-retry',
+          brandSourceUrl: 'https://economist.com/',
+          brandDesignSystemId: 'user:brand-retry',
+        },
+      },
+    );
+
+    await waitFor(() => {
+      expect(chatPaneSpy.mock.calls.at(-1)?.[0].onContinueBrandExtraction).toBeTypeOf('function');
+    });
+    chatPaneSpy.mock.calls.at(-1)?.[0].onContinueBrandExtraction?.();
+
+    await waitFor(() => expect(mockedContinueBrandExtraction).toHaveBeenCalledWith('brand-retry'));
+    expect(mockedExtractBrandFromHtml).not.toHaveBeenCalled();
+  });
+
   it('does not duplicate a persisted browser-assist card already in the conversation', async () => {
     mockedFetchBrands.mockResolvedValue([
       {
