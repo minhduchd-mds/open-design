@@ -241,16 +241,14 @@
 .entry-local-mode-tip {
   position: relative;
   display: grid;
-  gap: 5px;
+  gap: 4px;
   width: 100%;
-  padding: 10px 28px 10px 11px;
-  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
+  padding: 9px 28px 9px 10px;
+  border: 1px solid var(--border);
   border-radius: var(--radius);
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 62%),
-    var(--bg-panel);
+  background: var(--bg-panel);
   color: var(--text-muted);
-  font-size: 11.5px;
+  font-size: 11px;
   line-height: 1.4;
   text-align: left;
   cursor: pointer;
@@ -258,10 +256,8 @@
 }
 .entry-local-mode-tip:hover,
 .entry-local-mode-tip:focus-visible {
-  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent 62%),
-    var(--bg-panel);
+  border-color: var(--border-strong);
+  background: var(--bg-subtle);
   outline: none;
   transform: translateY(-1px);
 }
@@ -274,7 +270,7 @@
 }
 .entry-local-mode-tip__head strong {
   overflow: hidden;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -283,9 +279,9 @@
   display: grid;
   flex: 0 0 auto;
   place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 7px;
   background: var(--accent-tint);
   color: var(--accent);
 }
@@ -5801,27 +5797,28 @@
 .credit-upgrade {
   position: relative;
   width: 100%;
-  max-width: 460px;
+  max-width: 500px;
   max-height: calc(100vh - 48px);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 32px 32px 26px;
+  gap: 13px;
+  padding: 28px 28px 24px;
   border-radius: var(--radius-lg, 16px);
   background: var(--bg-panel);
   border: 1px solid var(--border);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 22px 58px rgba(0, 0, 0, 0.2);
   animation: entry-invite-in 200ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 .credit-upgrade__badge {
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
-  border-radius: 12px;
-  background: linear-gradient(150deg, #f59e0b 0%, #d97706 100%);
-  color: #fff;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-panel));
+  color: var(--accent-strong);
 }
 .credit-upgrade__title {
   margin: 0;
@@ -5851,14 +5848,14 @@
 .credit-upgrade__auto-card {
   border: 1px solid var(--border);
   border-radius: var(--radius-md, 12px);
-  background: var(--bg-panel);
+  background: var(--bg-subtle);
 }
 .credit-upgrade__payment {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  padding: 16px 18px;
+  padding: 13px 14px;
   font-size: 13px;
   line-height: 1.4;
   color: var(--text-muted);
@@ -5885,7 +5882,7 @@
   transform: translateY(-1px);
 }
 .credit-upgrade__auto-card {
-  padding: 18px;
+  padding: 14px;
 }
 .credit-upgrade__section-title {
   margin: 0 0 14px;
@@ -5896,10 +5893,10 @@
 .credit-upgrade__limit-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 .credit-upgrade__limit {
-  min-height: 46px;
+  min-height: 42px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -5908,7 +5905,7 @@
   border-radius: var(--radius-sm, 9px);
   background: var(--bg-panel);
   color: var(--text-strong);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
   transition: border-color 120ms, background 120ms, color 120ms, box-shadow 120ms;
@@ -5917,10 +5914,10 @@
   border-color: var(--border-strong);
 }
 .credit-upgrade__limit.is-active {
-  border-color: #1f1f1f;
-  background: #202020;
+  border-color: var(--text-strong);
+  background: var(--text-strong);
   color: #fff;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.16);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--text-strong) 14%, transparent);
 }
 .credit-upgrade__limit--wide {
   grid-column: span 3;

@@ -32,7 +32,6 @@ export function TeamDashboardView() {
 
       <section className="team-dashboard__hero" aria-label="UC-10 数据大盘">
         <div className="team-dashboard__hero-copy">
-          <span className="team-dashboard__kicker">Workspace analytics</span>
           <h2>Nexu 团队</h2>
           <p>汇总团队产出、Design System 沉淀、活跃协作和 token 消耗结构。</p>
         </div>

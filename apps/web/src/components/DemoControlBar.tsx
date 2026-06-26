@@ -52,14 +52,12 @@ interface Props {
 }
 
 const MAIN_CHIPS: Array<{ id: DemoScenario; label: string }> = [
-  { id: 'home',           label: '🏠 主页' },
-  { id: 'onboarding-new', label: '🎉 新注册' },
+  { id: 'home',           label: '主页' },
+  { id: 'onboarding-new', label: '新注册' },
 ];
 
 const INVITE_CHIPS: Array<{ role: InviteRole; label: string }> = [
   { role: 'editor', label: 'Editor' },
-  { role: 'admin',  label: 'Manager' },
-  { role: 'viewer', label: 'Viewer' },
 ];
 
 const ROLE_CHIPS: Array<{ id: DemoScenario; label: string; invite?: boolean }> = [
@@ -194,7 +192,7 @@ function Bar({ scenario, onScenario, plan, onPlan, useMode, onUseMode, onLowCred
                 className={`demo-bar__chip${scenario === c.id ? ' is-active' : ''}`}
                 onClick={() => onScenario(c.id)}
               >
-                {c.invite ? '📧 ' : '👥 '}{c.label}
+                {c.invite ? '接受邀请 · ' : ''}{c.label}
               </button>
             ))}
           </div>
@@ -230,7 +228,7 @@ function Bar({ scenario, onScenario, plan, onPlan, useMode, onUseMode, onLowCred
               Edit
             </button>
             <button type="button" className="demo-bar__chip demo-bar__chip--warning" onClick={onLowCredits}>
-              ⚡ 积分不足
+              积分不足
             </button>
           </div>
         </div>
@@ -248,7 +246,7 @@ function Bar({ scenario, onScenario, plan, onPlan, useMode, onUseMode, onLowCred
                 className="demo-bar__chip"
                 onClick={() => onAcceptInvite(c.role)}
               >
-                📧 {c.label}
+                接受邀请 · {c.label}
               </button>
             ))}
           </div>

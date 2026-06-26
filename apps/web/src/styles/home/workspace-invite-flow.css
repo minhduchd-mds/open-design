@@ -1,20 +1,17 @@
 /* Workspace invite flow — global fallback for /onboarding#invite demo.
    Generated mechanically from WorkspaceInviteFlow.module.css class selectors. */
 .workspace-invite-page {
-  --invite-ink: #20211f;
-  --invite-muted: #70736d;
-  --invite-line: rgba(49, 53, 45, 0.13);
-  --invite-moss: #4b5d46;
+  --invite-ink: var(--text-strong);
+  --invite-muted: var(--text-muted);
+  --invite-line: var(--border);
+  --invite-moss: var(--accent);
   position: relative;
   min-height: 100%;
   display: grid;
   place-items: start center;
   overflow: auto;
-  padding: 72px 24px 110px;
-  background:
-    radial-gradient(circle at 18% 14%, rgba(209, 225, 194, 0.7), transparent 31%),
-    radial-gradient(circle at 88% 78%, rgba(241, 219, 185, 0.68), transparent 28%),
-    linear-gradient(145deg, #f7f6f1 0%, #edeee7 58%, #f8f2e9 100%);
+  padding: 64px 24px 108px;
+  background: var(--bg);
   color: var(--invite-ink);
 }
 
@@ -26,7 +23,7 @@
 
 .workspace-invite-ambient span {
   position: absolute;
-  border: 1px solid rgba(75, 93, 70, 0.12);
+  border: 1px solid color-mix(in srgb, var(--border) 56%, transparent);
   border-radius: 999px;
 }
 
@@ -45,12 +42,14 @@
 }
 
 .workspace-invite-ambient span:nth-child(3) {
-  width: 12px;
-  height: 12px;
+  width: 8px;
+  height: 8px;
   top: 22%;
   left: 15%;
-  background: var(--invite-moss);
-  box-shadow: 38px 25px 0 rgba(75, 93, 70, 0.16), 76px -18px 0 rgba(75, 93, 70, 0.1);
+  background: color-mix(in srgb, var(--accent) 42%, transparent);
+  box-shadow:
+    38px 25px 0 color-mix(in srgb, var(--accent) 14%, transparent),
+    76px -18px 0 color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .workspace-invite-shell {
@@ -64,12 +63,10 @@
   align-items: center;
   justify-content: center;
   gap: 9px;
-  margin-bottom: 52px;
-  color: #4b4e48;
+  margin-bottom: 46px;
+  color: var(--text-muted);
   font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-weight: 680;
 }
 
 .workspace-invite-brandMark {
@@ -77,24 +74,22 @@
   place-items: center;
   width: 30px;
   height: 30px;
-  border-radius: 9px;
-  background: var(--invite-ink);
-  color: #f8f6ef;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-panel);
+  color: var(--text-strong);
   font-size: 10px;
   letter-spacing: -0.02em;
 }
 
 .workspace-invite-card {
   position: relative;
-  min-height: 530px;
-  padding: 64px 58px 44px;
-  border: 1px solid rgba(255, 255, 255, 0.72);
-  border-radius: 28px;
-  background: rgba(255, 255, 252, 0.88);
-  box-shadow:
-    0 24px 80px rgba(56, 61, 49, 0.16),
-    0 2px 8px rgba(56, 61, 49, 0.05);
-  backdrop-filter: blur(22px);
+  min-height: 510px;
+  padding: 58px 52px 40px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg, 18px);
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-lg, 0 18px 56px rgba(0, 0, 0, 0.14));
 }
 
 .workspace-invite-workspaceIdentity {
@@ -108,19 +103,18 @@
 
 .workspace-invite-workspaceMark,
 .workspace-invite-inviterAvatar {
-  width: 76px;
-  height: 76px;
-  border: 5px solid #f8f7f2;
-  border-radius: 24px;
-  box-shadow: 0 9px 24px rgba(45, 51, 41, 0.18);
+  width: 72px;
+  height: 72px;
+  border: 5px solid var(--bg-panel);
+  border-radius: 22px;
+  box-shadow: 0 9px 22px color-mix(in srgb, var(--text) 12%, transparent);
 }
 
 .workspace-invite-workspaceMark {
   display: grid;
   place-items: center;
-  background: #232b21;
-  color: #e3edda;
-  font-family: Georgia, 'Times New Roman', serif;
+  background: var(--text-strong);
+  color: var(--bg-panel);
   font-size: 34px;
 }
 
@@ -146,9 +140,9 @@
   place-items: center;
   width: 27px;
   height: 27px;
-  border: 3px solid #f8f7f2;
+  border: 3px solid var(--bg-panel);
   border-radius: 50%;
-  background: #d76843;
+  background: var(--accent);
   color: #fff;
 }
 
@@ -161,21 +155,19 @@
 .workspace-invite-eyebrow {
   display: inline-block;
   margin-bottom: 9px;
-  color: var(--invite-moss);
+  color: var(--text-soft);
   font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  font-weight: 720;
+  letter-spacing: 0.03em;
 }
 
 .workspace-invite-heading h1,
 .workspace-invite-result h1 {
   margin: 0;
   color: var(--invite-ink);
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: clamp(28px, 4vw, 38px);
-  font-weight: 500;
-  letter-spacing: -0.035em;
+  font-size: clamp(26px, 4vw, 36px);
+  font-weight: 720;
+  letter-spacing: -0.03em;
   line-height: 1.12;
 }
 
@@ -211,7 +203,7 @@
   gap: 10px;
   min-width: 0;
   padding: 15px;
-  background: rgba(248, 248, 243, 0.96);
+  background: var(--bg-subtle);
 }
 
 .workspace-invite-summaryIcon {
@@ -221,8 +213,8 @@
   height: 32px;
   flex: 0 0 auto;
   border-radius: 10px;
-  background: #e8ecdf;
-  color: var(--invite-moss);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-panel));
+  color: var(--accent-strong);
 }
 
 .workspace-invite-summary span {
@@ -233,11 +225,10 @@
 .workspace-invite-seatReceipt small {
   display: block;
   margin-bottom: 3px;
-  color: #898c85;
+  color: var(--text-soft);
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .workspace-invite-summary strong {
