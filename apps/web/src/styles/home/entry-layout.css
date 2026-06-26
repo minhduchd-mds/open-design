@@ -10,7 +10,7 @@
    actions, so the entry view does not render `AppChromeHeader`. */
 .entry-shell--no-header {
   grid-template-rows: 1fr;
-  --entry-rail-width: 240px;
+  --entry-rail-width: 236px;
 }
 
 .entry-shell--onboarding {
@@ -56,7 +56,7 @@
   min-width: 0;
   border-right: 0;
   background: var(--bg-panel);
-  padding: 8px 0 10px;
+  padding: 10px 0 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -192,7 +192,7 @@
   right: 0;
   bottom: 0;
   width: 1px;
-  background: color-mix(in srgb, var(--border) 64%, transparent);
+  background: color-mix(in srgb, var(--border) 82%, transparent);
   transform: scaleX(0.5);
   transform-origin: right center;
   pointer-events: none;
@@ -203,7 +203,7 @@
   align-items: stretch;
   gap: 2px;
   width: 100%;
-  padding: 0 8px;
+  padding: 0 10px;
 }
 .entry-nav-rail__footer {
   display: flex;
@@ -211,7 +211,7 @@
   align-items: center;
   gap: 5px;
   width: 100%;
-  padding-bottom: 4px;
+  padding-bottom: 6px;
 }
 .entry-nav-rail__divider {
   display: none;
@@ -220,30 +220,41 @@
   display: none;
 }
 
-/* Bottom-left action cluster (GitHub star / Discord / Use-everywhere / settings),
-   relocated out of the top bar. Stacks vertically, left-aligned, full width. */
+/* Bottom-left action cluster (GitHub star / Discord / settings / help).
+   Compact toolbar: Star keeps copy, secondary actions collapse to icons. */
 .entry-rail-actions {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 4px;
-  width: 100%;
-  padding: 0 4px 4px;
+  width: 218px;
+  max-width: calc(100% - 18px);
+  padding: 0 0 4px;
+  margin: 0 auto;
 }
 .entry-rail-actions > * {
-  align-self: stretch;
+  align-self: center;
 }
+.entry-rail-actions .entry-star-badge,
 .entry-rail-actions .entry-discord-badge,
 .entry-rail-actions .use-everywhere-chip,
 .entry-rail-actions .entry-settings-chip {
-  justify-content: flex-start;
-  width: 100%;
+  justify-content: center;
+}
+.entry-rail-actions .entry-help-menu {
+  align-self: center;
+  display: block;
+  width: 30px;
+  flex: 0 0 30px;
 }
 .entry-local-mode-tip {
   position: relative;
   display: grid;
   gap: 4px;
+  flex: 0 0 100%;
   width: 100%;
+  margin-bottom: 2px;
   padding: 9px 28px 9px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -367,6 +378,23 @@
 .entry-help-menu {
   position: relative;
   display: inline-flex;
+}
+.entry-rail-actions .entry-help-menu__trigger {
+  width: 100%;
+  height: 29px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  box-shadow: none;
+  gap: 0;
+  justify-content: center;
+}
+.entry-rail-actions .entry-help-menu__trigger:hover {
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  border-color: transparent;
+  color: var(--text-strong);
 }
 .entry-help-popover {
   position: absolute;
@@ -721,16 +749,16 @@
 .entry-nav-rail__btn {
   appearance: none;
   width: 100%;
-  height: 34px;
+  height: 33px;
   padding: 0 10px;
   border: 1px solid transparent;
-  border-radius: var(--radius);
+  border-radius: 8px;
   background: transparent;
   color: var(--text);
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 10px;
+  gap: 9px;
   cursor: pointer;
   font: inherit;
   text-align: left;
@@ -741,21 +769,21 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 18px;
-  color: var(--text-soft);
+  color: color-mix(in srgb, var(--text) 62%, transparent);
 }
 .entry-nav-rail__btn-icon > svg {
   width: 18px;
   height: 18px;
 }
 .entry-nav-rail__btn-label {
-  font-size: 13.5px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 400;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .entry-nav-rail__btn.is-active .entry-nav-rail__btn-icon {
-  color: var(--accent);
+  color: #0d80f2;
 }
 
 /* Search box */
@@ -763,12 +791,12 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  height: 32px;
-  margin: 2px 0 8px;
+  height: 34px;
+  margin: 4px 0 10px;
   padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-subtle);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg-subtle) 78%, var(--bg-panel));
   color: var(--text-soft);
 }
 .entry-nav-rail__search input {
@@ -785,29 +813,49 @@
 
 /* Team switcher row */
 .entry-nav-rail__team {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 36px;
-  margin: 12px 0 2px;
+  height: 34px;
+  margin: 18px 0 4px;
   padding: 0 10px;
   color: var(--text-strong);
 }
+.entry-nav-rail__team::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -9px;
+  height: 1px;
+  background: color-mix(in srgb, var(--border) 76%, transparent);
+  transform: scaleY(0.5);
+  transform-origin: center;
+}
 .entry-nav-rail__team-avatar {
-  width: 20px;
-  height: 20px;
+  width: 19px;
+  height: 19px;
   border-radius: var(--radius-pill);
-  background: #1a1917;
-  color: #fff;
+  background: var(--bg-panel);
+  color: var(--text);
   display: grid;
   place-items: center;
   font-size: 11px;
   font-weight: 700;
-  flex: 0 0 20px;
+  flex: 0 0 19px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 78%, transparent);
+}
+.entry-nav-rail__team-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 .entry-nav-rail__team-name {
-  font-size: 13.5px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 400;
   flex: 1;
   white-space: nowrap;
   overflow: hidden;
@@ -817,27 +865,27 @@
 
 /* Section label (e.g. 更多) */
 .entry-nav-rail__section {
-  margin: 12px 0 2px;
+  margin: 15px 0 5px;
   padding: 0 10px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-faint);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: color-mix(in srgb, var(--text-muted) 84%, transparent);
 }
 .entry-nav-rail__btn:not(.is-active):hover {
-  background: color-mix(in srgb, var(--accent) 12%, var(--bg-panel));
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 10%, var(--bg-panel));
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  color: var(--text-strong);
+  border-color: transparent;
 }
 .entry-nav-rail__btn.is-active {
-  background: var(--accent-tint);
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 18%, transparent);
+  background: color-mix(in srgb, #0d99ff 12%, var(--bg-panel));
+  color: var(--text-strong);
+  border-color: transparent;
 }
 .entry-nav-rail__btn.is-active:hover {
-  background: color-mix(in srgb, var(--accent) 8%, var(--bg-panel));
-  border-color: color-mix(in srgb, var(--accent) 12%, var(--bg-panel));
+  background: color-mix(in srgb, #0d99ff 15%, var(--bg-panel));
+  border-color: transparent;
 }
 .entry-nav-rail__btn:focus-visible {
   outline: 2px solid var(--accent);
@@ -4051,6 +4099,46 @@
     color 120ms var(--ease-out), transform 120ms var(--ease-out);
   white-space: nowrap;
 }
+.entry-rail-actions .entry-star-badge,
+.entry-rail-actions .entry-discord-badge,
+.entry-rail-actions .use-everywhere-chip,
+.entry-rail-actions .entry-settings-chip {
+  height: 29px;
+  border-color: transparent;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+}
+.entry-rail-actions .entry-star-badge {
+  flex: 1 1 auto;
+  min-width: 108px;
+  justify-content: flex-start;
+  padding: 0 9px;
+}
+.entry-rail-actions .entry-discord-badge,
+.entry-rail-actions .entry-settings-chip {
+  flex: 0 0 30px;
+  width: 30px;
+  padding: 0;
+}
+.entry-rail-actions .entry-discord-badge__label,
+.entry-rail-actions .entry-discord-badge__sep,
+.entry-rail-actions .entry-discord-badge__online,
+.entry-rail-actions .entry-settings-chip__label,
+.entry-rail-actions .entry-help-menu__label {
+  display: none;
+}
+.entry-rail-actions .entry-discord-badge__icon,
+.entry-rail-actions .entry-settings-chip__icon {
+  margin: 0;
+}
+.entry-rail-actions .entry-star-badge:hover,
+.entry-rail-actions .entry-discord-badge:hover,
+.entry-rail-actions .use-everywhere-chip:hover,
+.entry-rail-actions .entry-settings-chip:hover {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+}
 .entry-star-badge:hover {
   background: var(--bg-subtle);
   border-color: var(--border-strong);
@@ -4611,8 +4699,8 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin: 2px 0 10px;
+  gap: 6px;
+  margin: 0 0 10px;
 }
 .entry-nav-rail__account-trigger {
   appearance: none;
@@ -4624,15 +4712,16 @@
   gap: 8px;
   flex: 1;
   min-width: 0;
+  min-height: 34px;
   padding: 4px 6px;
-  border-radius: var(--radius);
+  border-radius: 8px;
   font: inherit;
   color: var(--text-strong);
 }
-.entry-nav-rail__account-trigger:hover { background: var(--bg-subtle); }
+.entry-nav-rail__account-trigger:hover { background: color-mix(in srgb, var(--text) 5%, transparent); }
 .entry-nav-rail__account-avatar {
-  width: 24px;
-  height: 24px;
+  width: 25px;
+  height: 25px;
   border-radius: var(--radius-pill);
   background: linear-gradient(135deg, #c96442, #8a3f28);
   color: #fff;
@@ -4643,8 +4732,8 @@
   flex: 0 0 24px;
 }
 .entry-nav-rail__account-name {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 400;
   flex: 0 1 auto;
   margin-right: auto;
   white-space: nowrap;
@@ -4659,10 +4748,11 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 9px;
+  min-height: 28px;
+  padding: 3px 8px;
   margin-left: 2px;
   border-radius: var(--radius-pill);
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
   background: var(--bg-panel);
   color: var(--text);
   font-size: 12px;
@@ -4671,8 +4761,8 @@
   transition: background 120ms, border-color 120ms;
 }
 .entry-nav-rail__credits-chip:hover {
-  background: var(--bg-subtle);
-  border-color: var(--border-strong);
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  border-color: color-mix(in srgb, var(--border-strong) 72%, var(--border));
 }
 .entry-nav-rail__credits-chip svg { color: #c96442; }
 .entry-nav-rail__credits-tier { font-weight: 650; }
@@ -4774,6 +4864,22 @@
   cursor: pointer;
 }
 .credits-panel__usage:hover { color: var(--accent); }
+.credits-panel__console {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  margin-top: 10px;
+  padding: 0;
+  color: var(--text-muted);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 120ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.credits-panel__console:hover {
+  color: var(--accent);
+}
 .entry-nav-rail__account-bell {
   appearance: none;
   border: 0;

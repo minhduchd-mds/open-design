@@ -228,7 +228,9 @@ export function EntryNavRail({ view, onViewChange, onNewProject, open, onClose, 
                 onClick={() => setTeamOpen((v) => !v)}
                 aria-expanded={teamOpen}
               >
-                <span className="entry-nav-rail__team-avatar" aria-hidden>N</span>
+                <span className="entry-nav-rail__team-avatar" aria-hidden>
+                  <img src="/logo.png" alt="" />
+                </span>
                 <span className="entry-nav-rail__team-name">Nexu 团队</span>
                 <Icon name="chevron-down" size={14} />
               </button>
@@ -348,9 +350,10 @@ export function EntryNavRail({ view, onViewChange, onNewProject, open, onClose, 
         </NavButton>
       </div>
       <div className="entry-nav-rail__footer">
-        {footerExtra ? <div className="entry-rail-actions">{footerExtra}</div> : null}
-        <div className="entry-nav-rail__divider" role="separator" />
-        <EntryHelpMenu />
+        <div className="entry-rail-actions">
+          {footerExtra}
+          <EntryHelpMenu />
+        </div>
       </div>
 
       <InviteDialog

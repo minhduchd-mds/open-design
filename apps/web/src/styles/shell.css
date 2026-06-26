@@ -17,7 +17,7 @@
 }
 
 .workspace-shell {
-  --workspace-tabs-chrome-height: 38px;
+  --workspace-tabs-chrome-height: 44px;
   width: 100vw;
   max-width: 100vw;
   height: 100vh;
@@ -25,7 +25,7 @@
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: 36px minmax(0, 1fr);
+  grid-template-rows: 44px minmax(0, 1fr);
   background: var(--bg-app);
   overflow: hidden;
 }
@@ -51,13 +51,13 @@
 .workspace-tabs-chrome.app-chrome-header {
   min-width: 0;
   max-width: 100%;
-  min-height: 38px;
-  height: 38px;
-  padding: 0 8px 0 6px;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 10px 0 8px;
   gap: 0;
-  background: color-mix(in srgb, var(--bg-panel) 88%, var(--bg-subtle));
+  background: color-mix(in srgb, var(--bg-subtle) 82%, var(--bg-panel));
   border-bottom: 0;
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--bg-panel) 80%, transparent) inset;
+  box-shadow: 0 1px 0 color-mix(in srgb, #ffffff 72%, transparent) inset;
   user-select: none;
   -webkit-app-region: drag;
   overflow: hidden;
@@ -71,7 +71,7 @@
   right: 0;
   bottom: 0;
   height: 1px;
-  background: color-mix(in srgb, var(--border) 64%, transparent);
+  background: color-mix(in srgb, var(--border) 78%, transparent);
   transform: scaleY(0.5);
   transform-origin: center bottom;
   pointer-events: none;
@@ -81,9 +81,9 @@
   margin-right: var(--app-chrome-traffic-margin);
 }
 .workspace-tabs-new-btn {
-  width: 28px;
-  height: 28px;
-  margin-left: 5px;
+  width: 30px;
+  height: 30px;
+  margin-left: 7px;
   margin-right: 0;
   padding: 0;
   border: 0;
@@ -105,8 +105,8 @@
   box-shadow: -8px 0 10px -9px color-mix(in srgb, var(--text) 30%, transparent);
 }
 .workspace-tabs-new-btn:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--bg-panel) 72%, var(--bg-subtle));
-  color: var(--text-muted);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  color: var(--text);
 }
 .workspace-tabs-new-btn:disabled {
   opacity: 0.4;
@@ -114,8 +114,8 @@
   background: transparent;
 }
 .workspace-tabs-icon-btn {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   padding: 0;
   border-radius: var(--radius-sm);
   border-color: transparent;
@@ -130,16 +130,16 @@
 .workspace-tabs-icon-btn:hover:not(:disabled),
 .workspace-tabs-icon-btn.is-active {
   color: var(--text-strong);
-  background: color-mix(in srgb, var(--bg-panel) 78%, var(--bg-subtle));
-  border-color: var(--border);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  border-color: transparent;
 }
 .workspace-tabs-strip {
   align-self: stretch;
   min-width: 0;
   flex: 1 1 0;
   display: flex;
-  align-items: center;
-  gap: 0;
+  align-items: end;
+  gap: 2px;
   padding-left: 0;
   position: relative;
   z-index: 1;
@@ -163,23 +163,24 @@
 }
 .workspace-tab {
   position: relative;
-  height: 24px;
+  height: 34px;
   /* Auto-shrink: tabs sit at their natural 124px when there's room and
      shrink down toward --workspace-tab-min-width as more tabs open, so the
      whole row stays visible without scrolling for as long as possible. They
      never grow past 124px (flex-grow 0) so a lone project tab doesn't balloon
      to fill the bar. Only once every tab has hit its min width does the strip
      fall back to horizontal scroll. */
-  width: 124px;
-  flex: 0 1 124px;
+  width: 132px;
+  flex: 0 1 132px;
   min-width: var(--workspace-tab-min-width, 56px);
-  max-width: 124px;
+  max-width: 132px;
   padding: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 22px;
   align-items: center;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  border-bottom-color: transparent;
+  border-radius: 9px 9px 0 0;
   background: transparent;
   color: var(--text-muted);
   overflow: visible;
@@ -198,15 +199,15 @@
    visible even after the project tabs overflow into horizontal scroll. The
    opaque background keeps scrolled tabs from showing through it. */
 .workspace-tab.is-pinned {
-  width: 18px;
-  flex: 0 0 18px;
-  min-width: 18px;
-  max-width: 18px;
+  width: 44px;
+  flex: 0 0 44px;
+  min-width: 44px;
+  max-width: 44px;
   grid-template-columns: minmax(0, 1fr);
   position: sticky;
   left: 0;
   z-index: 2;
-  background: color-mix(in srgb, var(--bg-panel) 88%, var(--bg-subtle));
+  background: transparent;
 }
 .workspace-tab.is-pinned .workspace-tab__label {
   display: none;
@@ -243,15 +244,16 @@
   display: none;
 }
 .workspace-tab:hover {
-  background: color-mix(in srgb, var(--bg-panel) 64%, transparent);
-  border-color: color-mix(in srgb, var(--border) 60%, transparent);
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  border-color: transparent;
   color: var(--text);
 }
 .workspace-tab.is-active {
-  background: color-mix(in srgb, var(--bg-panel) 92%, var(--bg-subtle));
-  border-color: color-mix(in srgb, var(--border-strong) 52%, transparent);
+  background: var(--bg-panel);
+  border-color: color-mix(in srgb, var(--border) 72%, transparent);
+  border-bottom-color: var(--bg-panel);
   color: var(--text-strong);
-  box-shadow: 0 1px 1px color-mix(in srgb, var(--text) 6%, transparent);
+  box-shadow: 0 -1px 0 color-mix(in srgb, #ffffff 68%, transparent) inset;
 }
 .workspace-tab:hover::before,
 .workspace-tab:hover + .workspace-tab::before,
@@ -264,7 +266,7 @@
 .workspace-tab__main {
   min-width: 0;
   height: 100%;
-  padding: 0 6px 0 9px;
+  padding: 0 6px 0 10px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -302,8 +304,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11.5px;
-  font-weight: 520;
+  font-size: 13px;
+  font-weight: 500;
   letter-spacing: 0;
 }
 .workspace-tab__close {

@@ -170,6 +170,7 @@ import {
 } from '../utils/notifications';
 
 export type SettingsSection =
+  | 'general'
   | 'execution'
   | 'instructions'
   | 'media'
@@ -195,6 +196,19 @@ export type SettingsSection =
   // navigate() call so openSettings only owns dialog-bound sections.
   | 'library'
   | 'about';
+
+function normalizeSettingsSection(section: SettingsSection): SettingsSection {
+  switch (section) {
+    case 'language':
+    case 'appearance':
+    case 'notifications':
+    case 'pet':
+    case 'projectLocations':
+      return 'general';
+    default:
+      return section;
+  }
+}
 
 // One-shot focus hint when opening the dialog. `'amr'` scrolls the AMR agent
 // card into view on the execution section and plays a highlight (plus a
@@ -1202,7 +1216,7 @@ export function SettingsDialog({
     };
   }, []);
   const [showApiKey, setShowApiKey] = useState(false);
-  const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection);
+  const [activeSection, setActiveSection] = useState<SettingsSection>(() => normalizeSettingsSection(initialSection));
   const [settingsSidebarCollapsed, setSettingsSidebarCollapsed] = useState(false);
   const [settingsFullscreen, setSettingsFullscreen] = useState(false);
   // Scroll the right-hand content pane back to the top whenever the user
@@ -1490,7 +1504,7 @@ export function SettingsDialog({
   // routes through this when the MCP tab is active so the user can press the
   // single Save button at the bottom instead of hunting for the inner one.
   useEffect(() => {
-    setActiveSection(initialSection);
+    setActiveSection(normalizeSettingsSection(initialSection));
   }, [initialSection]);
 
   // settings_view — fires whenever the active section changes (and once on
@@ -1505,7 +1519,7 @@ export function SettingsDialog({
     // properties (registered once and inherited by every event).
     trackSettingsView(analytics.track, {
       page_name: 'settings',
-      area: settingsSectionToTracking(activeSection),
+      area: settingsSectionToTracking(activeSection === 'general' ? 'appearance' : activeSection),
     });
   }, [activeSection, analytics.track]);
   useEffect(() => {
@@ -2909,6 +2923,7 @@ export function SettingsDialog({
   // BYOK content so "Local CLI" only renders once (in the seg-control tab),
   // not twice (heading + tab).
   const sectionHeader: Record<SettingsSection, { title: string; subtitle: string }> = {
+    general: { title: '通用', subtitle: '语言、外观、系统偏好、宠物和项目位置。' },
     execution: { title: t('settings.title'), subtitle: t('settings.subtitle') },
     instructions: {
       title: t('settings.instructionsTitle'),
@@ -3324,6 +3339,17 @@ export function SettingsDialog({
             ) : null}
             <button
               type="button"
+              className={`settings-nav-item${activeSection === 'general' ? ' active' : ''}`}
+              onClick={() => setActiveSection('general')}
+            >
+              <Icon name="settings" size={18} />
+              <span>
+                <strong>通用</strong>
+                <small>语言、外观与个性化</small>
+              </span>
+            </button>
+            <button
+              type="button"
               className={`settings-nav-item${activeSection === 'execution' ? ' active' : ''}`}
               onClick={() => setActiveSection('execution')}
             >
@@ -3412,28 +3438,6 @@ export function SettingsDialog({
             </button>
             <button
               type="button"
-              className={`settings-nav-item${activeSection === 'language' ? ' active' : ''}`}
-              onClick={() => setActiveSection('language')}
-            >
-              <Icon name="languages" size={18} />
-              <span>
-                <strong>{t('settings.language')}</strong>
-                <small>{t('settings.languageHint')}</small>
-              </span>
-            </button>
-            <button
-              type="button"
-              className={`settings-nav-item${activeSection === 'appearance' ? ' active' : ''}`}
-              onClick={() => setActiveSection('appearance')}
-            >
-              <Icon name="sun-moon" size={18} />
-              <span>
-                <strong>{t('settings.appearance')}</strong>
-                <small>{t('settings.appearanceHint')}</small>
-              </span>
-            </button>
-            <button
-              type="button"
               className={`settings-nav-item${activeSection === 'critiqueTheater' ? ' active' : ''}`}
               onClick={() => setActiveSection('critiqueTheater')}
             >
@@ -3445,28 +3449,6 @@ export function SettingsDialog({
             </button>
             <button
               type="button"
-              className={`settings-nav-item${activeSection === 'notifications' ? ' active' : ''}`}
-              onClick={() => setActiveSection('notifications')}
-            >
-              <Icon name="bell" size={18} />
-              <span>
-                <strong>{t('settings.notifications')}</strong>
-                <small>{t('settings.notificationsHint')}</small>
-              </span>
-            </button>
-            <button
-              type="button"
-              className={`settings-nav-item${activeSection === 'pet' ? ' active' : ''}`}
-              onClick={() => setActiveSection('pet')}
-            >
-              <Icon name="sparkles" size={18} />
-              <span>
-                <strong>{t('pet.navTitle')}</strong>
-                <small>{t('pet.navHint')}</small>
-              </span>
-            </button>
-            <button
-              type="button"
               className={`settings-nav-item${activeSection === 'designSystems' ? ' active' : ''}`}
               onClick={() => setActiveSection('designSystems')}
             >
@@ -3474,17 +3456,6 @@ export function SettingsDialog({
               <span>
                 <strong>{t('settings.designSystems')}</strong>
                 <small>{t('settings.designSystemsHint')}</small>
-              </span>
-            </button>
-            <button
-              type="button"
-              className={`settings-nav-item${activeSection === 'projectLocations' ? ' active' : ''}`}
-              onClick={() => setActiveSection('projectLocations')}
-            >
-              <Icon name="folder" size={18} />
-              <span>
-                <strong>{t('settings.projectLocations')}</strong>
-                <small>{t('settings.projectLocationsHint')}</small>
               </span>
             </button>
             <button
@@ -3511,6 +3482,73 @@ export function SettingsDialog({
             </button>
           </aside>
           <div className="settings-content" ref={settingsContentRef}>
+          {activeSection === 'general' ? (
+            <section className="settings-section settings-general-section">
+              <div className="settings-general-block settings-general-block--appearance">
+                <div className="settings-general-block-head">
+                  <h3>外观</h3>
+                  <p className="hint">设置界面语言、主题和品牌强调色。</p>
+                </div>
+                <div className="settings-general-field">
+                  <span className="settings-general-label">{t('settings.language')}</span>
+                  <div className="settings-language-grid" role="radiogroup" aria-label={t('settings.language')}>
+                    {LOCALES.map((code) => {
+                      const active = locale === code;
+                      return (
+                        <button
+                          key={code}
+                          type="button"
+                          role="radio"
+                          aria-checked={active}
+                          className={`settings-language-tile${active ? ' active' : ''}`}
+                          onClick={() => {
+                            trackSettingsLanguageClick(analytics.track, {
+                              page_name: 'settings',
+                              area: 'language',
+                              element: code,
+                            });
+                            setLocale(code as Locale);
+                          }}
+                        >
+                          <span className="settings-language-tile-text">
+                            <span className="settings-language-tile-title">
+                              {LOCALE_LABEL[code]}
+                            </span>
+                            <span className="settings-language-tile-code">
+                              {code}
+                            </span>
+                          </span>
+                          {active ? <Icon name="check" size={16} /> : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <AppearanceSection cfg={cfg} setCfg={setCfg} />
+              </div>
+
+              <div className="settings-general-block">
+                <div className="settings-general-block-head">
+                  <h3>系统偏好</h3>
+                  <p className="hint">完成提示音、浏览器通知和任务状态提醒。</p>
+                </div>
+                <NotificationsSection cfg={cfg} setCfg={setCfg} />
+              </div>
+
+              <div className="settings-general-block">
+                <div className="settings-general-block-head">
+                  <h3>{t('pet.navTitle')}</h3>
+                  <p className="hint">{t('pet.navHint')}</p>
+                </div>
+                <PetSettings cfg={cfg} setCfg={setCfg} />
+              </div>
+
+              <div className="settings-general-block">
+                <ProjectLocationsSection cfg={cfg} setCfg={setCfg} onProjectsRefresh={onProjectsRefresh} />
+              </div>
+            </section>
+          ) : null}
+
           {activeSection === 'execution' ? (
             <>
               <div

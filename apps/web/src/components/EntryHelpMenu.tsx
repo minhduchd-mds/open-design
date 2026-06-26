@@ -94,6 +94,7 @@ export function EntryHelpMenu() {
         data-testid="entry-help-trigger"
       >
         <Icon name="help-circle" size={18} />
+        <span className="entry-help-menu__label">帮助</span>
       </button>
       <AnimatePresence>
         {open ? (

@@ -838,38 +838,17 @@ export function EntryShell({
       </a>
       <button
         type="button"
-        className="use-everywhere-chip od-tooltip"
-        onClick={() => {
-          trackHomeToolbarClick(analytics.track, {
-            page_name: 'home',
-            area: 'toolbar',
-            element: 'use_everywhere',
-          });
-          openIntegrationTab('use-everywhere');
-        }}
-        data-tooltip={t('entry.useEverywhereTitle')}
-        data-tooltip-placement="right"
-        aria-label={t('entry.useEverywhereAria')}
-        data-testid="entry-use-everywhere-button"
-      >
-        <span className="use-everywhere-chip__icon" aria-hidden>
-          <Icon name="hammer" size={13} />
-        </span>
-        <span className="use-everywhere-chip__label">{t('entry.useEverywhereTitle')}</span>
-      </button>
-      <button
-        type="button"
         className="entry-settings-chip od-tooltip"
         onClick={() => onOpenSettings()}
-        data-tooltip={t('settings.title')}
+        data-tooltip="设置"
         data-tooltip-placement="right"
-        aria-label={t('settings.title')}
+        aria-label="设置"
         data-testid="entry-settings-button"
       >
         <span className="entry-settings-chip__icon" aria-hidden>
           <Icon name="settings" size={13} />
         </span>
-        <span className="entry-settings-chip__label">{t('settings.title')}</span>
+        <span className="entry-settings-chip__label">设置</span>
       </button>
       <UpdaterPopup />
     </>

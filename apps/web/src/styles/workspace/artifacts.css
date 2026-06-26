@@ -616,6 +616,60 @@
 .settings-base-url-customize {
   flex-shrink: 0;
 }
+.settings-general-section {
+  gap: 28px;
+}
+.settings-general-block {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0 0 28px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.settings-general-block:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.settings-general-block-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.settings-general-block-head h3 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.settings-general-block-head .hint {
+  margin: 0;
+  color: var(--text-muted);
+}
+.settings-general-field {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.settings-general-label {
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 650;
+}
+.settings-general-block .settings-section {
+  gap: 16px;
+}
+.settings-general-block .settings-section-card {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.settings-general-block .section-head {
+  display: none;
+}
+.settings-general-block--appearance .settings-section {
+  padding: 0;
+}
 .settings-language-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
