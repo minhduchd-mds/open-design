@@ -92,7 +92,7 @@ When it finishes, the command **prints a local URL** — copy it and paste it in
 If you would rather skip the GUI entirely and call Open Design as a skill or MCP server inside your agent, run the one-line installer (works on macOS, Linux, and WSL):
 
 ```bash
-curl -fsSL https://open-design.ai/install.sh | sh -s <agent>
+od mcp install <agent>
 # <agent> = claude | codex | cursor | copilot | gemini | opencode | …
 ```
 

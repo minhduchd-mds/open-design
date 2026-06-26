@@ -74,7 +74,7 @@ Then open the local URL it prints (the port is assigned dynamically — copy the
 **Install into your coding agent** — to call Open Design as a skill inside your agent without ever opening the GUI:
 
 ```bash
-curl -fsSL https://open-design.ai/install.sh | sh -s <agent>
+od mcp install <agent>
 # <agent> = claude | codex | cursor | copilot | gemini | opencode | …
 ```
 

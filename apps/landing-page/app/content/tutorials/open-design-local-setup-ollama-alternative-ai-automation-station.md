@@ -68,7 +68,7 @@ Then open the local URL it prints in your terminal. You need Node `~24` and pnpm
 To drive Open Design from the terminal — calling it as a skill or MCP server inside your agent, no GUI required — run:
 
 ```bash
-curl -fsSL https://open-design.ai/install.sh | sh -s <agent>
+od mcp install <agent>
 # <agent> = claude | codex | cursor | copilot | gemini | opencode | …
 ```
 
