@@ -666,6 +666,44 @@ describe('ProjectView pending prompt seeding', () => {
     expect(mockedContinueBrandExtraction).not.toHaveBeenCalled();
   });
 
+  it('continues browser DOM extraction after a same-site locale redirect from the source URL', async () => {
+    const executeJavaScript = vi.fn()
+      .mockResolvedValueOnce('<html><head><title>Example</title></head><body><h1>Example</h1></body></html>')
+      .mockResolvedValueOnce('body { color: #1f2937; background: #ffffff; }');
+    brandBrowserBridgeMocks.getBrandBrowser.mockReturnValue({
+      isDesktopWebview: true,
+      getURL: () => 'https://example.com/en/',
+      executeJavaScript,
+    });
+
+    renderProjectView(
+      {
+        ...project('brand-retry'),
+        metadata: {
+          kind: 'brand',
+          importedFrom: 'brand-extraction',
+          brandId: 'brand-retry',
+          brandSourceUrl: 'https://example.com/',
+          brandDesignSystemId: 'user:brand-retry',
+        },
+      },
+    );
+
+    await waitFor(() => {
+      expect(chatPaneSpy.mock.calls.at(-1)?.[0].onContinueBrandExtraction).toBeTypeOf('function');
+    });
+    chatPaneSpy.mock.calls.at(-1)?.[0].onContinueBrandExtraction?.();
+
+    await waitFor(() => {
+      expect(mockedExtractBrandFromHtml).toHaveBeenCalledWith('brand-retry', {
+        html: '<html><head><title>Example</title></head><body><h1>Example</h1></body></html>',
+        css: 'body { color: #1f2937; background: #ffffff; }',
+        baseUrl: 'https://example.com/en/',
+      });
+    });
+    expect(mockedContinueBrandExtraction).not.toHaveBeenCalled();
+  });
+
   it('falls back to programmatic retry when the Browser tab is on another origin', async () => {
     const executeJavaScript = vi.fn()
       .mockResolvedValueOnce('<html><head><title>Wrong</title></head><body><h1>Wrong</h1></body></html>')

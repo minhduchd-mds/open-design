@@ -784,24 +784,51 @@ function normalizedBrandBrowserHost(parsed: URL): string {
   return parsed.port ? `${hostname}:${parsed.port}` : hostname;
 }
 
-function browserExtractionUrlKey(value: string | null | undefined): string | null {
+type BrowserExtractionUrlParts = {
+  host: string;
+  pathname: string;
+  search: string;
+};
+
+function normalizedBrandBrowserPathname(pathname: string): string {
+  const withoutTrailingSlash = pathname.replace(/\/+$/, '');
+  return withoutTrailingSlash || '/';
+}
+
+function browserExtractionUrlParts(value: string | null | undefined): BrowserExtractionUrlParts | null {
   const url = value?.trim();
   if (!url) return null;
   try {
     const parsed = new URL(url);
-    return `${normalizedBrandBrowserHost(parsed)}${parsed.pathname}${parsed.search}`;
+    return {
+      host: normalizedBrandBrowserHost(parsed),
+      pathname: normalizedBrandBrowserPathname(parsed.pathname),
+      search: parsed.search,
+    };
   } catch {
     return null;
   }
+}
+
+function isBrandBrowserHomeRedirectPath(pathname: string): boolean {
+  if (pathname === '/home') return true;
+  return /^\/[a-z]{2}(?:-[a-z]{2})?$/i.test(pathname);
 }
 
 function brandBrowserSnapshotMatchesSource(
   snapshotBaseUrl: string,
   sourceUrl: string | null | undefined,
 ): boolean {
-  const snapshotKey = browserExtractionUrlKey(snapshotBaseUrl);
-  const sourceKey = browserExtractionUrlKey(sourceUrl);
-  return Boolean(snapshotKey && sourceKey && snapshotKey === sourceKey);
+  const snapshot = browserExtractionUrlParts(snapshotBaseUrl);
+  const source = browserExtractionUrlParts(sourceUrl);
+  if (!snapshot || !source || snapshot.host !== source.host) return false;
+  if (snapshot.pathname === source.pathname && snapshot.search === source.search) return true;
+  return (
+    source.pathname === '/'
+    && source.search === ''
+    && snapshot.search === ''
+    && isBrandBrowserHomeRedirectPath(snapshot.pathname)
+  );
 }
 
 function workspaceContextItemEqual(
