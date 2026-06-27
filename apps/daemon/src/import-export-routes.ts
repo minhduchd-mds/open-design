@@ -413,10 +413,8 @@ export function registerProjectExportRoutes(app: Express, ctx: RegisterProjectEx
     buildProjectArchive,
     buildBatchArchive,
     buildDesktopPdfExportInput,
-    buildDesktopArtifactExportInput,
     desktopPdfExporter,
     desktopSlideRenderer,
-    desktopArtifactExporter,
     daemonUrlRef,
     sanitizeArchiveFilename,
   } = ctx.exports;
@@ -788,88 +786,31 @@ export function registerProjectExportRoutes(app: Express, ctx: RegisterProjectEx
     await handleScreenshotExport(res, 'image', req.params.id, req.body);
   });
 
-  // Generic programmatic export (PDF / image) for the `od export` CLI.
-  // The web Download menu rasterizes client-side; this is the daemon → desktop
-  // Electron path. The desktop renderer writes the result to a temp file and
-  // returns its path; we stream those bytes back and remove the temp file.
+  // Generic programmatic export (PDF / image / PPTX) for the `od export` CLI and
+  // any caller using the shared `ExportRequest` contract. EVERY format rasterizes
+  // through the desktop screenshot renderer — `pdf` is the raster screenshot PDF
+  // (one page per deck slide / per viewport for a long page), exactly like the
+  // dedicated /export/{pptx,pdf-image,image} routes and what the web UI uses.
+  // There is deliberately NO vector printToPDF path here: it drops CJK glyphs in
+  // the packaged runtime, which is the fidelity bug this feature exists to avoid.
+  // handleScreenshotExport owns validation, the 404/400/422 error mapping, and
+  // scratch-dir cleanup.
   app.post('/api/projects/:id/export', async (req, res) => {
-    try {
-      const { fileName, title, deck, format, imageFormat, width, height } = req.body || {};
-      if (typeof fileName !== 'string' || fileName.length === 0) {
-        return sendApiError(res, 400, 'BAD_REQUEST', 'fileName required');
-      }
-      if (!isExportFormat(format)) {
-        return sendApiError(res, 400, 'BAD_REQUEST', 'invalid export format');
-      }
-      // `image` and `pptx` both rasterize through the screenshot renderer (the
-      // `desktopArtifactExporter` below only handles vector `pdf`). pptx is
-      // deck-only — handleScreenshotExport forces the deck signal and rejects a
-      // non-deck artifact with 422.
-      if (format === 'image' || format === 'pptx') {
-        await handleScreenshotExport(res, format, req.params.id, {
-          fileName,
-          deck: deck === true,
-          ...(typeof imageFormat === 'string' ? { imageFormat } : {}),
-          ...(typeof title === 'string' ? { title } : {}),
-        });
-        return;
-      }
-      if (typeof desktopArtifactExporter !== 'function') {
-        return sendApiError(
-          res,
-          501,
-          'UPSTREAM_UNAVAILABLE',
-          'programmatic export is only available when a desktop runtime is reachable',
-        );
-      }
-      const input = await buildDesktopArtifactExportInput({
-        daemonUrl: daemonUrlRef.current,
-        deck: deck === true,
-        fileName,
-        format,
-        // Imported-folder projects keep their workspace under metadata.baseDir;
-        // without it readProjectFile falls back to <data>/projects/:id and 404s.
-        metadata: getProject(db, req.params.id)?.metadata ?? null,
-        projectId: req.params.id,
-        projectsRoot: PROJECTS_DIR,
-        ...(typeof imageFormat === 'string' ? { imageFormat } : {}),
-        ...(typeof title === 'string' ? { title } : {}),
-        ...(Number.isFinite(width) ? { width } : {}),
-        ...(Number.isFinite(height) ? { height } : {}),
-      });
-      const result = await desktopArtifactExporter(input);
-      if (!result || result.ok !== true || typeof result.path !== 'string') {
-        return sendApiError(res, 502, 'UPSTREAM_UNAVAILABLE', (result && result.error) || 'export failed');
-      }
-      try {
-        const buffer = await readFile(result.path);
-        const mime = result.mime || 'application/octet-stream';
-        const ext =
-          mime === 'image/jpeg' ? 'jpg'
-          : mime === 'image/png' ? 'png'
-          : mime === 'application/pdf' ? 'pdf'
-          : 'bin';
-        const slug = sanitizeArchiveFilename(input.title) || 'artifact';
-        const filename = `${slug}.${ext}`;
-        const asciiFallback = filename.replace(/[^\x20-\x7e]/g, '_').replace(/"/g, '_') || `artifact.${ext}`;
-        res.setHeader('Content-Type', mime);
-        res.setHeader(
-          'Content-Disposition',
-          `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
-        );
-        res.send(buffer);
-      } finally {
-        void rm(nodePath.dirname(result.path), { force: true, recursive: true }).catch(() => {});
-      }
-    } catch (err: any) {
-      const status = err && err.code === 'ENOENT' ? 404 : 400;
-      sendApiError(
-        res,
-        status,
-        status === 404 ? 'FILE_NOT_FOUND' : 'BAD_REQUEST',
-        String(err?.message || err),
-      );
+    const { fileName, title, deck, format, imageFormat } = req.body || {};
+    if (typeof fileName !== 'string' || fileName.length === 0) {
+      return sendApiError(res, 400, 'BAD_REQUEST', 'fileName required');
     }
+    if (!isExportFormat(format)) {
+      return sendApiError(res, 400, 'BAD_REQUEST', 'invalid export format');
+    }
+    await handleScreenshotExport(res, format, req.params.id, {
+      fileName,
+      // pptx is deck-only (handleScreenshotExport forces it); pdf/image honor the
+      // caller's deck flag.
+      deck: deck === true,
+      ...(typeof imageFormat === 'string' ? { imageFormat } : {}),
+      ...(typeof title === 'string' ? { title } : {}),
+    });
   });
 
   // Export endpoint: serves an HTML body with every same-project

@@ -119,6 +119,25 @@ describe('screenshot export desktop renderer file handoff', () => {
     expect(seenDirs.length).toBe(before + 1);
   });
 
+  it('routes generic POST /export pdf through the raster screenshot renderer, not the vector path', async () => {
+    // Regression: the generic /export route used to render `format: pdf` with the
+    // vector printToPDF path (desktopArtifactExporter), which drops CJK glyphs in
+    // the packaged runtime. The shared contract advertises pdf as screenshot-
+    // rendered, so this route must hand pdf to the screenshot renderer (seenDirs
+    // grows = the stub renderer ran) and stream back a real PDF.
+    const before = seenDirs.length;
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/export`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileName: 'index.html', format: 'pdf' }),
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('application/pdf');
+    expect(seenDirs.length).toBe(before + 1); // the screenshot renderer was invoked
+    const bytes = Buffer.from(await res.arrayBuffer());
+    expect(bytes.subarray(0, 4).toString('latin1')).toBe('%PDF'); // raster PDF assembled from the screenshots
+  });
+
   it('rejects unsupported image export formats before rendering', async () => {
     const before = seenDirs.length;
     const res = await fetch(`${baseUrl}/api/projects/${projectId}/export/image`, {
