@@ -5,7 +5,7 @@ import type {
   ProjectFileVersionSource,
 } from '@open-design/contracts';
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { isSafeId, kindFor, mimeFor, resolveProjectDir, validateProjectPath } from './projects.js';
@@ -293,6 +293,57 @@ export async function createProjectFileVersion(
   const nextEntries = [...entries, entry];
   await writeVersionManifest(projectsRoot, projectId, safeName, nextEntries);
   return publicVersion(entry, id);
+}
+
+export async function renameProjectFileVersionStore(
+  projectsRoot: string,
+  projectId: string,
+  fromName: string,
+  toName: string,
+  metadata?: unknown,
+): Promise<void> {
+  const safeFrom = validateUserFileName(fromName);
+  const safeTo = validateUserFileName(toName);
+  if (safeFrom === safeTo) return;
+  if (!/\.html?$/i.test(safeFrom) || !/\.html?$/i.test(safeTo)) return;
+
+  assertProjectAvailable(projectsRoot, projectId, metadata);
+  const oldRoot = versionRootFor(projectsRoot, projectId, safeFrom);
+  const newRoot = versionRootFor(projectsRoot, projectId, safeTo);
+  try {
+    await stat(oldRoot);
+  } catch (err) {
+    if (errorCode(err) === 'ENOENT') return;
+    throw err;
+  }
+
+  const renamedEntries = (await readVersionManifest(projectsRoot, projectId, safeFrom))
+    .map((entry) => ({ ...entry, fileName: safeTo }));
+
+  try {
+    await rename(oldRoot, newRoot);
+    await writeVersionManifest(projectsRoot, projectId, safeTo, renamedEntries);
+    return;
+  } catch (err) {
+    if (errorCode(err) !== 'EEXIST') throw err;
+  }
+
+  await mkdir(newRoot, { recursive: true });
+  const existingEntries = await readVersionManifest(projectsRoot, projectId, safeTo);
+  const existingIds = new Set(existingEntries.map((entry) => entry.id));
+  for (const entry of renamedEntries) {
+    if (existingIds.has(entry.id)) continue;
+    try {
+      await rename(path.join(oldRoot, entry.contentPath), path.join(newRoot, entry.contentPath));
+    } catch (err) {
+      if (errorCode(err) !== 'ENOENT' && errorCode(err) !== 'EEXIST') throw err;
+    }
+  }
+  await writeVersionManifest(projectsRoot, projectId, safeTo, [
+    ...existingEntries,
+    ...renamedEntries.filter((entry) => !existingIds.has(entry.id)),
+  ]);
+  await rm(oldRoot, { recursive: true, force: true });
 }
 
 export async function ensureCurrentProjectFileVersion(

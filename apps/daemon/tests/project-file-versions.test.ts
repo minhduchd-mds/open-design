@@ -8,6 +8,7 @@ import {
   isProjectFileVersionPath,
   listProjectFileVersions,
   readProjectFileVersion,
+  renameProjectFileVersionStore,
 } from '../src/project-file-versions.js';
 import { ensureProject } from '../src/projects.js';
 
@@ -123,6 +124,61 @@ describe('project file versions', () => {
         promptSource: 'manual',
         label: 'Manual text edit',
       });
+    });
+  });
+
+  it('explicit creates append a checkpoint even when content is unchanged', async () => {
+    await withProject(async (projectsRoot, projectId) => {
+      const first = await createProjectFileVersion(
+        projectsRoot,
+        projectId,
+        'brand.html',
+        '<html><body>same</body></html>',
+        { source: 'manual', promptSource: 'manual', label: 'First checkpoint' },
+      );
+      const second = await createProjectFileVersion(
+        projectsRoot,
+        projectId,
+        'brand.html',
+        '<html><body>same</body></html>',
+        { source: 'manual', promptSource: 'manual', label: 'Named checkpoint' },
+      );
+
+      expect(second.id).not.toBe(first.id);
+      expect(second).toMatchObject({
+        version: 2,
+        current: true,
+        label: 'Named checkpoint',
+      });
+      const versions = await listProjectFileVersions(projectsRoot, projectId, 'brand.html');
+      expect(versions).toHaveLength(2);
+      expect(versions.map((version) => version.current)).toEqual([false, true]);
+    });
+  });
+
+  it('moves HTML version history when a project file is renamed', async () => {
+    await withProject(async (projectsRoot, projectId) => {
+      const first = await createProjectFileVersion(
+        projectsRoot,
+        projectId,
+        'foo.html',
+        '<html><body>first</body></html>',
+        { source: 'ai', promptSource: 'message', prompt: 'make foo' },
+      );
+
+      await renameProjectFileVersionStore(projectsRoot, projectId, 'foo.html', 'nested/bar.html');
+
+      await expect(listProjectFileVersions(projectsRoot, projectId, 'foo.html')).resolves.toHaveLength(0);
+      const renamed = await listProjectFileVersions(projectsRoot, projectId, 'nested/bar.html');
+      expect(renamed).toHaveLength(1);
+      expect(renamed[0]).toMatchObject({
+        id: first.id,
+        fileName: 'nested/bar.html',
+        current: true,
+      });
+      const content = await readProjectFileVersion(projectsRoot, projectId, 'nested/bar.html', first.id);
+      expect(content.content).toBe('<html><body>first</body></html>');
+      expect(content.version.fileName).toBe('nested/bar.html');
     });
   });
 

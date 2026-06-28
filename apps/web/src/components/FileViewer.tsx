@@ -2394,7 +2394,7 @@ function FileVersionManagerModal({
   const selectedRestoredFrom = selectedVersion?.restoreFromVersionId
     ? versions.find((version) => version.id === selectedVersion.restoreFromVersionId)
     : null;
-  const restoreDisabled = !selectedVersion || selectedVersion.current || restoring || !selectedContent;
+  const restoreDisabled = !selectedVersion || selectedVersion.current || restoring || loadingContent || !selectedContent;
   const srcDoc = useMemo(() => {
     if (!selectedContent) return '';
     return buildSrcdoc(selectedContent, {
@@ -2438,6 +2438,7 @@ function FileVersionManagerModal({
       return;
     }
     let cancelled = false;
+    setSelectedContent(null);
     setLoadingContent(true);
     setError(null);
     void fetchProjectFileVersion(projectId, file.name, selectedId).then((result) => {
@@ -2472,7 +2473,7 @@ function FileVersionManagerModal({
   }
 
   function openVersionInNewTab() {
-    if (!selectedContent || !selectedVersion) return;
+    if (loadingContent || !selectedContent || !selectedVersion) return;
     openSandboxedPreviewInNewTab(selectedContent, `${file.name} · v${selectedVersion.version}`, {
       deck: htmlLooksLikeDeck(selectedContent),
       baseHref: projectRawUrl(projectId, baseDirFor(file.name)),
@@ -2613,7 +2614,7 @@ function FileVersionManagerModal({
                 title={t('fileViewer.versions.open')}
                 data-tooltip={t('fileViewer.versions.open')}
                 data-tooltip-placement="bottom"
-                disabled={!selectedContent}
+                disabled={!selectedContent || loadingContent}
                 onClick={openVersionInNewTab}
               >
                 <RemixIcon name="external-link-line" size={15} />

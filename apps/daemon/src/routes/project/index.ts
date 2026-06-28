@@ -18,6 +18,7 @@ import {
   isProjectFileVersionPath,
   listProjectFileVersions,
   readProjectFileVersion,
+  renameProjectFileVersionStore,
 } from '../../project-file-versions.js';
 import { listDesignSystems } from '../../design-systems/index.js';
 import {
@@ -2560,7 +2561,7 @@ export function registerProjectFileRoutes(app: Express, ctx: RegisterProjectFile
       } else if (fallbackPromptInfo?.promptSource) {
         versionOptions.promptSource = fallbackPromptInfo.promptSource;
       }
-      const version = await ensureCurrentProjectFileVersion(
+      const version = await createProjectFileVersion(
         PROJECTS_DIR,
         project.id,
         file.name,
@@ -2877,6 +2878,13 @@ export function registerProjectFileRoutes(app: Express, ctx: RegisterProjectFile
         req.params.id,
         from,
         to,
+        project?.metadata,
+      );
+      await renameProjectFileVersionStore(
+        PROJECTS_DIR,
+        req.params.id,
+        result.oldName,
+        result.newName,
         project?.metadata,
       );
       /** @type {import('@open-design/contracts').RenameProjectFileResponse} */
