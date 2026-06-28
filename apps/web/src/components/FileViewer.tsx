@@ -310,6 +310,7 @@ const MARKDOWN_CODE_BLOCK_ATTR = 'data-markdown-code-block';
 const MARKDOWN_COPY_BLOCK_ATTR = 'data-copy-code-block';
 const MARKDOWN_COPY_BUTTON_CLASS = 'markdown-code-copy';
 const MARKDOWN_COPY_TOAST_CLASS = 'markdown-code-toast';
+const ABSOLUTE_MARKDOWN_IMAGE_SOURCE_RE = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
 
 const DEPLOY_PROVIDER_OPTIONS: DeployProviderOption[] = [
   {
@@ -470,9 +471,10 @@ function rewriteMarkdownImageSources(html: string, projectId: string, markdownPa
   });
 }
 
-function markdownImageSourceUrl(projectId: string, markdownPath: string, src: string): string | null {
+export function markdownImageSourceUrl(projectId: string, markdownPath: string, src: string): string | null {
   const trimmed = src.trim();
-  if (!trimmed || /^https?:\/\//i.test(trimmed)) return trimmed || null;
+  if (!trimmed) return null;
+  if (ABSOLUTE_MARKDOWN_IMAGE_SOURCE_RE.test(trimmed)) return trimmed;
   const relativePath = trimmed.startsWith('/')
     ? normalizeMarkdownProjectPath(trimmed.slice(1))
     : normalizeMarkdownProjectPath(`${markdownDirectory(markdownPath)}/${trimmed}`);

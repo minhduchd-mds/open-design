@@ -3,7 +3,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { FileViewer } from '../../src/components/FileViewer';
+import { FileViewer, markdownImageSourceUrl } from '../../src/components/FileViewer';
 import type { ProjectFile } from '../../src/types';
 import { fetchProjectFileText, writeProjectTextFile } from '../../src/providers/registry';
 
@@ -111,6 +111,22 @@ describe('FileViewer markdown code block copy', () => {
     await waitFor(() => {
       expect(writeTextMock).toHaveBeenCalledWith('');
     });
+  });
+
+  it('preserves already-absolute markdown image sources and resolves project-relative assets', () => {
+    const sources = [
+      markdownImageSourceUrl('project-1', 'docs/readme.md', '//cdn.example.com/image.png'),
+      markdownImageSourceUrl('project-1', 'docs/readme.md', 'data:image/png;base64,abcd'),
+      markdownImageSourceUrl('project-1', 'docs/readme.md', '/project/path.png'),
+      markdownImageSourceUrl('project-1', 'docs/readme.md', './relative.png'),
+    ];
+
+    expect(sources).toEqual([
+      '//cdn.example.com/image.png',
+      'data:image/png;base64,abcd',
+      '/api/projects/project-1/raw/project/path.png',
+      '/api/projects/project-1/raw/docs/relative.png',
+    ]);
   });
 
   it('restores focus when the Clipboard API fails and the execCommand fallback succeeds', async () => {
