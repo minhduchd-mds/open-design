@@ -48,6 +48,7 @@ export const ko: Dict = {
   'chat.referenceProject.search': 'Search projects…',
   'chat.referenceProject.empty': 'No projects match “{query}”',
   'chat.referenceProject.emptyAll': 'No other projects yet',
+  'chat.referenceProject.loadFailed': 'Could not load projects. Check that the daemon is running and try again.',
   'chat.referenceProject.confirm': 'Reference project',
   'chat.contextPrompt.referenceProject': 'Use the Open Design project “{name}” as reference context. Its local path is: {path}. Before designing or modifying anything, search and read this directory when useful.',
   'chat.contextPrompt.localCode': 'Use the local code folder “{name}” as code reference. Its absolute path is: {path}. Read relevant files when useful and stay consistent with the existing implementation.',

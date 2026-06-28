@@ -48,6 +48,7 @@ export const zhCN: Dict = {
   'chat.referenceProject.search': '搜索项目…',
   'chat.referenceProject.empty': '没有匹配“{query}”的项目',
   'chat.referenceProject.emptyAll': '暂无其它项目',
+  'chat.referenceProject.loadFailed': '无法加载项目。请确认 daemon 正在运行后重试。',
   'chat.referenceProject.confirm': '引用项目',
   'chat.contextPrompt.referenceProject': '请把 Open Design 项目“{name}”作为参考上下文。它的本地路径是：{path}。在设计或修改前，如有帮助请先搜索并读取这个目录。',
   'chat.contextPrompt.localCode': '请把本地代码目录“{name}”作为代码参考。它的绝对路径是：{path}。如有帮助请先读取相关文件，并与现有实现保持一致。',

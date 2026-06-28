@@ -48,6 +48,7 @@ export const zhTW: Dict = {
   'chat.referenceProject.search': '搜尋專案…',
   'chat.referenceProject.empty': '沒有符合「{query}」的專案',
   'chat.referenceProject.emptyAll': '暫無其他專案',
+  'chat.referenceProject.loadFailed': '無法載入專案。請確認 daemon 正在執行後再試一次。',
   'chat.referenceProject.confirm': '引用專案',
   'chat.contextPrompt.referenceProject': '請把 Open Design 專案「{name}」作為參考上下文。它的本機路徑是：{path}。在設計或修改前，如有幫助請先搜尋並讀取這個目錄。',
   'chat.contextPrompt.localCode': '請把本機程式碼目錄「{name}」作為程式碼參考。它的絕對路徑是：{path}。如有幫助請先讀取相關檔案，並與既有實作保持一致。',

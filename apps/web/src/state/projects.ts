@@ -61,14 +61,14 @@ export async function getProject(id: string): Promise<Project | null> {
 
 export async function getProjectDetail(
   id: string,
-): Promise<{ project: Project; resolvedDir: string } | null> {
+): Promise<{ project: Project; resolvedDir: string | null } | null> {
   try {
     const resp = await fetch(`/api/projects/${encodeURIComponent(id)}`);
     if (!resp.ok) return null;
     const json = (await resp.json()) as { project: Project; resolvedDir?: unknown };
     return {
       project: json.project,
-      resolvedDir: typeof json.resolvedDir === 'string' ? json.resolvedDir : '',
+      resolvedDir: typeof json.resolvedDir === 'string' ? json.resolvedDir : null,
     };
   } catch {
     return null;

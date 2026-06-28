@@ -53,6 +53,7 @@ export interface Dict {
   'chat.referenceProject.search': string;
   'chat.referenceProject.empty': string;
   'chat.referenceProject.emptyAll': string;
+  'chat.referenceProject.loadFailed': string;
   'chat.referenceProject.confirm': string;
   'chat.contextPrompt.referenceProject': string;
   'chat.contextPrompt.localCode': string;

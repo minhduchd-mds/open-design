@@ -23,8 +23,26 @@ const project: Project = {
   metadata: { kind: 'prototype' },
 };
 
-function renderModal(onSelect = vi.fn()) {
-  vi.mocked(listProjects).mockResolvedValue([project]);
+const importedProject: Project = {
+  ...project,
+  id: 'imported-project',
+  name: 'Imported Project',
+  metadata: { kind: 'prototype', baseDir: '/Users/me/imported' },
+};
+
+type ProjectSelectHandler = (project: Project, resolvedDir: string) => void;
+
+function renderModal(options: {
+  onSelect?: ProjectSelectHandler;
+  projects?: Project[];
+  listError?: Error;
+} = {}) {
+  const onSelect = options.onSelect ?? vi.fn<ProjectSelectHandler>();
+  if (options.listError) {
+    vi.mocked(listProjects).mockRejectedValue(options.listError);
+  } else {
+    vi.mocked(listProjects).mockResolvedValue(options.projects ?? [project]);
+  }
   render(
     <I18nProvider initial={'en' as Locale}>
       <ProjectReferenceModal onClose={vi.fn()} onSelect={onSelect} />
@@ -33,8 +51,8 @@ function renderModal(onSelect = vi.fn()) {
   return { onSelect };
 }
 
-async function confirmSelection() {
-  await screen.findByText('Reference Project');
+async function confirmSelection(projectName = 'Reference Project') {
+  await screen.findByText(projectName);
   fireEvent.click(screen.getByRole('button', { name: 'Reference project' }));
 }
 
@@ -44,6 +62,21 @@ afterEach(() => {
 });
 
 describe('ProjectReferenceModal', () => {
+  it('loads projects with a required error surface', async () => {
+    renderModal();
+
+    await screen.findByText('Reference Project');
+
+    expect(listProjects).toHaveBeenCalledWith({ throwOnError: true });
+  });
+
+  it('shows a load error instead of an empty state when project loading fails', async () => {
+    renderModal({ listError: new Error('daemon unavailable') });
+
+    expect((await screen.findByRole('alert')).textContent).toContain('Could not load projects');
+    expect(screen.queryByText('No other projects yet')).toBeNull();
+  });
+
   it('does not select a project when detail loading fails', async () => {
     const { onSelect } = renderModal();
     vi.mocked(getProjectDetail).mockResolvedValue(null);
@@ -75,6 +108,20 @@ describe('ProjectReferenceModal', () => {
 
     await waitFor(() => {
       expect(onSelect).toHaveBeenCalledWith(project, '/tmp/open-design/project-ref');
+    });
+  });
+
+  it('falls back to imported project metadata when older daemons omit resolvedDir', async () => {
+    const { onSelect } = renderModal({ projects: [importedProject] });
+    vi.mocked(getProjectDetail).mockResolvedValue({
+      project: importedProject,
+      resolvedDir: null,
+    });
+
+    await confirmSelection('Imported Project');
+
+    await waitFor(() => {
+      expect(onSelect).toHaveBeenCalledWith(importedProject, '/Users/me/imported');
     });
   });
 });

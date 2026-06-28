@@ -33,20 +33,30 @@ export function ProjectReferenceModal({ currentProjectId, onClose, onSelect }: P
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    void listProjects().then((rows) => {
-      if (cancelled) return;
-      const filtered = rows.filter((project) => project.id !== currentProjectId);
-      setProjects(filtered);
-      setSelectedId((current) => current ?? filtered[0]?.id ?? null);
-    });
+    setProjects(null);
+    setSelectedId(null);
+    setLoadError(null);
+    void listProjects({ throwOnError: true })
+      .then((rows) => {
+        if (cancelled) return;
+        const filtered = rows.filter((project) => project.id !== currentProjectId);
+        setProjects(filtered);
+        setSelectedId((current) => current ?? filtered[0]?.id ?? null);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setProjects([]);
+        setLoadError(t('chat.referenceProject.loadFailed'));
+      });
     return () => {
       cancelled = true;
     };
-  }, [currentProjectId]);
+  }, [currentProjectId, t]);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -74,7 +84,8 @@ export function ProjectReferenceModal({ currentProjectId, onClose, onSelect }: P
     setError(null);
     try {
       const detail = await getProjectDetail(selectedProject.id);
-      const resolvedDir = detail?.resolvedDir.trim() ?? '';
+      const resolvedDir =
+        detail?.resolvedDir?.trim() || detail?.project.metadata?.baseDir?.trim() || '';
       if (!detail || !resolvedDir) {
         setError(t('homeWorkingDir.applyFailed'));
         return;
@@ -120,6 +131,10 @@ export function ProjectReferenceModal({ currentProjectId, onClose, onSelect }: P
           <div className={styles.list} role="listbox" aria-label={t('chat.referenceProject.title')}>
             {projects === null ? (
               <div className={styles.empty}>{t('common.loading')}</div>
+            ) : loadError ? (
+              <div className={styles.error} role="alert">
+                {loadError}
+              </div>
             ) : visibleProjects.length === 0 ? (
               <div className={styles.empty}>
                 {query.trim()
