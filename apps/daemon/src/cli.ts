@@ -5605,6 +5605,8 @@ async function runProject(args) {
                     [--prompt "<text>" | --prompt-file <path|->] [--json]
                     Duplicate a project as a design-system workspace and seed
                     the design-system generation prompt.
+  od project duplicate <id> [--name "<title>"] [--json]
+                    Duplicate a project and copy its Design Files.
   od project import <baseDir> [--name "<title>"]
   od project import-folder <path> [--name "<title>"] [--skill <id>]
                     [--design-system <id>] [--json]
@@ -5735,6 +5737,26 @@ Common options:
       console.log(
         `[project] created design system project ${data.project?.id ?? '-'} from ${sourceProjectId} `
         + `(design system ${data.designSystemId ?? '-'}, conversation ${data.conversationId ?? '-'})`,
+      );
+      return;
+    }
+    case 'duplicate': {
+      const sourceProjectId = positionalArgs(rest, PROJECT_STRING_FLAGS)[0];
+      if (!sourceProjectId) {
+        console.error('Usage: od project duplicate <id> [--name "<title>"] [--json]');
+        process.exit(2);
+      }
+      const body = {};
+      if (typeof flags.name === 'string' && flags.name.length > 0) body.name = flags.name;
+      const data = await postJsonToDaemon(
+        base,
+        `/api/projects/${encodeURIComponent(sourceProjectId)}/duplicate`,
+        body,
+      );
+      if (flags.json) return process.stdout.write(JSON.stringify(data, null, 2) + '\n');
+      console.log(
+        `[project] duplicated ${sourceProjectId} as ${data.project?.id ?? '-'} `
+        + `(conversation ${data.conversationId ?? '-'})`,
       );
       return;
     }

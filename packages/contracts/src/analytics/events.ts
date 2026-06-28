@@ -1384,7 +1384,7 @@ export interface ProjectsListClickProps {
 export interface ProjectsMorePopoverClickProps {
   page_name: 'projects';
   area: 'projects_more_popover';
-  element: 'rename' | 'delete';
+  element: 'rename' | 'duplicate' | 'delete';
   project_id?: string;
   project_kind?: TrackingProjectKind;
 }
@@ -2000,6 +2000,8 @@ export interface FileManagerClickProps {
     | 'new_sketch'
     | 'new_browser'
     | 'create_design_system'
+    | 'create_design_system_from_project'
+    | 'duplicate_project'
     | 'paste'
     | 'upload'
     | 'library'

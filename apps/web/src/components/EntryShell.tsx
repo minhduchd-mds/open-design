@@ -368,6 +368,7 @@ interface Props {
   onOpenProject: (id: string) => Promise<boolean> | boolean | void;
   onOpenLiveArtifact: (projectId: string, artifactId: string) => void;
   onDeleteProject: (id: string) => Promise<boolean | void> | boolean | void;
+  onDuplicateProject?: (id: string) => Promise<void> | void;
   onRenameProject: (id: string, name: string) => void;
   onProjectsRefresh?: () => Promise<void> | void;
   onChangeDefaultDesignSystem: (id: string) => void;
@@ -473,6 +474,7 @@ export function EntryShell({
   onOpenProject,
   onOpenLiveArtifact,
   onDeleteProject,
+  onDuplicateProject,
   onRenameProject,
   onProjectsRefresh,
   onChangeDefaultDesignSystem,
@@ -876,6 +878,7 @@ export function EntryShell({
                 onOpenProject={onOpenProject}
                 onViewAllProjects={() => changeView('projects')}
                 onDeleteProject={onDeleteProject}
+                onDuplicateProject={onDuplicateProject}
                 onRenameProject={onRenameProject}
                 onBrowseRegistry={() => changeView('plugins')}
                 onOpenIntegrations={() => openIntegrationTab('connectors')}
@@ -907,6 +910,7 @@ export function EntryShell({
                     onOpen={onOpenProject}
                     onOpenLiveArtifact={onOpenLiveArtifact}
                     onDelete={onDeleteProject}
+                    onDuplicate={onDuplicateProject}
                     onRename={onRenameProject}
                     onRefresh={onProjectsRefresh}
                     isActive={view === 'projects'}

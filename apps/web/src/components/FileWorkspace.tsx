@@ -191,6 +191,10 @@ interface Props {
   defaultDesignSystemId?: string | null;
   onSetDefaultDesignSystem?: (id: string | null) => Promise<void> | void;
   onDesignSystemsRefresh?: () => Promise<void> | void;
+  onCreateDesignSystemFromProject?: () => void;
+  createDesignSystemFromProjectBusy?: boolean;
+  onDuplicateProject?: () => void;
+  duplicateProjectBusy?: boolean;
   // Delete the backing project (and navigate away) for the design-system project
   // tab's "..." menu. Resolves to handleDeleteProject in App.
   onDeleteDesignSystemProject?: (id: string) => Promise<boolean> | boolean;
@@ -299,10 +303,16 @@ export interface BrowserOpenRequest {
   tabId?: string;
   url: string;
   nonce: number;
+  /** Request a transient in-tab affordance after opening/focusing. */
+  attentionAction?: 'download-page';
   /** Only foreground an EXISTING browser tab — do not navigate it. Used to wake
    *  a background-throttled webview before reading its DOM (brand browser
    *  assist) WITHOUT reloading the page and re-triggering an anti-bot wall. */
   focusOnly?: boolean;
+}
+export interface BrowserAttentionRequest {
+  action: 'download-page';
+  nonce: number;
 }
 type WorkspaceOrderedTab =
   | { id: string; kind: 'browser'; browserTab: BrowserWorkspaceTab }
@@ -462,6 +472,10 @@ export function FileWorkspace({
   defaultDesignSystemId = null,
   onSetDefaultDesignSystem,
   onDesignSystemsRefresh,
+  onCreateDesignSystemFromProject,
+  createDesignSystemFromProjectBusy = false,
+  onDuplicateProject,
+  duplicateProjectBusy = false,
   onDeleteDesignSystemProject,
   onDesignSystemNeedsWork,
   designSystemReview,
@@ -560,6 +574,9 @@ export function FileWorkspace({
   );
   const [browserNavigateRequests, setBrowserNavigateRequests] = useState<
     Record<string, { url: string; nonce: number }>
+  >({});
+  const [browserAttentionRequests, setBrowserAttentionRequests] = useState<
+    Record<string, BrowserAttentionRequest>
   >({});
   // "+" launcher (file search + registry-driven create-new actions:
   // Side Chat, Terminal, Browser).
@@ -719,6 +736,13 @@ export function FileWorkspace({
     if (request.focusOnly && browserTabs.some((tab) => tab.id === tabId)) {
       setUploadError(null);
       setActiveTab(tabId);
+      const attentionAction = request.attentionAction;
+      if (attentionAction) {
+        setBrowserAttentionRequests((current) => ({
+          ...current,
+          [tabId]: { action: attentionAction, nonce: request.nonce },
+        }));
+      }
       commitTabsState(workspaceTabsState(persistedTabs, tabId, browserTabs));
       return;
     }
@@ -750,6 +774,13 @@ export function FileWorkspace({
       ...current,
       [tabId]: { url: normalizedUrl, nonce: request.nonce },
     }));
+    const attentionAction = request.attentionAction;
+    if (attentionAction) {
+      setBrowserAttentionRequests((current) => ({
+        ...current,
+        [tabId]: { action: attentionAction, nonce: request.nonce },
+      }));
+    }
     setActiveTab(tabId);
     commitTabsState(workspaceTabsState(persistedTabs, tabId, nextTabs));
   }
@@ -2229,6 +2260,7 @@ export function FileWorkspace({
               initialTitle={browserTab.title}
               initialUrl={browserTab.url}
               navigateRequest={browserNavigateRequests[browserTab.id]}
+              attentionRequest={browserAttentionRequests[browserTab.id]}
               sendDisabled={Boolean(streaming)}
               previewComments={previewComments}
               onSavePreviewComment={onSavePreviewComment}
@@ -2352,6 +2384,10 @@ export function FileWorkspace({
               setPendingDesignSystemCreateEntry('project_canvas');
               navigate({ kind: 'design-system-create' });
             }}
+            onCreateDesignSystemFromProject={onCreateDesignSystemFromProject}
+            createDesignSystemFromProjectBusy={createDesignSystemFromProjectBusy}
+            onDuplicateProject={onDuplicateProject}
+            duplicateProjectBusy={duplicateProjectBusy}
             onSelectFromLibrary={() => {
               trackFileManagerClick(analytics.track, {
                 page_name: 'file_manager',

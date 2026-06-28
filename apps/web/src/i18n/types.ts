@@ -88,6 +88,7 @@ export interface Dict {
   'designBrowser.copyUrl': string;
   'designBrowser.openExternal': string;
   'designBrowser.downloadPage': string;
+  'designBrowser.downloadPageBusy': string;
   'designBrowser.clearHistory': string;
   'designBrowser.clearCookies': string;
   'designBrowser.clearAllData': string;
@@ -104,6 +105,7 @@ export interface Dict {
   'designBrowser.status.pageSnapshotUnsupported': string;
   'designBrowser.status.pageSnapshotFailed': string;
   'designBrowser.status.pageSnapshotSaved': string;
+  'designBrowser.status.downloadAssistHint': string;
   'designBrowser.status.desktopDataUnavailable': string;
   'designBrowser.status.browserDataCleared': string;
   'designBrowser.status.browserDataClearFailed': string;
@@ -1996,6 +1998,7 @@ export interface Dict {
   'designs.deleteAria': string;
   'designs.menuMore': string;
   'designs.menuRename': string;
+  'designs.menuDuplicate': string;
   'designs.menuDelete': string;
   'designs.renamePrompt': string;
   'designs.selectMode': string;
@@ -2413,6 +2416,8 @@ export interface Dict {
   'chat.brandBrowserLocalSnapshotMissing': string;
   'chat.brandBrowserLocalSnapshotReadFailed': string;
   'chat.brandBrowserSnapshotSaveFailed': string;
+  'chat.brandBrowserAssistDownloadGuideTitle': string;
+  'chat.brandBrowserAssistDownloadGuideDetails': string;
   'brandEnrichment.title': string;
   'brandEnrichment.body': string;
   'brandEnrichment.cta': string;
@@ -2793,6 +2798,9 @@ export interface Dict {
   'designFiles.paste.title': string;
   'designFiles.upload.label': string;
   'designFiles.paste.label': string;
+  'designFiles.projectMenu': string;
+  'designFiles.createDesignSystemFromProject': string;
+  'designFiles.duplicateProject': string;
   'designFiles.previewOpen': string;
   'designFiles.previewClose': string;
   'designFiles.modified': string;

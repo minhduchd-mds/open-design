@@ -100,6 +100,16 @@ export function Toast({ message, details, code, ttlMs = DEFAULT_TTL, onDismiss, 
       {code ? (
         <pre className="od-toast-code">{code}</pre>
       ) : null}
+      {!code && onDismiss ? (
+        <button
+          type="button"
+          className="od-toast-close"
+          onClick={onDismiss}
+          aria-label="Dismiss"
+        >
+          <Icon name="close" size={13} />
+        </button>
+      ) : null}
       {code && onDismiss ? (
         <button
           type="button"

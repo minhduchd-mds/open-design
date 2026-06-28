@@ -182,7 +182,7 @@ function addSourceUrl(value: string) {
 function mockBrandExtractProject(project: Project) {
   mocks.getProject.mockResolvedValue(project);
   const designSystemId = project.designSystemId ?? `user:${project.id}`;
-  const fetchMock = vi.fn(async (input: unknown) => {
+  const fetchMock = vi.fn(async (input: unknown, _init?: unknown) => {
     if (typeof input === 'string' && input.startsWith('/api/brands')) {
       return {
         ok: true,
@@ -390,6 +390,63 @@ describe('DesignSystemCreationFlow', () => {
     // The legacy 5-step pipeline must no longer run.
     expect(mocks.createDesignSystemDraft).not.toHaveBeenCalled();
     expect(mocks.ensureDesignSystemWorkspace).not.toHaveBeenCalled();
+  });
+
+  it('normalizes GitHub SSH source links before starting extraction', async () => {
+    const project: Project = {
+      id: 'brand-github',
+      name: 'GitHub Design System',
+      skillId: 'brand-extract',
+      designSystemId: null,
+      createdAt: 1,
+      updatedAt: 1,
+      metadata: { kind: 'brand', importedFrom: 'brand-extraction' },
+    };
+    const fetchMock = mockBrandExtractProject(project);
+    const onCreated = vi.fn();
+
+    render(<DesignSystemCreationFlow onBack={() => {}} onCreated={onCreated} />);
+
+    addSourceUrl('git@github.com:nexu-io/open-design.git');
+    continueToGeneration();
+    confirmExtraction();
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalled());
+    const requestInit = fetchMock.mock.calls.find(([url]) => url === '/api/brands')?.[1] as
+      | { body: string }
+      | undefined;
+    expect(requestInit).toBeTruthy();
+    expect(JSON.parse(requestInit!.body)).toMatchObject({
+      url: 'https://github.com/nexu-io/open-design',
+    });
+  });
+
+  it('keeps protocol-less website paths as website URLs', async () => {
+    const project: Project = {
+      id: 'brand-example',
+      name: 'Example Design System',
+      skillId: 'brand-extract',
+      designSystemId: null,
+      createdAt: 1,
+      updatedAt: 1,
+      metadata: { kind: 'brand', importedFrom: 'brand-extraction' },
+    };
+    const fetchMock = mockBrandExtractProject(project);
+
+    render(<DesignSystemCreationFlow onBack={() => {}} onCreated={() => {}} />);
+
+    addSourceUrl('example.com/pricing');
+    continueToGeneration();
+    confirmExtraction();
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/brands', expect.anything()));
+    const requestInit = fetchMock.mock.calls.find(([url]) => url === '/api/brands')?.[1] as
+      | { body: string }
+      | undefined;
+    expect(requestInit).toBeTruthy();
+    expect(JSON.parse(requestInit!.body)).toMatchObject({
+      url: 'https://example.com/pricing',
+    });
   });
 
   it('creates from pasted DESIGN.md without requiring a website', async () => {
@@ -619,7 +676,9 @@ describe('DesignSystemCreationFlow', () => {
     continueToGeneration();
     confirmExtraction();
 
-    await waitFor(() => expect(screen.getByText(/could not start the extraction/i)).toBeTruthy());
+    await waitFor(() => expect(screen.getAllByText('url is required').length).toBeGreaterThan(0));
+    const toast = document.querySelector('.od-toast.placement-top.tone-error');
+    expect(toast?.textContent).toContain('url is required');
     expect(onCreated).not.toHaveBeenCalled();
   });
 
@@ -1483,8 +1542,11 @@ describe('DesignSystemCreationFlow', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Could not read one or more dropped files or folders/)).toBeTruthy();
+      expect(screen.getAllByText(/Could not read one or more dropped files or folders/).length).toBeGreaterThan(0);
     });
+    expect(document.querySelector('.od-toast.placement-top.tone-error')?.textContent).toContain(
+      'Could not read one or more dropped files or folders',
+    );
     expect(screen.queryByText(/local code files selected/)).toBeNull();
   });
 

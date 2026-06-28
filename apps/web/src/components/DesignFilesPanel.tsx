@@ -60,6 +60,10 @@ interface Props {
   onNewSketch: () => void;
   onOpenBrowser?: () => void;
   onCreateDesignSystem?: () => void;
+  onCreateDesignSystemFromProject?: () => void;
+  createDesignSystemFromProjectBusy?: boolean;
+  onDuplicateProject?: () => void;
+  duplicateProjectBusy?: boolean;
   /** Opens the "Select from library" picker to pull registry assets in. */
   onSelectFromLibrary?: () => void;
   // Reports the folder the panel is currently viewing so the parent can create
@@ -289,6 +293,10 @@ export function DesignFilesPanel({
   onNewSketch,
   onOpenBrowser,
   onCreateDesignSystem,
+  onCreateDesignSystemFromProject,
+  createDesignSystemFromProjectBusy = false,
+  onDuplicateProject,
+  duplicateProjectBusy = false,
   onSelectFromLibrary,
   uploadError = null,
   onClearUploadError,
@@ -320,6 +328,8 @@ export function DesignFilesPanel({
   const [installNotice, setInstallNotice] = useState<ActionNotice | null>(null);
   const [renaming, setRenaming] = useState<{ name: string; draft: string; saving: boolean } | null>(null);
   const [currentDir, setCurrentDir] = useState<string>(() => navState?.currentDir ?? '');
+  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
+  const projectMenuRef = useRef<HTMLDivElement | null>(null);
 
   // Keep the parent's create-target in sync with the folder being viewed, so
   // uploads / pastes / new sketches / dropped files land in the open folder
@@ -478,6 +488,24 @@ export function DesignFilesPanel({
       window.removeEventListener('keydown', onKey);
     };
   }, [menuPos]);
+
+  useEffect(() => {
+    if (!projectMenuOpen) return;
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (target instanceof Node && projectMenuRef.current?.contains(target)) return;
+      setProjectMenuOpen(false);
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setProjectMenuOpen(false);
+    }
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [projectMenuOpen]);
 
 
   function toggleSelect(name: string) {
@@ -839,6 +867,63 @@ export function DesignFilesPanel({
         <Icon name="upload" size={13} />
         <span>{t('designFiles.upload.label')}</span>
       </button>
+      {onCreateDesignSystemFromProject || onDuplicateProject ? (
+        <div className="df-project-menu-anchor" ref={projectMenuRef}>
+          <button
+            type="button"
+            className="df-project-menu-trigger"
+            aria-label={t('designFiles.projectMenu')}
+            aria-haspopup="menu"
+            aria-expanded={projectMenuOpen}
+            title={t('designFiles.projectMenu')}
+            onClick={() => setProjectMenuOpen((current) => !current)}
+          >
+            <Icon name="more-horizontal" size={14} />
+          </button>
+          {projectMenuOpen ? (
+            <div className="df-project-menu" role="menu">
+              {onCreateDesignSystemFromProject ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={createDesignSystemFromProjectBusy}
+                  onClick={() => {
+                    trackFileManagerClick(analytics.track, {
+                      page_name: 'file_manager',
+                      area: 'file_manager',
+                      element: 'create_design_system_from_project',
+                    });
+                    setProjectMenuOpen(false);
+                    onCreateDesignSystemFromProject();
+                  }}
+                >
+                  <Icon name={createDesignSystemFromProjectBusy ? 'spinner' : 'blocks'} size={13} />
+                  <span>{t('designFiles.createDesignSystemFromProject')}</span>
+                </button>
+              ) : null}
+              {onDuplicateProject ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={duplicateProjectBusy}
+                  onClick={() => {
+                    trackFileManagerClick(analytics.track, {
+                      page_name: 'file_manager',
+                      area: 'file_manager',
+                      element: 'duplicate_project',
+                    });
+                    setProjectMenuOpen(false);
+                    onDuplicateProject();
+                  }}
+                >
+                  <Icon name={duplicateProjectBusy ? 'spinner' : 'copy'} size={13} />
+                  <span>{t('designFiles.duplicateProject')}</span>
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 

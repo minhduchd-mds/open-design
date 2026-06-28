@@ -107,7 +107,7 @@
   left: 50%;
   transform: translateX(-50%);
   max-width: 480px;
-  padding: 10px 14px;
+  padding: 10px 36px 10px 14px;
   border-radius: var(--radius-sm, 4px);
   background: var(--text-strong, #1f2328);
   color: var(--bg, white);
@@ -215,6 +215,26 @@
   max-height: 240px;
   overflow: auto;
   user-select: text;
+}
+.od-toast-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: var(--radius-sm, 4px);
+  background: transparent;
+  color: currentColor;
+  cursor: pointer;
+  opacity: 0.72;
+}
+.od-toast-close:hover {
+  background: rgba(255, 255, 255, 0.12);
+  opacity: 1;
 }
 .od-toast-dismiss {
   margin-top: 8px;

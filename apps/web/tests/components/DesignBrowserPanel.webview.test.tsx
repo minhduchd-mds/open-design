@@ -7,6 +7,7 @@ import { installMockOpenDesignHost } from '@open-design/host/testing';
 
 import { DesignBrowserPanel } from '../../src/components/DesignBrowserPanel';
 import { I18nProvider } from '../../src/i18n';
+import { writeProjectTextFile } from '../../src/providers/registry';
 
 // The panel imports these writers from the registry at module load; stub them so
 // rendering never reaches the network.
@@ -28,6 +29,7 @@ let restoreHost: (() => void) | null = null;
 
 beforeEach(() => {
   window.localStorage.clear();
+  vi.mocked(writeProjectTextFile).mockResolvedValue(null);
   // Makes isOpenDesignHostAvailable() true so the panel renders the desktop
   // <webview> branch (rather than the iframe fallback).
   restoreHost = installMockOpenDesignHost();
@@ -90,6 +92,109 @@ describe('DesignBrowserPanel <webview> navigation', () => {
     expect(screen.queryByRole('menuitem', { name: 'Mark' })).toBeNull();
     expect(screen.queryByRole('menuitem', { name: 'Comment' })).toBeNull();
     expect(screen.getByRole('menuitem', { name: 'Copy Screenshot' })).toBeTruthy();
+  });
+
+  it('opens the browser menu and highlights Download Page for attention requests', async () => {
+    const navigateRequest = { url: 'https://example.com', nonce: 1 };
+    const attentionRequest = { action: 'download-page' as const, nonce: 1 };
+    const view = render(
+      <DesignBrowserPanel
+        projectId="proj-webview-download-attention"
+        initialTitle="Example"
+        initialUrl="https://example.com"
+        navigateRequest={navigateRequest}
+        attentionRequest={attentionRequest}
+        onOpenFile={() => {}}
+        onRefreshFiles={() => {}}
+      />,
+    );
+
+    const downloadItem = await screen.findByRole('menuitem', { name: 'Download Page' });
+    expect(downloadItem.classList.contains('is-attention')).toBe(true);
+    expect(screen.getByText(/Use Download Page in this menu/)).toBeTruthy();
+
+    view.rerender(
+      <DesignBrowserPanel
+        projectId="proj-webview-download-attention"
+        initialTitle="Example"
+        initialUrl="https://example.com"
+        navigateRequest={{ ...navigateRequest }}
+        attentionRequest={attentionRequest}
+        onOpenFile={() => {}}
+        onRefreshFiles={() => {}}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole('menuitem', { name: 'Download Page' })).toBeTruthy();
+  });
+
+  it('closes the browser menu and uses the status toast while downloading a page snapshot', async () => {
+    let resolveCapture: (value: unknown) => void = () => {};
+    const capturePromise = new Promise<unknown>((resolve) => {
+      resolveCapture = resolve;
+    });
+    vi.mocked(writeProjectTextFile).mockImplementation(async (_projectId, name) => ({
+      kind: 'code',
+      mime: 'application/json',
+      mtime: 1,
+      name,
+      size: 1,
+      type: 'file',
+    }));
+    const onOpenFile = vi.fn();
+    const { container } = render(
+      <DesignBrowserPanel
+        projectId="proj-webview-download-toast"
+        initialTitle="Example"
+        initialUrl="https://example.com"
+        onOpenFile={onOpenFile}
+        onRefreshFiles={() => {}}
+      />,
+    );
+    const webview = container.querySelector('webview.db-webview') as HTMLElement & {
+      executeJavaScript?: ReturnType<typeof vi.fn>;
+    };
+    webview.executeJavaScript = vi.fn(() => capturePromise);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Browser menu' }));
+    const downloadItem = screen.getByRole('menuitem', { name: 'Download Page' });
+    expect(downloadItem.classList.contains('is-loading')).toBe(false);
+
+    fireEvent.click(downloadItem);
+
+    expect(screen.queryByRole('menuitem', { name: 'Download Page' })).toBeNull();
+    expect(screen.getByText('Saving page snapshot...')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Browser menu' }));
+    expect((screen.getByRole('menuitem', { name: 'Copy Screenshot' }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole('menuitem', { name: 'Save Page Brief' }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole('menuitem', { name: 'Download Page' }) as HTMLButtonElement).disabled).toBe(true);
+
+    await act(async () => {
+      resolveCapture({
+        title: 'Example',
+        url: 'https://example.com',
+        html: '<!doctype html><html><body>Example</body></html>',
+        css: '',
+        resources: [],
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Saved page snapshot/)).toBeTruthy();
+    });
+    expect(onOpenFile).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Design Files' }));
+
+    expect(onOpenFile).toHaveBeenCalledTimes(1);
+    expect(onOpenFile.mock.calls[0]?.[0]).toMatch(/^browser\/snapshots\/example\.com-/);
+    expect(onOpenFile.mock.calls[0]?.[0]).toMatch(/\/manifest\.json$/);
   });
 
   it('searches inspiration actions and adds an operation prompt for the current browser tab', () => {

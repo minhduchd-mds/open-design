@@ -411,6 +411,10 @@ interface Props {
     sourceProjectId: string,
     input: { name?: string; pendingPrompt?: string },
   ) => Promise<void> | void;
+  onDuplicateProject?: (
+    sourceProjectId: string,
+    input?: { name?: string },
+  ) => Promise<void> | void;
 }
 
 interface QueuedChatSend {
@@ -1139,6 +1143,7 @@ export function ProjectView({
   onDesignSystemsRefresh,
   onCreateProjectFromDesignSystem,
   onCreateDesignSystemFromProject,
+  onDuplicateProject,
 }: Props) {
   const { locale, t } = useI18n();
   const analytics = useAnalytics();
@@ -2921,16 +2926,24 @@ export function ProjectView({
   );
 
   // Client-side handler for the brand-browser-assist od-card's button: open or
-  // focus the bound Browser tab on the blocked site. The user clears the wall
-  // there, then the regular Continue extraction next-step reads the live DOM.
+  // focus the bound Browser tab, surface the Download Page menu action, and let
+  // Continue extraction consume the saved snapshot or live DOM.
   const handleBrandBrowserAssistConfirm = useCallback<BrandBrowserAssistConfirm>(
     async (card): Promise<BrandBrowserAssistResult> => {
       const url = card.url?.trim() || currentProject.metadata?.brandSourceUrl?.trim() || '';
       if (!url) return { ok: false, message: t('chat.brandBrowserAssistReadFailed') };
+      const nonce = Date.now();
       setBrowserOpenRequest({
         tabId: card.browserTabId || BRAND_BROWSER_TAB_ID,
         url,
-        nonce: Date.now(),
+        nonce,
+        attentionAction: 'download-page',
+      });
+      setProjectActionsToast({
+        message: t('chat.brandBrowserAssistDownloadGuideTitle'),
+        details: t('chat.brandBrowserAssistDownloadGuideDetails'),
+        tone: 'default',
+        ttlMs: 12000,
       });
       return { ok: true, action: 'opened' };
     },
@@ -6740,6 +6753,7 @@ export function ProjectView({
   const brandProgrammaticContinueStartingRef = useRef(false);
   const [brandCreateDesignStarting, setBrandCreateDesignStarting] = useState(false);
   const [projectDesignSystemCreateStarting, setProjectDesignSystemCreateStarting] = useState(false);
+  const [projectDuplicateStarting, setProjectDuplicateStarting] = useState(false);
   useEffect(() => {
     if (brandEnrichmentPromptSeed) {
       setBrandEnrichmentPromptSeedCache(brandEnrichmentPromptSeed);
@@ -7055,6 +7069,26 @@ export function ProjectView({
     projectDesignSystemCreateStarting,
     projectFiles,
     projectIsDesignSystemProject,
+  ]);
+
+  const handleDuplicateProject = useCallback(() => {
+    if (projectDuplicateStarting || !onDuplicateProject) return;
+    setProjectDuplicateStarting(true);
+    void Promise.resolve(onDuplicateProject(currentProject.id, {}))
+      .catch((err) => {
+        setProjectActionsToast({
+          message: err instanceof Error ? err.message : String(err),
+          details: null,
+          tone: 'error',
+        });
+      })
+      .finally(() => {
+        setProjectDuplicateStarting(false);
+      });
+  }, [
+    currentProject.id,
+    onDuplicateProject,
+    projectDuplicateStarting,
   ]);
 
   // Continue in CLI / Finalize design package handlers + keyboard
@@ -7617,6 +7651,12 @@ export function ProjectView({
           defaultDesignSystemId={config.designSystemId}
           onSetDefaultDesignSystem={onChangeDefaultDesignSystem}
           onDesignSystemsRefresh={onDesignSystemsRefresh}
+          onCreateDesignSystemFromProject={
+            projectIsDesignSystemProject ? undefined : handleCreateDesignSystemFromProject
+          }
+          createDesignSystemFromProjectBusy={projectDesignSystemCreateStarting}
+          onDuplicateProject={onDuplicateProject ? handleDuplicateProject : undefined}
+          duplicateProjectBusy={projectDuplicateStarting}
           onDeleteDesignSystemProject={onDeleteProject}
           onDesignSystemNeedsWork={sendDesignSystemFeedback}
           designSystemReview={currentProject.metadata?.designSystemReview}

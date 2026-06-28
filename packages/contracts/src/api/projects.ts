@@ -316,6 +316,15 @@ export interface CreateDesignSystemProjectFromProjectResponse extends ProjectRes
   copiedFiles: string[];
 }
 
+export interface DuplicateProjectRequest {
+  name?: string;
+}
+
+export interface DuplicateProjectResponse extends ProjectResponse {
+  conversationId: string;
+  copiedFiles: string[];
+}
+
 export interface ProjectLocation {
   id: string;
   name: string;

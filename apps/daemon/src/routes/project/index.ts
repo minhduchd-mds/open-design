@@ -934,10 +934,35 @@ function normalizeDesignSystemCopyName(value: unknown, sourceProject: any): stri
     : `${sourceName} Design System`.slice(0, 160);
 }
 
+function normalizeProjectDuplicateName(value: unknown, sourceProject: any): string {
+  const explicit = typeof value === 'string' ? value.trim() : '';
+  if (explicit) return explicit.slice(0, 160);
+  const sourceName = typeof sourceProject?.name === 'string' && sourceProject.name.trim()
+    ? sourceProject.name.trim()
+    : 'Untitled';
+  return `${sourceName} Copy`.slice(0, 160);
+}
+
 function normalizePendingPrompt(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function cloneProjectMetadataForDuplicate(sourceProject: any): Record<string, unknown> {
+  const sourceMetadata =
+    sourceProject?.metadata && typeof sourceProject.metadata === 'object'
+      ? { ...sourceProject.metadata }
+      : {};
+  delete sourceMetadata.baseDir;
+  delete sourceMetadata.projectLocationId;
+  delete sourceMetadata.fromTrustedPicker;
+  delete sourceMetadata.orchestratorWorkspace;
+  return {
+    ...sourceMetadata,
+    sourceProjectId: sourceProject.id,
+    sourceProjectName: sourceProject.name,
+  };
 }
 
 function buildDesignSystemCopySourceContext(input: {
@@ -1645,6 +1670,92 @@ export function registerProjectRoutes(app: Express, ctx: RegisterProjectRoutesDe
           : {}),
       };
       res.json(body);
+    } catch (err: any) {
+      sendApiError(res, 400, 'BAD_REQUEST', String(err));
+    }
+  });
+
+  app.post('/api/projects/:id/duplicate', async (req, res) => {
+    const sourceProject = getProject(db, req.params.id);
+    try {
+      const locations = await configuredProjectLocations();
+      if (!sourceProject || !projectVisibleForLocations(sourceProject, locations)) {
+        return sendApiError(res, 404, 'PROJECT_NOT_FOUND', 'not found');
+      }
+
+      const targetProjectId = randomId();
+      const targetName = normalizeProjectDuplicateName(req.body?.name, sourceProject);
+      const metadata = cloneProjectMetadataForDuplicate(sourceProject);
+      let insertedProject = false;
+      try {
+        await ensureProject(PROJECTS_DIR, targetProjectId, metadata);
+        const sourceFiles = await listFiles(PROJECTS_DIR, sourceProject.id, {
+          metadata: sourceProject.metadata,
+        });
+        const copiedFiles: string[] = [];
+        for (const file of sourceFiles) {
+          if (!file?.name || typeof file.name !== 'string') continue;
+          const sourceFile = await readProjectFile(
+            PROJECTS_DIR,
+            sourceProject.id,
+            file.name,
+            sourceProject.metadata,
+          );
+          await writeProjectFile(
+            PROJECTS_DIR,
+            targetProjectId,
+            sourceFile.name,
+            sourceFile.buffer,
+            {
+              overwrite: true,
+              ...(sourceFile.artifactManifest ? { artifactManifest: sourceFile.artifactManifest } : {}),
+            },
+            metadata,
+          );
+          copiedFiles.push(sourceFile.name);
+        }
+
+        const now = Date.now();
+        const project = insertProject(db, {
+          id: targetProjectId,
+          name: targetName,
+          skillId: sourceProject.skillId ?? null,
+          designSystemId: sourceProject.designSystemId ?? null,
+          pendingPrompt: null,
+          metadata,
+          customInstructions: sourceProject.customInstructions ?? null,
+          createdAt: now,
+          updatedAt: now,
+        });
+        insertedProject = true;
+        const conversationId = randomId();
+        insertConversation(db, {
+          id: conversationId,
+          projectId: targetProjectId,
+          title: null,
+          sessionMode: 'design',
+          createdAt: now,
+          updatedAt: now,
+        });
+        try {
+          const tabs = listTabs(db, sourceProject.id);
+          setTabs(db, targetProjectId, tabs);
+        } catch {
+          // Open-tabs state is convenience metadata; file duplication succeeds
+          // without it.
+        }
+        /** @type {import('@open-design/contracts').DuplicateProjectResponse} */
+        const body = {
+          project,
+          conversationId,
+          copiedFiles,
+        };
+        res.json(body);
+      } catch (err) {
+        if (insertedProject) dbDeleteProject(db, targetProjectId);
+        await removeProjectDir(PROJECTS_DIR, targetProjectId).catch(() => {});
+        throw err;
+      }
     } catch (err: any) {
       sendApiError(res, 400, 'BAD_REQUEST', String(err));
     }

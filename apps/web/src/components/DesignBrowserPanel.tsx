@@ -180,6 +180,12 @@ type PageBrief = {
 };
 
 type BrowserTool = 'comment' | 'inspect' | 'edit';
+type BrowserSavingAction = 'archive' | 'brief' | 'screenshot';
+type BrowserStatusMessage = string | {
+  actionFileName?: string;
+  actionLabel?: string;
+  message: string;
+};
 type BrowserStyleDraft = Required<Pick<
   PreviewAnnotationStyle,
   'backgroundColor' | 'borderRadius' | 'color' | 'fontSize' | 'fontWeight' | 'lineHeight' | 'paddingTop' | 'textAlign'
@@ -219,6 +225,7 @@ interface DesignBrowserPanelProps {
   initialTitle?: string;
   initialUrl?: string;
   navigateRequest?: { url: string; nonce: number };
+  attentionRequest?: { action: 'download-page'; nonce: number };
   projectId: string;
   resolvedDir?: string | null;
   onOpenFile: (name: string) => void;
@@ -711,6 +718,7 @@ export function DesignBrowserPanel({
   initialTitle,
   initialUrl,
   navigateRequest,
+  attentionRequest,
   projectId,
   resolvedDir,
   onOpenFile,
@@ -761,8 +769,13 @@ export function DesignBrowserPanel({
   const [browserLiveCommentTargets, setBrowserLiveCommentTargets] = useState<Map<string, BrowserElementSnapshot>>(() => new Map());
   const [textDraft, setTextDraft] = useState('');
   const [captureChromeHidden, setCaptureChromeHidden] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [savingAction, setSavingAction] = useState<'archive' | 'brief' | 'screenshot' | null>(null);
+  const [statusMessage, setStatusMessage] = useState<BrowserStatusMessage | null>(null);
+  const [savingActions, setSavingActions] = useState<Record<BrowserSavingAction, boolean>>({
+    archive: false,
+    brief: false,
+    screenshot: false,
+  });
+  const [downloadAttentionNonce, setDownloadAttentionNonce] = useState<number | null>(null);
   const addressInputRef = useRef<HTMLInputElement | null>(null);
   const chromeRef = useRef<HTMLDivElement | null>(null);
   const pickerRequestIdRef = useRef(0);
@@ -771,8 +784,18 @@ export function DesignBrowserPanel({
   const navigationStackRef = useRef<BrowserNavigationEntry[]>(initialState.navigationStack);
   const navigationIndexRef = useRef(initialState.navigationIndex);
   const pendingLoadTargetRef = useRef<string | null>(null);
+  const lastNavigateRequestNonceRef = useRef<number | null>(null);
+  const archiveSaving = savingActions.archive;
+  const briefSaving = savingActions.brief;
+  const screenshotSaving = savingActions.screenshot;
   const canGoBack = navigationIndex > 0;
   const canGoForward = navigationIndex >= 0 && navigationIndex < navigationStack.length - 1;
+
+  const setSavingAction = useCallback((action: BrowserSavingAction, saving: boolean) => {
+    setSavingActions((current) => (
+      current[action] === saving ? current : { ...current, [action]: saving }
+    ));
+  }, []);
 
   // Publish a handle to this tab's live webview so the chat can read the rendered
   // DOM (brand browser-assist re-extraction). The cross-origin <iframe> fallback
@@ -832,7 +855,8 @@ export function DesignBrowserPanel({
 
   useEffect(() => {
     if (!statusMessage) return;
-    const timer = window.setTimeout(() => setStatusMessage(null), 2600);
+    const hasAction = typeof statusMessage === 'object' && Boolean(statusMessage.actionFileName);
+    const timer = window.setTimeout(() => setStatusMessage(null), hasAction ? 8000 : 2600);
     return () => window.clearTimeout(timer);
   }, [statusMessage]);
 
@@ -992,8 +1016,19 @@ export function DesignBrowserPanel({
 
   useEffect(() => {
     if (!navigateRequest) return;
+    if (lastNavigateRequestNonceRef.current === navigateRequest.nonce) return;
+    lastNavigateRequestNonceRef.current = navigateRequest.nonce;
     navigateTo(navigateRequest.url);
   }, [navigateRequest, navigateTo]);
+
+  useEffect(() => {
+    if (!attentionRequest || attentionRequest.action !== 'download-page') return;
+    setBrowserUseOpen(false);
+    setSuggestionsOpen(false);
+    setMenuOpen(true);
+    setDownloadAttentionNonce(attentionRequest.nonce);
+    setStatusMessage(t('designBrowser.status.downloadAssistHint'));
+  }, [attentionRequest, t]);
 
   const syncFromFallbackFrame = useCallback((frame: HTMLIFrameElement | null) => {
     if (!frame || loadUrl === EMPTY_URL) return;
@@ -1306,7 +1341,7 @@ export function DesignBrowserPanel({
       setStatusMessage(t('designBrowser.status.openBeforeScreenshot'));
       return;
     }
-    setSavingAction('screenshot');
+    setSavingAction('screenshot', true);
     // Close the dropdown first so it cannot appear in a host compositor capture
     // (which screenshots the on-screen window region, not the guest surface).
     setMenuOpen(false);
@@ -1342,7 +1377,7 @@ export function DesignBrowserPanel({
       setStatusMessage(error instanceof Error ? error.message : t('designBrowser.status.screenshotFailed'));
     } finally {
       setCaptureChromeHidden(false);
-      setSavingAction(null);
+      setSavingAction('screenshot', false);
       setMenuOpen(false);
     }
   }
@@ -1405,7 +1440,7 @@ export function DesignBrowserPanel({
       setStatusMessage(t('designBrowser.status.openBeforeBrief'));
       return;
     }
-    setSavingAction('brief');
+    setSavingAction('brief', true);
     try {
       const brief = await webviewNode.executeJavaScript<PageBrief>(PAGE_BRIEF_SCRIPT, true);
       const file = await writeProjectTextFile(
@@ -1419,7 +1454,7 @@ export function DesignBrowserPanel({
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : t('designBrowser.status.briefSaveFailed'));
     } finally {
-      setSavingAction(null);
+      setSavingAction('brief', false);
       setMenuOpen(false);
     }
   }
@@ -1432,7 +1467,9 @@ export function DesignBrowserPanel({
       setStatusMessage(message);
       return { ok: false, message };
     }
-    setSavingAction('archive');
+    setSavingAction('archive', true);
+    setDownloadAttentionNonce(null);
+    setMenuOpen(false);
     setStatusMessage(t('designBrowser.status.pageSnapshotStarted'));
     try {
       const capture = await webviewNode.executeJavaScript<BrowserPageArchiveCapture>(
@@ -1478,7 +1515,11 @@ export function DesignBrowserPanel({
         saved: savedResources,
         total: resources.length,
       });
-      setStatusMessage(message);
+      setStatusMessage({
+        actionFileName: manifestFile,
+        actionLabel: t('workspace.designFiles'),
+        message,
+      });
       return {
         ok: true,
         baseUrl: manifest.baseUrl,
@@ -1495,7 +1536,7 @@ export function DesignBrowserPanel({
       setStatusMessage(message);
       return { ok: false, message };
     } finally {
-      setSavingAction(null);
+      setSavingAction('archive', false);
       setMenuOpen(false);
     }
   }
@@ -1894,6 +1935,10 @@ export function DesignBrowserPanel({
       commenting
     />
   ) : null;
+  const statusText = typeof statusMessage === 'string' ? statusMessage : statusMessage?.message ?? '';
+  const statusAction = statusMessage && typeof statusMessage === 'object' && statusMessage.actionFileName
+    ? statusMessage
+    : null;
 
   return (
     <section className="design-browser" aria-label="Design Browser">
@@ -2003,7 +2048,7 @@ export function DesignBrowserPanel({
             <IconTooltipButton
               label={t('fileViewer.screenshot')}
               wrapperClassName="db-action-item db-action-secondary db-action-screenshot"
-              disabled={isBlank || savingAction != null}
+              disabled={isBlank || screenshotSaving}
               onClick={takeScreenshot}
             >
               <RemixIcon name="screenshot-2-line" size={15} />
@@ -2027,7 +2072,7 @@ export function DesignBrowserPanel({
           <IconTooltipButton
             label={t('designBrowser.savePageBrief')}
             wrapperClassName="db-action-item db-action-secondary db-action-save"
-            disabled={isBlank || savingAction != null}
+            disabled={isBlank || briefSaving}
             onClick={savePageBrief}
           >
             <Icon name="file-code" size={15} />
@@ -2045,7 +2090,7 @@ export function DesignBrowserPanel({
           </IconTooltipButton>
           {menuOpen ? (
             <div className="db-menu" role="menu">
-              <button type="button" role="menuitem" onClick={takeScreenshot} disabled={isBlank || savingAction != null}>
+              <button type="button" role="menuitem" onClick={takeScreenshot} disabled={isBlank || screenshotSaving}>
                 <Icon name="image" size={14} />
                 {t('designBrowser.copyScreenshot')}
               </button>
@@ -2062,11 +2107,18 @@ export function DesignBrowserPanel({
                 {t('designBrowser.openExternal')}
               </button>
               <span className="db-menu-separator" />
-              <button type="button" role="menuitem" onClick={() => void savePageSnapshot()} disabled={isBlank || savingAction != null}>
+              <button
+                type="button"
+                role="menuitem"
+                className={downloadAttentionNonce != null ? 'is-attention' : undefined}
+                onClick={() => void savePageSnapshot({ openAfterSave: false })}
+                disabled={isBlank || archiveSaving}
+                aria-busy={archiveSaving ? true : undefined}
+              >
                 <Icon name="download" size={14} />
                 {t('designBrowser.downloadPage')}
               </button>
-              <button type="button" role="menuitem" onClick={savePageBrief} disabled={isBlank || savingAction != null}>
+              <button type="button" role="menuitem" onClick={savePageBrief} disabled={isBlank || briefSaving}>
                 <Icon name="file" size={14} />
                 {t('designBrowser.savePageBrief')}
               </button>
@@ -2086,7 +2138,23 @@ export function DesignBrowserPanel({
           ) : null}
         </div>
       </div>
-      {statusMessage ? <div className="db-status">{statusMessage}</div> : null}
+      {statusMessage ? (
+        <div className="db-status" role="status">
+          <span>{statusText}</span>
+          {statusAction ? (
+            <button
+              type="button"
+              className="db-status-action"
+              onClick={() => {
+                onOpenFile(statusAction.actionFileName ?? '');
+                setStatusMessage(null);
+              }}
+            >
+              {statusAction.actionLabel ?? t('fileViewer.open')}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       {browserPreviewImageModal}
       <div className={`db-content db-content-viewport-${isBlank ? 'desktop' : viewport}`}>
         <PreviewDrawOverlay

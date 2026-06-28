@@ -87,6 +87,7 @@ import {
   createProject,
   createPluginShareProject,
   deleteProject as deleteProjectApi,
+  duplicateProject,
   getProject,
   importClaudeDesignZip,
   importFolderProject,
@@ -1597,6 +1598,24 @@ function AppInner() {
     [refreshDesignSystems, rememberLocalProject],
   );
 
+  const handleDuplicateProject = useCallback(
+    async (sourceProjectId: string, input: { name?: string } = {}) => {
+      const result = await duplicateProject(sourceProjectId, input);
+      rememberLocalProject(result.project.id);
+      setProjects((curr) => [
+        result.project,
+        ...curr.filter((p) => p.id !== result.project.id),
+      ]);
+      navigate({
+        kind: 'project',
+        projectId: result.project.id,
+        conversationId: result.conversationId,
+        fileName: null,
+      });
+    },
+    [rememberLocalProject],
+  );
+
   const handleCreatePluginShareProject = useCallback(
     async (
       pluginId: string,
@@ -2235,6 +2254,7 @@ function AppInner() {
         onDesignSystemsRefresh={refreshDesignSystems}
         onCreateProjectFromDesignSystem={handleCreateProjectFromDesignSystem}
         onCreateDesignSystemFromProject={handleCreateDesignSystemFromProject}
+        onDuplicateProject={handleDuplicateProject}
       />
     );
   } else {
@@ -2278,6 +2298,7 @@ function AppInner() {
         onOpenProject={handleOpenProject}
         onOpenLiveArtifact={handleOpenLiveArtifact}
         onDeleteProject={handleDeleteProject}
+        onDuplicateProject={handleDuplicateProject}
         onRenameProject={handleRenameProject}
         onProjectsRefresh={refreshProjectsStrict}
         onChangeDefaultDesignSystem={handleChangeDefaultDesignSystem}

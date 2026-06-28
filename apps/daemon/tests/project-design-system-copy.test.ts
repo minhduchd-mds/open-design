@@ -2,6 +2,7 @@ import type { Server } from 'node:http';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { register } from 'prom-client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 type StartedServer = {
@@ -22,6 +23,7 @@ let serverModule: ServerModule | null = null;
 describe('project design-system copy route', () => {
   afterEach(async () => {
     await stopServer();
+    register.clear();
     if (dataDir) await rm(dataDir, { recursive: true, force: true });
     dataDir = null;
     if (originalDataDir === undefined) delete process.env.OD_DATA_DIR;
@@ -103,6 +105,65 @@ describe('project design-system copy route', () => {
         projectId: copied.project.id,
       }),
     );
+  }, 60_000);
+
+  it('duplicates a project without replaying the source pending prompt', async () => {
+    dataDir = await mkdtemp(join(tmpdir(), 'od-project-copy-'));
+    started = await startIsolatedServer(dataDir);
+
+    const sourceId = `source-copy-${Date.now()}`;
+    await postJson(`${started.url}/api/projects`, {
+      id: sourceId,
+      name: 'Dashboard Draft',
+      metadata: { kind: 'prototype' },
+      pendingPrompt: 'Run this only in the original project',
+      customInstructions: 'Keep density high.',
+    });
+    await postJson(`${started.url}/api/projects/${sourceId}/files`, {
+      name: 'index.html',
+      content: '<!doctype html><title>Dashboard</title><main>Metrics</main>',
+    });
+    await postJson(`${started.url}/api/projects/${sourceId}/files`, {
+      name: 'notes/context.md',
+      content: '# Context\nOperational dashboard.',
+    });
+    await fetch(`${started.url}/api/projects/${sourceId}/tabs`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ tabs: ['index.html'], active: 'index.html', browserTabs: [] }),
+    }).then((response) => expect(response.status).toBe(200));
+
+    const copied = await postJson<{
+      project: {
+        id: string;
+        name: string;
+        pendingPrompt?: string | null;
+        metadata: Record<string, unknown>;
+        customInstructions?: string | null;
+      };
+      conversationId: string;
+      copiedFiles: string[];
+    }>(`${started.url}/api/projects/${sourceId}/duplicate`, {});
+
+    expect(copied.project.id).not.toBe(sourceId);
+    expect(copied.project.name).toBe('Dashboard Draft Copy');
+    expect(copied.project.pendingPrompt).toBeFalsy();
+    expect(copied.project.customInstructions).toBe('Keep density high.');
+    expect(copied.project.metadata).toMatchObject({
+      kind: 'prototype',
+      sourceProjectId: sourceId,
+      sourceProjectName: 'Dashboard Draft',
+    });
+    expect(copied.project.metadata).not.toHaveProperty('baseDir');
+    expect(copied.copiedFiles).toEqual(expect.arrayContaining(['index.html', 'notes/context.md']));
+
+    const copiedHtml = await fetchText(`${started.url}/api/projects/${copied.project.id}/raw/index.html`);
+    expect(copiedHtml).toContain('Metrics');
+    const copiedTabs = await fetchJson<{ tabs: string[]; active: string | null }>(
+      `${started.url}/api/projects/${copied.project.id}/tabs`,
+    );
+    expect(copiedTabs.tabs).toEqual(['index.html']);
+    expect(copiedTabs.active).toBe('index.html');
   }, 60_000);
 });
 
