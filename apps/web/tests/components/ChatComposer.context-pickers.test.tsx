@@ -532,6 +532,31 @@ describe('ChatComposer context pickers', () => {
     );
   });
 
+  it('does not remove a pre-existing linked dir when a matching workspace chip is cleared', async () => {
+    const onProjectMetadataChange = vi.fn();
+    renderComposer({
+      projectMetadata: { kind: 'prototype', linkedDirs: ['/Users/me/reference-dir'] },
+      onProjectMetadataChange,
+    });
+    await flushMounts();
+
+    fireEvent.click(screen.getByTestId('chat-plus-trigger'));
+    fireEvent.click(await screen.findByText('Link local code'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('staged-contexts').textContent).toContain('reference-dir');
+    });
+    expect(projectPatchBodies()).toEqual([]);
+
+    fireEvent.click(screen.getByLabelText('Remove reference-dir'));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('staged-contexts')?.textContent ?? '').not.toContain('reference-dir');
+    });
+    expect(projectPatchBodies()).toEqual([]);
+    expect(onProjectMetadataChange).not.toHaveBeenCalled();
+  });
+
   it('keeps draft text typed while linked-dir removal is pending', async () => {
     renderComposer({ projectMetadata: { kind: 'prototype' } });
     await flushMounts();
@@ -612,13 +637,13 @@ describe('ChatComposer context pickers', () => {
         linkedDirs: ['/Users/me/reference-dir'],
       });
       return composerElement({
-        activeWorkspaceContext: {
+        initialWorkspaceContexts: [{
           id: 'local-code:/Users/me/reference-dir',
           kind: 'local-code',
           label: 'reference-dir',
           title: 'reference-dir',
           absolutePath: '/Users/me/reference-dir',
-        },
+        }],
         projectMetadata: metadata,
         onProjectMetadataChange: (next) => {
           onProjectMetadataChange(next);

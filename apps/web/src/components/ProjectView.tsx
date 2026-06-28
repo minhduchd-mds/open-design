@@ -6126,6 +6126,7 @@ export function ProjectView({
   // dispatch the auto-send without going through initialDraft.
   const autoSendSeedRef = useRef<string | null>(null);
   const autoSendAttachmentsRef = useRef<ChatAttachment[] | null>(null);
+  const autoSendContextRef = useRef<RunContextSelection | null>(null);
   const autoSendFirstMessageRef = useRef(false);
   if (autoSendSeedRef.current === null) {
     let isAutoSend = false;
@@ -6139,7 +6140,9 @@ export function ProjectView({
     autoSendFirstMessageRef.current = isAutoSend;
     autoSendSeedRef.current = isAutoSend ? (project.pendingPrompt ?? '') : '';
     autoSendAttachmentsRef.current = isAutoSend ? readAutoSendAttachments(project.id) : [];
+    autoSendContextRef.current = isAutoSend ? readAutoSendContext(project.id) : null;
   }
+  const initialWorkspaceContexts = autoSendContextRef.current?.workspaceItems ?? [];
   const brandEnrichmentEligibleForProject =
     config.mode === 'daemon' &&
     projectIsProgrammaticBrandExtraction &&
@@ -6439,7 +6442,7 @@ export function ProjectView({
       ''
     ).trim();
     const attachments = autoSendAttachmentsRef.current ?? [];
-    const context = readAutoSendContext(project.id);
+    const context = autoSendContextRef.current ?? readAutoSendContext(project.id);
     if (!seed && attachments.length === 0) {
       return;
     }
@@ -6667,6 +6670,7 @@ export function ProjectView({
                 onProjectChange({ ...project, metadata });
               }}
               activeWorkspaceContext={activeWorkspaceContext}
+              initialWorkspaceContexts={initialWorkspaceContexts}
               workspaceContexts={workspaceContexts}
               currentSkillId={project.skillId}
               onProjectSkillChange={(skillId) => {

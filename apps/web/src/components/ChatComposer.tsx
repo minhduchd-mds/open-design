@@ -101,6 +101,34 @@ interface TrackedWorkspaceLinkedDir {
   previousLinkedDirs: string[];
 }
 
+function dedupeWorkspaceContextItems(items: WorkspaceContextItem[]): WorkspaceContextItem[] {
+  const out: WorkspaceContextItem[] = [];
+  const seen = new Set<string>();
+  for (const item of items) {
+    const key = `${item.kind}:${item.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
+function trackedWorkspaceLinkedDirsForContexts(
+  items: WorkspaceContextItem[],
+  linkedDirs: string[],
+): Record<string, TrackedWorkspaceLinkedDir> {
+  const out: Record<string, TrackedWorkspaceLinkedDir> = {};
+  for (const item of items) {
+    const dir = item.absolutePath?.trim() ?? '';
+    if (!dir || !linkedDirs.includes(dir)) continue;
+    out[item.id] = {
+      dir,
+      previousLinkedDirs: linkedDirs.filter((linkedDir) => linkedDir !== dir),
+    };
+  }
+  return out;
+}
+
 type ToolsTab = 'plugins' | 'skills' | 'mcp' | 'import';
 
 type MentionTab = 'all' | 'tabs' | 'files' | 'plugins' | 'skills' | 'mcp' | 'connectors';
@@ -220,6 +248,7 @@ interface Props {
   projectMetadata?: ProjectMetadata;
   onProjectMetadataChange?: (metadata: ProjectMetadata) => void;
   activeWorkspaceContext?: WorkspaceContextItem | null;
+  initialWorkspaceContexts?: WorkspaceContextItem[];
   workspaceContexts?: WorkspaceContextItem[];
   // BYOK image-model picker shown above the textarea for protocols that
   // inject the daemon-side generate_image tool (SenseAudio, AIHubMix).
@@ -367,6 +396,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
       projectMetadata,
       onProjectMetadataChange,
       activeWorkspaceContext = null,
+      initialWorkspaceContexts = [],
       workspaceContexts = [],
       byokApiProtocol,
       byokImageModel,
@@ -435,8 +465,13 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
     const [designToolboxOpen, setDesignToolboxOpen] = useState(false);
     const [stagedMcpServers, setStagedMcpServers] = useState<McpServerConfig[]>([]);
     const [stagedConnectors, setStagedConnectors] = useState<ConnectorDetail[]>([]);
-    const [stagedWorkspaceContexts, setStagedWorkspaceContexts] = useState<WorkspaceContextItem[]>([]);
-    const [workspaceLinkedDirAdds, setWorkspaceLinkedDirAdds] = useState<Record<string, TrackedWorkspaceLinkedDir>>({});
+    const linkedDirs = projectMetadata?.linkedDirs ?? [];
+    const [stagedWorkspaceContexts, setStagedWorkspaceContexts] = useState<WorkspaceContextItem[]>(
+      () => dedupeWorkspaceContextItems(initialWorkspaceContexts),
+    );
+    const [workspaceLinkedDirAdds, setWorkspaceLinkedDirAdds] = useState<Record<string, TrackedWorkspaceLinkedDir>>(
+      () => trackedWorkspaceLinkedDirsForContexts(initialWorkspaceContexts, linkedDirs),
+    );
     const [promotedWorkspaceContextDir, setPromotedWorkspaceContextDir] = useState<string | null>(null);
     const [dismissedWorkspaceContextId, setDismissedWorkspaceContextId] = useState<string | null>(null);
     const activeWorkspaceContextId = activeWorkspaceContext?.id ?? null;
@@ -508,7 +543,6 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
     // wins over this pending value.
     const pendingEntryFromRef = useRef<ChatAnalyticsEntryFrom | null>(null);
     const petEnabled = Boolean(onAdoptPet && onTogglePet);
-    const linkedDirs = projectMetadata?.linkedDirs ?? [];
     const [recentDirs, setRecentDirs] = useState<string[]>([]);
     useEffect(() => {
       let cancelled = false;
@@ -1451,23 +1485,6 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
       )) || workingDir === dir;
     }
 
-    async function removeWorkspaceContextLinkedDir(id: string, dir: string): Promise<boolean> {
-      if (!projectId) return true;
-      if (workspaceContextDirStillReferenced(id, dir)) return true;
-      const base = projectMetadata ?? { kind: 'prototype' as const };
-      const currentLinkedDirs = base.linkedDirs ?? [];
-      if (!currentLinkedDirs.includes(dir)) return true;
-      const nextLinkedDirs = currentLinkedDirs.filter((linkedDir) => linkedDir !== dir);
-      const metadata: ProjectMetadata = { ...base, linkedDirs: nextLinkedDirs };
-      const result = await patchProject(projectId, { metadata });
-      if (!result?.metadata) {
-        onShowToast?.(t('homeWorkingDir.applyFailed'));
-        return false;
-      }
-      onProjectMetadataChange?.(result.metadata);
-      return true;
-    }
-
     async function removeTrackedWorkspaceLinkedDir(
       id: string,
       tracked: TrackedWorkspaceLinkedDir,
@@ -1502,15 +1519,6 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
       const workspaceItem = selectedWorkspaceContexts.find((item) => item.id === id) ?? null;
       const trackedLinkedDir = workspaceLinkedDirAdds[id] ?? null;
       if (trackedLinkedDir && !(await removeTrackedWorkspaceLinkedDir(id, trackedLinkedDir))) {
-        return;
-      }
-      const workspaceItemDir = workspaceItem?.absolutePath?.trim() ?? '';
-      if (
-        !trackedLinkedDir &&
-        workspaceItemDir &&
-        workspaceContextLinkedDirs.has(workspaceItemDir) &&
-        !(await removeWorkspaceContextLinkedDir(id, workspaceItemDir))
-      ) {
         return;
       }
       if (visibleWorkspaceContext?.id === id) setDismissedWorkspaceContextId(id);
