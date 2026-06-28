@@ -1755,7 +1755,7 @@ function OnboardingView({
   // Callers pick the destination: home (`onFinish`) or the design-system
   // create flow (`onGoBuild`).
   // `completionType` distinguishes the final-step fork (C2, tracking spec §3.1):
-  // 'completed_with_design_system' when the user chose "Build a design system",
+  // 'completed_with_design_system' when the user chose "Build the design system first",
   // 'completed_without_design_system' when they went straight Home. Lets the
   // funnel measure how many users skip DS creation at onboarding.
   async function runOnboardingCompletion(

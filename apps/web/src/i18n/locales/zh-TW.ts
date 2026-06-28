@@ -718,7 +718,7 @@ export const zhTW: Dict = {
   'pluginsHome.emptyFiltered': '沒有符合目前篩選條件的外掛程式。',
   'pluginsHome.clearFilters': '清除篩選條件',
   'pluginsHome.modeAria': '外掛程式模式',
-  'pluginsHome.featured': 'Featured',
+  'pluginsHome.featured': '精選',
   'pluginsHome.totalInCatalog': '型錄中有 {n} 個',
   'pluginsHome.categoryFilterAria': '類別篩選',
   'pluginsHome.subcategoryFilterAria': '{label} 子類別篩選',

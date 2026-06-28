@@ -718,7 +718,7 @@ export const zhCN: Dict = {
   'pluginsHome.emptyFiltered': '没有插件匹配当前筛选条件。',
   'pluginsHome.clearFilters': '清除筛选',
   'pluginsHome.modeAria': '插件模式',
-  'pluginsHome.featured': 'Featured',
+  'pluginsHome.featured': '精选',
   'pluginsHome.totalInCatalog': '目录中共 {n} 个',
   'pluginsHome.categoryFilterAria': '类别筛选',
   'pluginsHome.subcategoryFilterAria': '{label} 子类别筛选',
