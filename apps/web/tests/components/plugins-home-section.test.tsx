@@ -27,6 +27,9 @@ function makePlugin(overrides: {
   featured?: boolean;
   mode?: string;
   kind?: 'scenario' | 'atom';
+  preview?: Record<string, unknown>;
+  assets?: string[];
+  exampleOutputs?: Array<{ path: string; title?: string }>;
 }): InstalledPluginRecord {
   return {
     id: overrides.id,
@@ -47,7 +50,10 @@ function makePlugin(overrides: {
       od: {
         kind: overrides.kind ?? 'scenario',
         ...(overrides.mode ? { mode: overrides.mode } : {}),
+        ...(overrides.preview ? { preview: overrides.preview } : {}),
         ...(overrides.featured ? { featured: true } : {}),
+        ...(overrides.assets ? { context: { assets: overrides.assets } } : {}),
+        ...(overrides.exampleOutputs ? { useCase: { exampleOutputs: overrides.exampleOutputs } } : {}),
       },
     },
     fsPath: '/tmp',
@@ -138,8 +144,22 @@ describe('PluginsHomeSection (community gallery)', () => {
     const onUse = vi.fn();
     const onDuplicate = vi.fn();
     const onOpenDetails = vi.fn();
-    renderSection(sample, {
+    renderSection([
+      makePlugin({
+        id: 'prototype-dashboard',
+        mode: 'prototype',
+        tags: ['dashboard'],
+        preview: { type: 'html', entry: './example.html' },
+      }),
+      makePlugin({
+        id: 'image-logo',
+        mode: 'image',
+        tags: ['logo'],
+        preview: { type: 'image', entry: './final/logo.png', poster: './final/logo.png' },
+      }),
+    ], {
       cardLayout: 'gallery',
+      preferDefaultFacet: false,
       onUse,
       onDuplicate,
       onOpenDetails,
@@ -158,6 +178,7 @@ describe('PluginsHomeSection (community gallery)', () => {
     fireEvent.click(screen.getByTestId('plugins-home-duplicate-prototype-dashboard'));
     expect(onDuplicate).toHaveBeenCalledWith(expect.objectContaining({ id: 'prototype-dashboard' }));
     expect(onOpenDetails).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('plugins-home-duplicate-image-logo')).toBeNull();
 
     expect(screen.queryByTestId('plugins-home-use-menu-prototype-dashboard')).toBeNull();
     expect(screen.queryByTestId('plugins-home-use-with-query-prototype-dashboard')).toBeNull();

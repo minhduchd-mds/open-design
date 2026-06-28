@@ -20,6 +20,7 @@ import type { PluginShareAction } from '../../state/projects';
 import { Icon } from '../Icon';
 import { TrustBadge } from '../TrustBadge';
 import { PreviewSurface } from './cards/PreviewSurface';
+import { canDuplicatePluginPreview } from './duplicate';
 import { localizePluginDescription, localizePluginTitle } from './localization';
 import { inferPluginPreview } from './preview';
 import type { PluginUseAction } from './useActions';
@@ -87,6 +88,7 @@ export function PluginCard({
     pendingShareAction?.pluginId === record.id ? pendingShareAction.action : null;
   const shareBusy = sharePendingAction !== null;
   const useDisabled = isPending || pendingAny || shareBusy;
+  const canDuplicate = Boolean(onDuplicate) && canDuplicatePluginPreview(record);
   const duplicateDisabled = isDuplicatePending || pendingDuplicateAny || pendingAny || shareBusy;
 
   function pickUseAction(action: PluginUseAction) {
@@ -164,13 +166,13 @@ export function PluginCard({
               <Icon name={isPending ? 'spinner' : 'play'} size={12} />
               <span>{isPending ? t('pluginCard.applying') : t('pluginCard.use')}</span>
             </button>
-            {onDuplicate ? (
+            {canDuplicate ? (
               <button
                 type="button"
                 className="plugins-home__action plugins-home__action--secondary"
                 onClick={(event) => {
                   event.stopPropagation();
-                  onDuplicate(record);
+                  onDuplicate?.(record);
                 }}
                 disabled={duplicateDisabled}
                 aria-busy={isDuplicatePending ? 'true' : undefined}
@@ -311,11 +313,11 @@ export function PluginCard({
                 </>
               ) : null}
             </div>
-            {onDuplicate ? (
+            {canDuplicate ? (
               <button
                 type="button"
                 className="plugins-home__action plugins-home__action--secondary"
-                onClick={() => onDuplicate(record)}
+                onClick={() => onDuplicate?.(record)}
                 disabled={duplicateDisabled}
                 aria-busy={isDuplicatePending ? 'true' : undefined}
                 aria-label={t('pluginCard.duplicateAria', { title })}

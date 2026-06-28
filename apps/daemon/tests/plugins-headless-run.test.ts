@@ -216,6 +216,40 @@ describe('Plan §8 e2e-3 (entry slice) — headless install → project → run'
     }).catch(() => {});
   });
 
+  it('rejects bundled examples that reference local files outside the duplicated directory', async () => {
+    const listResp = await fetch(`${baseUrl}/api/plugins`);
+    expect(listResp.status).toBe(200);
+    const listBody = (await listResp.json()) as {
+      plugins?: Array<{
+        id: string;
+        manifest?: { name?: string };
+      }>;
+    };
+    const plugin = (listBody.plugins ?? []).find((record) =>
+      record.id === 'example-open-design-landing-deck' ||
+      record.manifest?.name === 'example-open-design-landing-deck',
+    );
+    expect(plugin).toBeTruthy();
+
+    const duplicateResp = await fetch(
+      `${baseUrl}/api/plugins/${encodeURIComponent(plugin!.id)}/duplicate-project`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'Broken duplicate should fail' }),
+      },
+    );
+
+    expect(duplicateResp.status).toBe(422);
+    const body = (await duplicateResp.json()) as {
+      error?: { code?: string; message?: string };
+    };
+    expect(body.error).toMatchObject({
+      code: 'UNSUPPORTED_DUPLICATE_DEPENDENCIES',
+    });
+    expect(body.error?.message).toContain('../open-design-landing/assets/hero.png');
+  });
+
   it('walks install → project create → run start → status with snapshot pinned', async () => {
     // 1. Install a local fixture plugin via the SSE install endpoint.
     const installResp = await fetch(`${baseUrl}/api/plugins/install`, {

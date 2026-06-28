@@ -68,6 +68,7 @@ import {
   localizeSkillName,
 } from '../i18n/content';
 import { PreviewSurface } from './plugins-home/cards/PreviewSurface';
+import { canDuplicatePluginPreview } from './plugins-home/duplicate';
 import { readHomeGuideStage, writeHomeGuideStage } from './home-hero/firstRunGuide';
 import { curatedPluginPriorityForChip } from './plugins-home/curatedPriority';
 import { sortByVisualAppeal } from './plugins-home/visualScore';
@@ -1944,6 +1945,7 @@ function PluginPromptPresetCard({
   // dark band above it (matches the Community gallery deck treatment).
   const odMode = (record.manifest?.od as { mode?: unknown } | undefined)?.mode;
   const title = localizePluginTitle(locale, record);
+  const canDuplicate = canDuplicatePluginPreview(record);
   return (
     <span className="home-hero__plugin-preset-cell" role="listitem">
       <button
@@ -1983,17 +1985,19 @@ function PluginPromptPresetCard({
           <Icon name={pending ? 'spinner' : 'play'} size={12} />
           <span>{pending ? t('pluginCard.applying') : t('pluginCard.use')}</span>
         </button>
-        <button
-          type="button"
-          className="home-hero__plugin-preset-action"
-          onClick={() => onDuplicate(record)}
-          disabled={duplicateDisabled}
-          aria-busy={duplicatePending ? 'true' : undefined}
-          data-testid={`home-hero-plugin-preset-duplicate-${record.id}`}
-        >
-          <Icon name={duplicatePending ? 'spinner' : 'copy'} size={12} />
-          <span>{duplicatePending ? t('pluginCard.duplicating') : t('pluginCard.duplicate')}</span>
-        </button>
+        {canDuplicate ? (
+          <button
+            type="button"
+            className="home-hero__plugin-preset-action"
+            onClick={() => onDuplicate(record)}
+            disabled={duplicateDisabled}
+            aria-busy={duplicatePending ? 'true' : undefined}
+            data-testid={`home-hero-plugin-preset-duplicate-${record.id}`}
+          >
+            <Icon name={duplicatePending ? 'spinner' : 'copy'} size={12} />
+            <span>{duplicatePending ? t('pluginCard.duplicating') : t('pluginCard.duplicate')}</span>
+          </button>
+        ) : null}
       </span>
     </span>
   );

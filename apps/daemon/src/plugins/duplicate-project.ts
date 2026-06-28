@@ -4,6 +4,7 @@ import type {
   InstalledPluginRecord,
   ProjectMetadata,
 } from '@open-design/contracts';
+import { load } from 'cheerio';
 import { ensureProject } from '../projects.js';
 
 const MAX_ENTRY_BYTES = 20 * 1024 * 1024;
@@ -86,8 +87,15 @@ export async function duplicatePluginExampleIntoProject(
     );
   }
 
-  const projectRoot = await ensureProject(input.projectsRoot, input.projectId, input.metadata);
   const copyRoot = copyRootForEntry(pluginRoot, entry.contentPath);
+  validateDuplicateLocalAssetReferences({
+    pluginRoot,
+    copyRoot,
+    contentPath: entry.contentPath,
+    html: entry.html,
+  });
+
+  const projectRoot = await ensureProject(input.projectsRoot, input.projectId, input.metadata);
   const entryBytes = Buffer.byteLength(entry.html, 'utf8');
   const state: CopyState = {
     copiedFiles: 1,
@@ -312,6 +320,96 @@ function iframeOnlyHtmlShellTarget(html: string): string | null {
 function copyRootForEntry(pluginRoot: string, contentPath: string): string {
   const entryDir = path.dirname(contentPath);
   return entryDir === pluginRoot ? pluginRoot : entryDir;
+}
+
+function validateDuplicateLocalAssetReferences({
+  pluginRoot,
+  copyRoot,
+  contentPath,
+  html,
+}: {
+  pluginRoot: string;
+  copyRoot: string;
+  contentPath: string;
+  html: string;
+}): void {
+  const unsafe = new Set<string>();
+  const sourceDir = path.dirname(contentPath);
+  for (const ref of collectHtmlLocalAssetReferences(html)) {
+    const pathOnly = localReferencePath(ref);
+    if (!pathOnly) continue;
+    const target = path.resolve(sourceDir, pathOnly);
+    if (isInsidePath(copyRoot, target)) continue;
+    const targetLabel = isInsidePath(pluginRoot, target)
+      ? normalizeRelativePath(path.relative(pluginRoot, target)) ?? path.relative(pluginRoot, target)
+      : ref;
+    unsafe.add(targetLabel);
+  }
+  if (unsafe.size === 0) return;
+  const examples = Array.from(unsafe).slice(0, 4).join(', ');
+  throw new PluginDuplicateProjectError(
+    422,
+    'UNSUPPORTED_DUPLICATE_DEPENDENCIES',
+    `This plugin example references local files outside the duplicated directory: ${examples}`,
+  );
+}
+
+function collectHtmlLocalAssetReferences(html: string): string[] {
+  const refs = new Set<string>();
+  const $ = load(html);
+  $('[src]').each((_, el) => pushRef(refs, $(el).attr('src')));
+  $('[poster]').each((_, el) => pushRef(refs, $(el).attr('poster')));
+  $('object[data]').each((_, el) => pushRef(refs, $(el).attr('data')));
+  $('link[href]').each((_, el) => pushRef(refs, $(el).attr('href')));
+  $('[srcset]').each((_, el) => {
+    for (const entry of parseSrcset($(el).attr('srcset'))) pushRef(refs, entry);
+  });
+  $('[style]').each((_, el) => {
+    for (const entry of extractCssUrls($(el).attr('style') ?? '')) pushRef(refs, entry);
+  });
+  $('style').each((_, el) => {
+    for (const entry of extractCssUrls($(el).html() ?? '')) pushRef(refs, entry);
+  });
+  return Array.from(refs);
+}
+
+function pushRef(refs: Set<string>, value: string | undefined): void {
+  const trimmed = value?.trim();
+  if (trimmed) refs.add(trimmed);
+}
+
+function parseSrcset(value: string | undefined): string[] {
+  if (!value) return [];
+  return value
+    .split(',')
+    .map((part) => part.trim().split(/\s+/)[0] ?? '')
+    .filter(Boolean);
+}
+
+function extractCssUrls(css: string): string[] {
+  const refs: string[] = [];
+  const pattern = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*?))\s*\)/gi;
+  for (const match of css.matchAll(pattern)) {
+    const value = match[1] ?? match[2] ?? match[3] ?? '';
+    if (value.trim()) refs.push(value.trim());
+  }
+  return refs;
+}
+
+function localReferencePath(value: string): string | null {
+  const trimmed = value.trim();
+  if (
+    !trimmed ||
+    trimmed.startsWith('#') ||
+    trimmed.startsWith('/') ||
+    trimmed.startsWith('//') ||
+    trimmed.includes('\0') ||
+    /^[a-z][a-z0-9+.-]*:/i.test(trimmed)
+  ) {
+    return null;
+  }
+  const pathOnly = trimmed.split(/[?#]/)[0]?.trim() ?? '';
+  return pathOnly && pathOnly !== '.' ? pathOnly : null;
 }
 
 async function copyDirectoryContents(

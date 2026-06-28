@@ -9,6 +9,7 @@
 // menu is `undefined` in that case.
 
 import type { InstalledPluginRecord } from '@open-design/contracts';
+import { canDuplicatePluginPreview } from '../plugins-home/duplicate';
 import type { PluginUseAction } from '../plugins-home/useActions';
 import type { PreviewPrimaryActionMenuItem } from '../PreviewModal';
 
@@ -44,7 +45,8 @@ export function buildPluginUseMenu(
   onDuplicate?: (record: InstalledPluginRecord) => void,
 ): PreviewPrimaryActionMenuItem[] | undefined {
   const hasQuery = Boolean(record.manifest?.od?.useCase?.query);
-  if (!hasQuery && !onDuplicate) return undefined;
+  const canDuplicate = Boolean(onDuplicate) && canDuplicatePluginPreview(record);
+  if (!hasQuery && !canDuplicate) return undefined;
   // Replicate-content leads: the menu only exists when the plugin ships an
   // example query, and reproducing the previewed result is what most users
   // open it for — structure-only use is the secondary path.
@@ -64,11 +66,11 @@ export function buildPluginUseMenu(
         },
       ]
     : [];
-  if (onDuplicate) {
+  if (canDuplicate) {
     items.push({
       label: t('preview.duplicateTemplate'),
       description: t('preview.duplicateTemplateDesc'),
-      onClick: () => onDuplicate(record),
+      onClick: () => onDuplicate?.(record),
       testId: `plugin-details-duplicate-${record.id}`,
     });
   }
