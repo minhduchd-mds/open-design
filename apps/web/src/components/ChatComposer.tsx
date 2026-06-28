@@ -1122,7 +1122,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
       editorRef.current?.setText(text);
     }
 
-    function appendWorkspacePrompt(item: WorkspaceContextItem, promptText: string) {
+    function appendWorkspacePrompt(item: WorkspaceContextItem) {
       setStagedWorkspaceContexts((current) =>
         current.some((candidate) => candidate.id === item.id)
           ? current
@@ -1133,7 +1133,6 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
         token: inlineMentionToken(item.label),
         entity: { id: item.id, kind: 'workspace', label: item.label },
       });
-      editorRef.current?.insertText(`\n${promptText}`);
       setMention(null);
       setSlash(null);
       setComposerEngaged(true);
@@ -1168,13 +1167,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
         path: project.id,
         ...(path ? { absolutePath: path } : {}),
       };
-      appendWorkspacePrompt(
-        item,
-        t('chat.contextPrompt.referenceProject', {
-          name: project.name || project.id,
-          path,
-        }),
-      );
+      appendWorkspacePrompt(item);
       setProjectReferenceOpen(false);
     }
 
@@ -1190,13 +1183,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
         title: label,
         absolutePath: selected,
       };
-      appendWorkspacePrompt(
-        item,
-        t('chat.contextPrompt.localCode', {
-          name: label,
-          path: selected,
-        }),
-      );
+      appendWorkspacePrompt(item);
     }
 
     async function insertSkillMention(skill: SkillSummary) {
@@ -1407,6 +1394,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
           workspaceItem.id,
           workspaceItem.title ?? '',
           workspaceItem.path ?? '',
+          workspaceItem.absolutePath ?? '',
           workspaceItem.url ?? '',
         ]));
       }

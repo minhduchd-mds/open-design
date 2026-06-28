@@ -211,6 +211,7 @@ interface Props {
   workingDir?: string | null;
   recentDirs?: string[];
   onPickWorkingDir?: () => Promise<string | null> | string | null | void;
+  onPickLocalCodeDir?: () => Promise<string | null> | string | null | void;
   onSelectRecentWorkingDir?: (dir: string) => void;
   onClearWorkingDir?: () => void;
   onExamplePromptStatusChange?: (info: ExamplePromptInfo | null) => void;
@@ -329,6 +330,7 @@ export const HomeHero = forwardRef<HomeHeroHandle, Props>(function HomeHero(
     workingDir = null,
     recentDirs = [],
     onPickWorkingDir,
+    onPickLocalCodeDir,
     onSelectRecentWorkingDir,
     onClearWorkingDir,
     onExamplePromptStatusChange,
@@ -906,14 +908,13 @@ export const HomeHero = forwardRef<HomeHeroHandle, Props>(function HomeHero(
     onPickConnector(connector, next);
   }
 
-  function appendWorkspacePrompt(item: WorkspaceContextItem, promptText: string) {
+  function appendWorkspacePrompt(item: WorkspaceContextItem) {
     onAddWorkspaceContext(item);
     if (prompt.trim()) editorRef.current?.insertText('\n\n');
     editorRef.current?.insertMention({
       token: inlineMentionToken(item.label),
       entity: { id: item.id, kind: 'workspace', label: item.label },
     });
-    editorRef.current?.insertText(`\n${promptText}`);
     onPromptChange(editorRef.current?.getText() ?? prompt);
     dismissMentionPicker();
     requestAnimationFrame(() => editorRef.current?.focus());
@@ -930,17 +931,13 @@ export const HomeHero = forwardRef<HomeHeroHandle, Props>(function HomeHero(
         title: label,
         path: project.id,
         ...(path ? { absolutePath: path } : {}),
-      },
-      t('chat.contextPrompt.referenceProject', {
-        name: label,
-        path: path || project.id,
-      }),
+      }
     );
     setProjectReferenceOpen(false);
   }
 
   async function handleLinkLocalCodeContext() {
-    const selected = await onPickWorkingDir?.();
+    const selected = await onPickLocalCodeDir?.();
     if (!selected) return;
     const label = selected.split(/[/\\]/).filter(Boolean).pop() || selected;
     appendWorkspacePrompt(
@@ -951,11 +948,7 @@ export const HomeHero = forwardRef<HomeHeroHandle, Props>(function HomeHero(
         title: label,
         path: selected,
         absolutePath: selected,
-      },
-      t('chat.contextPrompt.localCode', {
-        name: label,
-        path: selected,
-      }),
+      }
     );
   }
 
@@ -1675,7 +1668,7 @@ export const HomeHero = forwardRef<HomeHeroHandle, Props>(function HomeHero(
                 });
                 setProjectReferenceOpen(true);
               }}
-              onLinkLocalCode={onPickWorkingDir ? () => {
+              onLinkLocalCode={onPickLocalCodeDir ? () => {
                 trackHomeChatComposerClick(analytics.track, {
                   page_name: 'home',
                   area: 'chat_composer',

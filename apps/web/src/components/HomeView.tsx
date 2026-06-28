@@ -1220,6 +1220,27 @@ export function HomeView({
     return null;
   }
 
+  async function handlePickLocalCodeDir() {
+    if (isOpenDesignHostAvailable()) {
+      const result = await pickHostWorkingDir();
+      if (result.ok) {
+        void rememberRecentDir(result.baseDir);
+        return result.baseDir;
+      }
+      if ('canceled' in result && result.canceled) return null;
+      setError(
+        `Couldn't open the folder picker (${'reason' in result ? result.reason : 'host unavailable'}). Please update Open Design and try again.`,
+      );
+      return null;
+    }
+    const picked = await openFolderDialog();
+    if (picked) {
+      void rememberRecentDir(picked);
+      return picked;
+    }
+    return null;
+  }
+
   function updateActiveInputs(next: Record<string, unknown>) {
     if (!active) return;
     const normalized = active.mediaSurface
@@ -1865,6 +1886,7 @@ export function HomeView({
         workingDir={workingDir}
         recentDirs={recentDirs}
         onPickWorkingDir={handlePickWorkingDir}
+        onPickLocalCodeDir={handlePickLocalCodeDir}
         onSelectRecentWorkingDir={(dir) => {
           setWorkingDir(dir);
           // Recents come from the browser-side picker only; they carry no
