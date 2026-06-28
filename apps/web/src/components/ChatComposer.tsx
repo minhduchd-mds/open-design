@@ -1160,7 +1160,12 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
       if (!trimmed) return false;
       const base = projectMetadata ?? { kind: 'prototype' as const };
       const existing = base.linkedDirs ?? [];
-      if (existing.includes(trimmed)) return null;
+      if (existing.includes(trimmed)) {
+        const ownedByWorkspaceContext = Object.values(workspaceLinkedDirAdds).some(
+          (tracked) => tracked.dir === trimmed,
+        );
+        return ownedByWorkspaceContext ? { dir: trimmed, previousLinkedDirs: existing } : null;
+      }
       const metadata: ProjectMetadata = { ...base, linkedDirs: [...existing, trimmed] };
       const result = await patchProject(projectId, { metadata });
       if (!result?.metadata) {
@@ -1412,6 +1417,18 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
       tracked: TrackedWorkspaceLinkedDir,
     ): Promise<boolean> {
       if (!projectId) return true;
+      const stillReferenced = Object.entries(workspaceLinkedDirAdds).some(
+        ([candidateId, candidate]) => candidateId !== id && candidate.dir === tracked.dir,
+      ) || selectedWorkspaceContexts.some((item) => (
+        item.id !== id && item.absolutePath?.trim() === tracked.dir
+      )) || workingDir === tracked.dir;
+      if (stillReferenced) {
+        setWorkspaceLinkedDirAdds((current) => {
+          const { [id]: _removed, ...rest } = current;
+          return rest;
+        });
+        return true;
+      }
       const base = projectMetadata ?? { kind: 'prototype' as const };
       const currentLinkedDirs = base.linkedDirs ?? [...tracked.previousLinkedDirs, tracked.dir];
       const nextLinkedDirs = currentLinkedDirs.filter((dir) => dir !== tracked.dir);
@@ -1445,7 +1462,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
         });
       }
       if (workspaceItem) {
-        replaceEditorDraft(stripInlineMentionLabels(draft, [
+        replaceEditorDraft(stripInlineMentionLabels(draftRef.current, [
           workspaceItem.label,
           workspaceItem.id,
           workspaceItem.title ?? '',

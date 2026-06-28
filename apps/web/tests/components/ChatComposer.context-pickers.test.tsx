@@ -129,6 +129,8 @@ let plugins = [COMMUNITY_PLUGIN, USER_PLUGIN];
 let skills = [SKILL];
 let servers = [MCP_SERVER];
 let openFolderPaths: string[];
+let deferNextProjectPatch = false;
+let resolveDeferredProjectPatch: (() => void) | null = null;
 
 function composerElement(
   overrides: Partial<ComponentProps<typeof ChatComposer>> = {},
@@ -189,6 +191,8 @@ beforeEach(() => {
   skills = [SKILL];
   servers = [MCP_SERVER];
   openFolderPaths = ['/Users/me/reference-dir'];
+  deferNextProjectPatch = false;
+  resolveDeferredProjectPatch = null;
   fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     if (url === '/api/mcp/servers') {
       return new Response(JSON.stringify({ servers, templates: [] }), {
@@ -225,6 +229,13 @@ beforeEach(() => {
     }
     if (url === '/api/projects/project-1' && init?.method === 'PATCH') {
       const body = JSON.parse(String(init.body ?? '{}')) as { metadata?: unknown };
+      if (deferNextProjectPatch) {
+        deferNextProjectPatch = false;
+        await new Promise<void>((resolve) => {
+          resolveDeferredProjectPatch = resolve;
+        });
+        resolveDeferredProjectPatch = null;
+      }
       return new Response(JSON.stringify({
         project: {
           id: 'project-1',
@@ -464,6 +475,35 @@ describe('ChatComposer context pickers', () => {
     );
   });
 
+  it('keeps draft text typed while linked-dir removal is pending', async () => {
+    renderComposer({ projectMetadata: { kind: 'prototype' } });
+    await flushMounts();
+
+    fireEvent.click(screen.getByTestId('chat-plus-trigger'));
+    fireEvent.click(await screen.findByText('Link local code'));
+
+    await waitFor(() => {
+      expect(projectPatchBodies()).toHaveLength(1);
+    });
+
+    deferNextProjectPatch = true;
+    fireEvent.click(screen.getByLabelText('Remove reference-dir'));
+
+    await waitFor(() => {
+      expect(resolveDeferredProjectPatch).toBeTruthy();
+    });
+    await typeAndSettle('Keep the typed text after clicking remove');
+    await act(async () => {
+      resolveDeferredProjectPatch?.();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(projectPatchBodies()).toHaveLength(2);
+    });
+    expect(composerText()).toBe('Keep the typed text after clicking remove');
+  });
+
   it('preserves staged local-code linked dirs when changing or clearing the working dir', async () => {
     openFolderPaths = ['/Users/me/reference-dir', '/Users/me/other-work-dir'];
     const onProjectMetadataChange = vi.fn();
@@ -549,6 +589,43 @@ describe('ChatComposer context pickers', () => {
     });
     expect(projectPatchBodies()).toHaveLength(2);
     expect(screen.getByTestId('working-dir-trigger').textContent).toContain('shared');
+    expect(onProjectMetadataChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ linkedDirs: ['/Users/me/shared'] }),
+    );
+  });
+
+  it('keeps a shared linked dir while another workspace item uses the same path', async () => {
+    openFolderPaths = ['/Users/me/shared'];
+    const onProjectMetadataChange = vi.fn();
+    renderComposer({
+      activeWorkspaceContext: {
+        id: 'project:project-a',
+        kind: 'project',
+        label: 'Project A',
+        title: 'Project A',
+        path: 'project-a',
+        absolutePath: '/Users/me/shared',
+      },
+      projectMetadata: { kind: 'prototype' },
+      onProjectMetadataChange,
+    });
+    await flushMounts();
+
+    fireEvent.click(screen.getByTestId('chat-plus-trigger'));
+    fireEvent.click(await screen.findByText('Link local code'));
+
+    await waitFor(() => {
+      expect(projectPatchBodies()).toHaveLength(1);
+    });
+    expect(projectPatchBodies()[0]?.metadata?.linkedDirs).toEqual(['/Users/me/shared']);
+    expect(screen.getByLabelText('Remove Project A')).toBeTruthy();
+
+    fireEvent.click(screen.getAllByLabelText('Remove shared')[0]!);
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Remove shared')).toBeNull();
+    });
+    expect(projectPatchBodies()).toHaveLength(1);
     expect(onProjectMetadataChange).toHaveBeenLastCalledWith(
       expect.objectContaining({ linkedDirs: ['/Users/me/shared'] }),
     );
