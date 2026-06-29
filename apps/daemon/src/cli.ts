@@ -17,7 +17,7 @@ import { resolveDaemonUrl } from './daemon-url.js';
 import { requestJsonIpc } from '@open-design/sidecar';
 import { SIDECAR_ENV, SIDECAR_MESSAGES } from '@open-design/sidecar-proto';
 import { EXPORT_FORMATS, EXPORT_IMAGE_FORMATS } from '@open-design/contracts';
-import { buildExportCliRequestBody, resolveExportCliDeckMode } from './export-cli-request.js';
+import { buildExportCliRequestBody, buildExportCliResultEnvelope, resolveExportCliDeckMode } from './export-cli-request.js';
 import { exportRoutePath } from './export-cli-routing.js';
 import {
   AGENT_SLUGS,
@@ -463,7 +463,9 @@ async function runExport(args) {
   const { writeFile } = await import('node:fs/promises');
   await writeFile(out, buffer);
   if (flags.json) {
-    return process.stdout.write(JSON.stringify({ ok: true, out, bytes: buffer.length, format }, null, 2) + '\n');
+    return process.stdout.write(
+      JSON.stringify(buildExportCliResultEnvelope({ path: out, bytes: buffer.length, format }), null, 2) + '\n',
+    );
   }
   console.log(`wrote ${out} (${buffer.length} bytes)`);
 }

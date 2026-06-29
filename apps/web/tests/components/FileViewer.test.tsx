@@ -2629,10 +2629,10 @@ describe('FileViewer SVG artifacts', () => {
     }
   });
 
-  it('keeps freeform .slide decks on deck export routing', async () => {
+  it('keeps untyped .slide HTML pages on page-mode export routing', async () => {
     const file = baseFile({
-      name: 'slides.html',
-      path: 'slides.html',
+      name: 'landing.html',
+      path: 'landing.html',
       mime: 'text/html',
       kind: 'html',
     });
@@ -2665,7 +2665,7 @@ describe('FileViewer SVG artifacts', () => {
       fireEvent.click(screen.getByRole('button', { name: /download/i }));
 
       const downloadItems = screen.getAllByRole('menuitem').map((item) => item.textContent ?? '');
-      expect(downloadItems).toContain('Export as PPTX');
+      expect(downloadItems).not.toContain('Export as PPTX');
 
       fireEvent.click(screen.getByRole('menuitem', { name: /Export as PDF/i }));
 
@@ -2675,9 +2675,9 @@ describe('FileViewer SVG artifacts', () => {
           expect.objectContaining({
             method: 'POST',
             body: JSON.stringify({
-              fileName: 'slides.html',
-              title: 'slides',
-              deck: true,
+              fileName: 'landing.html',
+              title: 'landing',
+              deck: false,
             }),
           }),
         );

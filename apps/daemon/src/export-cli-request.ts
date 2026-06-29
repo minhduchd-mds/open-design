@@ -1,4 +1,4 @@
-import type { ExportFormat, ExportImageFormat } from "@open-design/contracts";
+import type { ExportFormat, ExportImageFormat, ExportResult } from "@open-design/contracts";
 
 export interface ExportCliRequestOptions {
   fileName: string;
@@ -39,5 +39,18 @@ export function buildExportCliRequestBody(options: ExportCliRequestOptions): Rec
     ...(deck !== undefined ? { deck } : {}),
     ...(options.format === "image" && options.imageFormat ? { imageFormat: options.imageFormat } : {}),
     ...(options.title ? { title: options.title } : {}),
+  };
+}
+
+export function buildExportCliResultEnvelope(options: {
+  bytes: number;
+  format: ExportFormat;
+  path: string;
+}): ExportResult {
+  return {
+    ok: true,
+    path: options.path,
+    bytes: options.bytes,
+    format: options.format,
   };
 }

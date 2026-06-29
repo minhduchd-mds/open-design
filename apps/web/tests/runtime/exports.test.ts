@@ -93,6 +93,7 @@ describe('sourceLooksLikeExportableDeck (#4604 horizontal deck export)', () => {
 
   it('detects explicit deck slide classes, but not plain .slide', () => {
     expect(sourceLooksLikeExportableDeck('<div class="slide">x</div>')).toBe(false);
+    expect(sourceLooksLikeExportableDeck('<section class="slide">x</section>')).toBe(false);
     expect(sourceLooksLikeExportableDeck('<div class="s-cover deck-slide">x</div>')).toBe(true);
     expect(sourceLooksLikeExportableDeck('<div class="ppt-slide">x</div>')).toBe(true);
   });

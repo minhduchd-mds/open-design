@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { EXPORT_FORMATS } from '@open-design/contracts';
 
 import {
+  buildExportCliResultEnvelope,
   buildExportCliRequestBody,
   resolveExportCliDeckMode,
 } from '../src/export-cli-request.js';
@@ -30,6 +31,23 @@ describe('exportRoutePath', () => {
       expect(route.startsWith('export/')).toBe(true);
       expect(route).not.toBe('export');
     }
+  });
+});
+
+describe('buildExportCliResultEnvelope', () => {
+  it('uses the shared ExportResult path field for JSON output', () => {
+    const result = buildExportCliResultEnvelope({
+      path: '/tmp/deck.pptx',
+      bytes: 123,
+      format: 'pptx',
+    });
+    expect(result).toEqual({
+      ok: true,
+      path: '/tmp/deck.pptx',
+      bytes: 123,
+      format: 'pptx',
+    });
+    expect(result).not.toHaveProperty('out');
   });
 });
 
