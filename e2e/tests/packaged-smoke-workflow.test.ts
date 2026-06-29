@@ -63,6 +63,11 @@ const releaseBetaPlatformPublishScriptPath = join(
   "storage",
   "publish-platform.ts",
 );
+const githubHostedRunner = ["ubuntu-24.04"];
+const windowsHostedRunner = ["windows-latest"];
+const contabo2vRunner = ["self-hosted", "Linux", "X64", "od-persistent-ci", "od-ci-hot-poc"];
+const serveroptima4vRunner = ["self-hosted", "Linux", "X64", "od-persistent-ci", "od-serveroptima-poc"];
+const blacksmith4vRunner = ["blacksmith-4vcpu-ubuntu-2404"];
 
 function sectionBetween(content: string, start: string, end: string): string {
   const startIndex = content.indexOf(start);
@@ -564,8 +569,8 @@ describe("packaged smoke workflow", () => {
     expect(e2eVitest).toContain("toJSON(fromJSON(needs.runners.outputs.runs_on).js_hot)");
     expect(e2eVitest).not.toContain('"od-persistent-ci"');
     expect(nixValidation).toContain("fromJSON(needs.runners.outputs.runs_on).general_medium");
-    expect(preflight).toContain("fromJSON(needs.runners.outputs.runs_on).general_medium");
-    expect(preflight).toContain("toJSON(fromJSON(needs.runners.outputs.runs_on).general_medium)");
+    expect(preflight).toContain("fromJSON(needs.runners.outputs.runs_on).preflight");
+    expect(preflight).toContain("toJSON(fromJSON(needs.runners.outputs.runs_on).preflight)");
     expect(dockerPr).toContain("fromJSON(needs.runners.outputs.runs_on).general_medium");
     expect(uiP0).toContain("fromJSON(needs.runners.outputs.runs_on).ui_hot");
     expect(uiP0).toContain("toJSON(fromJSON(needs.runners.outputs.runs_on).ui_hot)");
@@ -598,24 +603,20 @@ describe("packaged smoke workflow", () => {
       "control",
       "general_medium",
       "js_hot",
+      "preflight",
       "ui_hot",
       "visual_hot",
       "windows_tools",
       "workspace_unit",
     ]);
-    expect(defaultRunsOn.control).toEqual([
-      "self-hosted",
-      "Linux",
-      "X64",
-      "od-persistent-ci",
-      "od-ci-hot-poc",
-    ]);
-    expect(defaultRunsOn.general_medium).toEqual(["ubuntu-24.04"]);
-    expect(defaultRunsOn.workspace_unit).toEqual(["ubuntu-24.04"]);
-    expect(defaultRunsOn.windows_tools).toEqual(["windows-latest"]);
-    expect(defaultRunsOn.js_hot).toEqual(["blacksmith-4vcpu-ubuntu-2404"]);
-    expect(defaultRunsOn.ui_hot).toEqual(["blacksmith-4vcpu-ubuntu-2404"]);
-    expect(defaultRunsOn.visual_hot).toEqual(["blacksmith-4vcpu-ubuntu-2404"]);
+    expect(defaultRunsOn.control).toEqual(contabo2vRunner);
+    expect(defaultRunsOn.general_medium).toEqual(githubHostedRunner);
+    expect(defaultRunsOn.preflight).toEqual(serveroptima4vRunner);
+    expect(defaultRunsOn.workspace_unit).toEqual(contabo2vRunner);
+    expect(defaultRunsOn.windows_tools).toEqual(windowsHostedRunner);
+    expect(defaultRunsOn.js_hot).toEqual(blacksmith4vRunner);
+    expect(defaultRunsOn.ui_hot).toEqual(blacksmith4vRunner);
+    expect(defaultRunsOn.visual_hot).toEqual(blacksmith4vRunner);
     expect(defaultProfiles).not.toHaveProperty("contabo_control");
     expect(defaultProfiles).not.toHaveProperty("hosted_or_blacksmith");
     expect(defaultProfiles).not.toHaveProperty("blacksmith_default");
@@ -623,24 +624,26 @@ describe("packaged smoke workflow", () => {
     const performanceProfiles = await runRunners("performance");
     const performanceRunsOn = runnerRunsOn(performanceProfiles);
     expect(runnerDecision(performanceProfiles)).toEqual({ schema_version: 1, mode: "performance" });
-    expect(performanceRunsOn.control).toEqual(["ubuntu-24.04"]);
-    expect(performanceRunsOn.general_medium).toEqual(["blacksmith-4vcpu-ubuntu-2404"]);
-    expect(performanceRunsOn.workspace_unit).toEqual(["ubuntu-24.04"]);
-    expect(performanceRunsOn.windows_tools).toEqual(["windows-latest"]);
-    expect(performanceRunsOn.js_hot).toEqual(["blacksmith-4vcpu-ubuntu-2404"]);
-    expect(performanceRunsOn.ui_hot).toEqual(["blacksmith-4vcpu-ubuntu-2404"]);
-    expect(performanceRunsOn.visual_hot).toEqual(["blacksmith-4vcpu-ubuntu-2404"]);
+    expect(performanceRunsOn.control).toEqual(githubHostedRunner);
+    expect(performanceRunsOn.general_medium).toEqual(blacksmith4vRunner);
+    expect(performanceRunsOn.preflight).toEqual(blacksmith4vRunner);
+    expect(performanceRunsOn.workspace_unit).toEqual(blacksmith4vRunner);
+    expect(performanceRunsOn.windows_tools).toEqual(windowsHostedRunner);
+    expect(performanceRunsOn.js_hot).toEqual(blacksmith4vRunner);
+    expect(performanceRunsOn.ui_hot).toEqual(blacksmith4vRunner);
+    expect(performanceRunsOn.visual_hot).toEqual(blacksmith4vRunner);
 
     const economicProfiles = await runRunners("economic");
     const economicRunsOn = runnerRunsOn(economicProfiles);
     expect(runnerDecision(economicProfiles)).toEqual({ schema_version: 1, mode: "economic" });
-    expect(economicRunsOn.control).toEqual(["ubuntu-24.04"]);
-    expect(economicRunsOn.general_medium).toEqual(["ubuntu-24.04"]);
-    expect(economicRunsOn.workspace_unit).toEqual(["ubuntu-24.04"]);
-    expect(economicRunsOn.windows_tools).toEqual(["windows-latest"]);
-    expect(economicRunsOn.js_hot).toEqual(["ubuntu-24.04"]);
-    expect(economicRunsOn.ui_hot).toEqual(["ubuntu-24.04"]);
-    expect(economicRunsOn.visual_hot).toEqual(["ubuntu-24.04"]);
+    expect(economicRunsOn.control).toEqual(contabo2vRunner);
+    expect(economicRunsOn.general_medium).toEqual(githubHostedRunner);
+    expect(economicRunsOn.preflight).toEqual(serveroptima4vRunner);
+    expect(economicRunsOn.workspace_unit).toEqual(contabo2vRunner);
+    expect(economicRunsOn.windows_tools).toEqual(windowsHostedRunner);
+    expect(economicRunsOn.js_hot).toEqual(serveroptima4vRunner);
+    expect(economicRunsOn.ui_hot).toEqual(serveroptima4vRunner);
+    expect(economicRunsOn.visual_hot).toEqual(serveroptima4vRunner);
   });
 
   it("[P2] routes CI follow-ons through generic handoff workflows", async () => {

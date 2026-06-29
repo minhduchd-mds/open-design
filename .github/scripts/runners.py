@@ -7,7 +7,8 @@ from pathlib import Path
 
 GITHUB_HOSTED = ["ubuntu-24.04"]
 WINDOWS_HOSTED = ["windows-latest"]
-CONTABO_CONTROL = ["self-hosted", "Linux", "X64", "od-persistent-ci", "od-ci-hot-poc"]
+CONTABO_2V = ["self-hosted", "Linux", "X64", "od-persistent-ci", "od-ci-hot-poc"]
+SERVEROPTIMA_4V = ["self-hosted", "Linux", "X64", "od-persistent-ci", "od-serveroptima-poc"]
 BLACKSMITH_4V = ["blacksmith-4vcpu-ubuntu-2404"]
 
 
@@ -23,15 +24,31 @@ def normalize_mode(raw_mode):
 
 
 def resolve_contract(mode):
-    general_medium = BLACKSMITH_4V if mode == "performance" else GITHUB_HOSTED
-    hot_path = GITHUB_HOSTED if mode == "economic" else BLACKSMITH_4V
-    control = CONTABO_CONTROL if mode == "default" else GITHUB_HOSTED
+    if mode == "performance":
+        control = GITHUB_HOSTED
+        general_medium = BLACKSMITH_4V
+        preflight = BLACKSMITH_4V
+        workspace_unit = BLACKSMITH_4V
+        hot_path = BLACKSMITH_4V
+    elif mode == "economic":
+        control = CONTABO_2V
+        general_medium = GITHUB_HOSTED
+        preflight = SERVEROPTIMA_4V
+        workspace_unit = CONTABO_2V
+        hot_path = SERVEROPTIMA_4V
+    else:
+        control = CONTABO_2V
+        general_medium = GITHUB_HOSTED
+        preflight = SERVEROPTIMA_4V
+        workspace_unit = CONTABO_2V
+        hot_path = BLACKSMITH_4V
 
     return {
         "runs_on": {
             "control": control,
             "general_medium": general_medium,
-            "workspace_unit": GITHUB_HOSTED,
+            "preflight": preflight,
+            "workspace_unit": workspace_unit,
             "windows_tools": WINDOWS_HOSTED,
             "js_hot": hot_path,
             "ui_hot": hot_path,

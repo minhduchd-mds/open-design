@@ -426,7 +426,7 @@ jobs:
     name: Preflight
     needs: [scopes, runners]
     if: ${{ needs.scopes.outputs.run_preflight == 'true' }}
-    runs-on: ${{ fromJSON(needs.runners.outputs.runs_on).general_medium }}
+    runs-on: ${{ fromJSON(needs.runners.outputs.runs_on).preflight }}
     timeout-minutes: 45
 
     steps:
@@ -439,7 +439,7 @@ jobs:
       - name: Setup workspace
         uses: ./.github/actions/setup-workspace
         with:
-          runner-labels: ${{ toJSON(fromJSON(needs.runners.outputs.runs_on).general_medium) }}
+          runner-labels: ${{ toJSON(fromJSON(needs.runners.outputs.runs_on).preflight) }}
 
       # `scripts/postinstall.mjs` only prebuilds package/tool entrypoints that
       # are needed immediately after install for linked bins and shared
