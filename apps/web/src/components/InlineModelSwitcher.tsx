@@ -17,6 +17,7 @@ import {
   type Dispatch,
   type SetStateAction,
 } from 'react';
+import type { AmrWalletSnapshot } from '@open-design/contracts';
 import { useT } from '../i18n';
 import {
   agentIdToTracking,
@@ -43,6 +44,7 @@ import { SUGGESTED_MODELS_BY_PROTOCOL } from '../state/apiProtocols';
 import {
   canUpgradeVelaPlan,
   cancelVelaLogin,
+  fetchAmrWalletSnapshot,
   fetchVelaLoginStatus,
   formatVelaBalanceUsd,
   startVelaLogin,
@@ -163,6 +165,9 @@ export function InlineModelSwitcher({
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const providerModelsFetchingRef = useRef<Set<string>>(new Set());
   const [amrStatus, setAmrStatus] = useState<VelaLoginStatus | null>(null);
+  const [amrWalletSnapshot, setAmrWalletSnapshot] =
+    useState<AmrWalletSnapshot | null>(null);
+  const [amrWalletReady, setAmrWalletReady] = useState(false);
   const [amrLoginPending, setAmrLoginPending] = useState(false);
   const [amrLoginError, setAmrLoginError] = useState<string | null>(null);
   const [amrReminderSeen, setAmrReminderSeen] = useState(readAmrReminderSeen);
@@ -426,6 +431,30 @@ export function InlineModelSwitcher({
   const currentModelLabel =
     currentAgent?.models?.find((m) => m.id === currentModelId)?.label ?? null;
   const amrLoggedIn = amrStatus?.loggedIn === true;
+
+  useEffect(() => {
+    if (!amrLoggedIn) {
+      setAmrWalletSnapshot(null);
+      setAmrWalletReady(false);
+      return;
+    }
+    let cancelled = false;
+    setAmrWalletReady(false);
+    void fetchAmrWalletSnapshot().then((next) => {
+      if (cancelled) return;
+      setAmrWalletSnapshot(next);
+      setAmrWalletReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    amrLoggedIn,
+    amrStatus?.profile,
+    amrStatus?.user?.id,
+    amrStatus?.user?.email,
+  ]);
+
   // Signed-in rows show the current plan instead of a redundant "Signed in" +
   // check mark. When the plan can't be resolved (free user, stale local config,
   // upstream not yet fetched), show no status at all. Signed-in-without-plan is
@@ -435,7 +464,15 @@ export function InlineModelSwitcher({
     ? amrStatus?.account?.plan?.trim() || null
     : null;
   const amrBalanceLabel = amrLoggedIn
-    ? formatVelaBalanceUsd(amrStatus?.account?.balanceUsd)
+    ? (
+        amrWalletSnapshot?.status === 'available'
+          ? formatVelaBalanceUsd(amrWalletSnapshot.balanceUsd)
+          : null
+      ) ?? formatVelaBalanceUsd(amrStatus?.account?.balanceUsd)
+    : null;
+  const amrBalanceDisplayLabel = amrLoggedIn
+    ? amrBalanceLabel ??
+      (amrWalletReady ? t('settings.amrWalletUnavailable') : t('common.loading'))
     : null;
   const amrCanUpgrade =
     amrLoggedIn && canUpgradeVelaPlan(amrStatus?.account?.plan);
@@ -823,14 +860,14 @@ export function InlineModelSwitcher({
                           <PlanBadge plan={amrPlanLabel} size="md" />
                         ) : null}
                       </span>
-                      {amrLoggedIn && amrBalanceLabel ? (
+                      {amrLoggedIn && amrBalanceDisplayLabel ? (
                         <span className="inline-switcher__account-subtitle">
                           <span className="inline-switcher__account-stat">
                             <span className="inline-switcher__account-stat-label">
                               {t('settings.amrBalance')}
                             </span>
                             <span className="inline-switcher__account-stat-value">
-                              {amrBalanceLabel}
+                              {amrBalanceDisplayLabel}
                             </span>
                           </span>
                         </span>

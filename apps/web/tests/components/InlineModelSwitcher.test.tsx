@@ -315,6 +315,57 @@ describe('InlineModelSwitcher AMR row', () => {
     expect(within(popover).queryByRole('button', { name: 'Sign out' })).toBeNull();
   });
 
+  it('shows wallet balance in the Open Design account row when signed-in status has no account summary', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString();
+      if (url === '/api/integrations/vela/status') {
+        return new Response(
+          JSON.stringify({
+            loggedIn: true,
+            profile: 'test',
+            user: {
+              id: 'user-1',
+              email: 'manual-amr@example.local',
+              name: 'Manual AMR Test User',
+            },
+            configPath: '/Users/test/.amr/config.json',
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      if (url === '/api/integrations/vela/wallet') {
+        return new Response(
+          JSON.stringify({
+            status: 'available',
+            profile: 'test',
+            user: { id: 'user-1', email: 'manual-amr@example.local' },
+            balanceUsd: '0.1000',
+            updatedAt: '2026-06-23T06:05:18.782Z',
+            fetchedAt: '2026-06-23T06:05:19.000Z',
+            stale: false,
+            source: 'daemon_cache',
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderSwitcher();
+
+    fireEvent.click(screen.getByTestId('inline-model-switcher-chip'));
+
+    const popover = screen.getByTestId('inline-model-switcher-popover');
+    await within(popover).findByRole('radio', {
+      name: /^Open Design\s+Signed in$/i,
+    });
+    await waitFor(() => {
+      expect(within(popover).getByText('Balance')).toBeTruthy();
+      expect(within(popover).getByText('$0.10')).toBeTruthy();
+    });
+  });
+
   it('filters fetched BYOK provider models in the Home switcher search box', async () => {
     renderSwitcher(
       {
