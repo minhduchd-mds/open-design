@@ -2400,17 +2400,31 @@ function injectDeckBridge(doc: string, initialSlideIndex = 0): string {
     gotoIndex(initialSlideIndex);
   }
   var odSlideMessageBeforeIndex = -1;
-  window.addEventListener('message', function(ev){
+  var odDeckBridgeInstallingMessageListener = false;
+  var odHasExternalMessageListener = false;
+  try {
+    var odOriginalAddEventListener = window.addEventListener;
+    window.addEventListener = function(type, listener, options) {
+      if (type === 'message' && !odDeckBridgeInstallingMessageListener) odHasExternalMessageListener = true;
+      return odOriginalAddEventListener.call(this, type, listener, options);
+    };
+  } catch (_) {}
+  function addOdSlideMessageListener(listener, options) {
+    odDeckBridgeInstallingMessageListener = true;
+    try { window.addEventListener('message', listener, options); }
+    finally { odDeckBridgeInstallingMessageListener = false; }
+  }
+  addOdSlideMessageListener(function(ev){
     var data = ev && ev.data;
     if (!data || data.type !== 'od:slide') return;
     odSlideMessageBeforeIndex = activeIndex(slides());
   }, true);
-  window.addEventListener('message', function(ev){
+  addOdSlideMessageListener(function(ev){
     var data = ev && ev.data;
     if (!data || data.type !== 'od:slide') return;
     var before = odSlideMessageBeforeIndex;
     odSlideMessageBeforeIndex = -1;
-    setTimeout(function(){
+    function applyBridgeFallback() {
       var current = activeIndex(slides());
       if (data.action === 'go' && typeof data.index === 'number') {
         if (current === data.index) {
@@ -2429,7 +2443,16 @@ function injectDeckBridge(doc: string, initialSlideIndex = 0): string {
         return;
       }
       go(data.action);
-    }, 0);
+    }
+    if (before >= 0 && activeIndex(slides()) !== before) {
+      report();
+      return;
+    }
+    if (odHasExternalMessageListener) {
+      setTimeout(applyBridgeFallback, 0);
+      return;
+    }
+    applyBridgeFallback();
   });
   function ownDeckButton(id, action){
     var btn = document.getElementById(id);
