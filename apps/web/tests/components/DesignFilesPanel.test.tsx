@@ -128,21 +128,23 @@ describe('DesignFilesPanel sections', () => {
   it('shows prioritized project starter actions in the empty state', () => {
     const onNewSketch = vi.fn();
     const onOpenBrowser = vi.fn();
-    const onCreateDesignSystem = vi.fn();
+    const onPaste = vi.fn();
 
     renderPanel([], {
       onNewSketch,
       onOpenBrowser,
-      onCreateDesignSystem,
+      onPaste,
     });
 
     fireEvent.click(screen.getByTestId('design-files-empty-new-sketch'));
     fireEvent.click(screen.getByTestId('design-files-empty-open-browser'));
-    fireEvent.click(screen.getByTestId('design-files-empty-create-design-system'));
+    fireEvent.click(screen.getByTestId('design-files-empty-create-document'));
 
     expect(onNewSketch).toHaveBeenCalledTimes(1);
     expect(onOpenBrowser).toHaveBeenCalledTimes(1);
-    expect(onCreateDesignSystem).toHaveBeenCalledTimes(1);
+    expect(onPaste).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Create document' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Create new design system' })).toBeNull();
   });
 
   it('groups files into semantic sections by category', () => {

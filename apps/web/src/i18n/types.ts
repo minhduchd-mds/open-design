@@ -2997,6 +2997,7 @@ export interface Dict {
   'fileViewer.markdownViewMode': string;
   'fileViewer.split': string;
   'fileViewer.markdownEditor': string;
+  'fileViewer.markdownEditorPlaceholder': string;
   'fileViewer.markdownPreview': string;
   'fileViewer.videoMeta': string;
   'fileViewer.audioMeta': string;

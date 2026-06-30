@@ -11612,15 +11612,14 @@ function MarkdownViewer({
           <>
             {showEditor ? (
               <section className="markdown-editor-pane" aria-label={t('fileViewer.markdownEditor')}>
-                <div className="markdown-pane-bar markdown-pane-bar-edit" aria-hidden="true">
-                  <Icon name="edit" size={12} />
-                  <span>{t('fileViewer.edit')}</span>
-                </div>
                 <textarea
                   ref={editorRef}
                   className="markdown-editor"
                   value={text}
+                  aria-label={t('fileViewer.markdownEditor')}
+                  placeholder={t('fileViewer.markdownEditorPlaceholder')}
                   spellCheck
+                  autoFocus
                   onFocus={() => activateMarkdownScrollPane('editor')}
                   onChange={(event) => {
                     activateMarkdownScrollPane('editor');
@@ -11633,14 +11632,7 @@ function MarkdownViewer({
               </section>
             ) : null}
             {showPreview ? (
-              // The header bar stays OUTSIDE the scroll container so it never
-              // perturbs the preview pane's content geometry, which the
-              // block-anchor scroll-sync measures (`measurePreviewBlockOffsets`).
               <div className="markdown-preview-pane-wrap">
-                <div className="markdown-pane-bar markdown-pane-bar-preview" aria-hidden="true">
-                  <Icon name="eye" size={12} />
-                  <span>{t('fileViewer.preview')}</span>
-                </div>
                 <section
                   ref={markdownPreviewPaneRef}
                   className="markdown-preview-pane"

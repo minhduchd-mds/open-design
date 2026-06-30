@@ -87,8 +87,6 @@ import {
 } from '../types';
 import type { ChatSessionMode, WorkspaceContextItem } from '@open-design/contracts';
 import { createTerminal, killTerminal } from '../state/projects';
-import { navigate } from '../router';
-import { setPendingDesignSystemCreateEntry } from '../analytics/ds-create-entry';
 import type { QuestionForm } from '../artifacts/question-form';
 import { DesignFilesPanel, type DesignFilesNavState } from './DesignFilesPanel';
 import { DesignBrowserPanel, labelFromUrl, type BrowserPageInfo } from './DesignBrowserPanel';
@@ -2630,15 +2628,6 @@ export function FileWorkspace({
                 element: 'new_browser',
               });
               openBrowserTab();
-            }}
-            onCreateDesignSystem={() => {
-              trackFileManagerClick(analytics.track, {
-                page_name: 'file_manager',
-                area: 'file_manager',
-                element: 'create_design_system',
-              });
-              setPendingDesignSystemCreateEntry('project_canvas');
-              navigate({ kind: 'design-system-create' });
             }}
             onSelectFromLibrary={() => {
               trackFileManagerClick(analytics.track, {

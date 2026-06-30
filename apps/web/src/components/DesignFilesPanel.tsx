@@ -60,7 +60,6 @@ interface Props {
   onPaste: () => void;
   onNewSketch: () => void;
   onOpenBrowser?: () => void;
-  onCreateDesignSystem?: () => void;
   /** Opens the "Select from library" picker to pull registry assets in. */
   onSelectFromLibrary?: () => void;
   // Reports the folder the panel is currently viewing so the parent can create
@@ -289,7 +288,6 @@ export function DesignFilesPanel({
   onPaste,
   onNewSketch,
   onOpenBrowser,
-  onCreateDesignSystem,
   onSelectFromLibrary,
   uploadError = null,
   onClearUploadError,
@@ -1032,18 +1030,16 @@ export function DesignFilesPanel({
                       <span>{t('workspace.newBrowser')}</span>
                     </button>
                   ) : null}
-                  {onCreateDesignSystem ? (
-                    <button
-                      type="button"
-                      className="df-empty-cta df-empty-cta-tertiary"
-                      data-testid="design-files-empty-create-design-system"
-                      onClick={onCreateDesignSystem}
-                      title={t('dsManager.createTitle')}
-                    >
-                      <Icon name="blocks" size={13} />
-                      <span>{t('dsManager.createTitle')}</span>
-                    </button>
-                  ) : null}
+                  <button
+                    type="button"
+                    className="df-empty-cta df-empty-cta-tertiary"
+                    data-testid="design-files-empty-create-document"
+                    onClick={onPaste}
+                    title={t('designFiles.paste.title')}
+                  >
+                    <Icon name="file" size={13} />
+                    <span>{t('designFiles.paste.label')}</span>
+                  </button>
                 </div>
               </div>
             </div>

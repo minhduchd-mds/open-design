@@ -2898,6 +2898,9 @@ describe('FileViewer SVG artifacts', () => {
 
     render(<FileViewer projectId="project-1" projectKind="prototype" file={file} />);
 
+    const editor = await screen.findByRole('textbox', { name: /markdown editor/i }) as HTMLTextAreaElement;
+    expect(editor.placeholder).toBe('Type notes, requirements, or instructions for this document...');
+    expect(document.querySelector('.markdown-pane-bar')).toBeNull();
     expect(screen.queryByRole('button', { name: /^deploy$/i })).toBeNull();
     fireEvent.click(await screen.findByRole('button', { name: /^download$/i }));
 

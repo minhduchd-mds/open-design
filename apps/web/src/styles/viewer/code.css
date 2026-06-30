@@ -377,33 +377,6 @@
 /* Split-view column headers. They only appear in split mode, where it is
    otherwise ambiguous which pane accepts edits; the editor header is
    accent-tinted to signal the typeable side. */
-.markdown-pane-bar {
-  display: none;
-}
-.markdown-workbench-split .markdown-pane-bar {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  flex: 0 0 auto;
-  padding: 6px 14px;
-  border-bottom: 1px solid var(--border-soft);
-  background: color-mix(in oklab, var(--bg-panel) 72%, var(--bg));
-  color: var(--text-faint);
-  font-family: var(--sans);
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  line-height: 1;
-  user-select: none;
-}
-.markdown-workbench-split .markdown-pane-bar svg {
-  flex-shrink: 0;
-  opacity: 0.85;
-}
-.markdown-workbench-split .markdown-pane-bar-edit {
-  color: var(--accent-strong, var(--accent));
-}
 .markdown-workbench {
   display: grid;
   gap: 0;
@@ -427,6 +400,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: color-mix(in oklab, var(--bg) 88%, var(--bg-panel));
 }
 .markdown-preview-pane {
   min-width: 0;
@@ -466,8 +440,8 @@
 }
 .markdown-preview-pane {
   background:
-    linear-gradient(180deg, color-mix(in oklab, var(--bg-panel) 84%, var(--bg)) 0, var(--bg) 320px),
-    var(--bg);
+    linear-gradient(180deg, color-mix(in oklab, var(--bg-panel) 58%, var(--bg)) 0, color-mix(in oklab, var(--bg) 88%, var(--bg-panel)) 320px),
+    color-mix(in oklab, var(--bg) 88%, var(--bg-panel));
 }
 @media (max-width: 860px) {
   .markdown-workbench-split {
