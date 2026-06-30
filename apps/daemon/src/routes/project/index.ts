@@ -6,6 +6,8 @@ import {
   defaultScenarioPluginIdForProjectMetadata,
   type ChatSessionMode,
   type PluginManifest,
+  type ProjectFile,
+  type ProjectFileVersion,
   type ProjectFileVersionPromptSource,
   type ProjectFileVersionSource,
 } from '@open-design/contracts';
@@ -2450,6 +2452,20 @@ export function registerProjectFileRoutes(app: Express, ctx: RegisterProjectFile
     );
   }
 
+  function fileFromVersionHistory(fileName: string, versions: ProjectFileVersion[]): ProjectFile | null {
+    const latest = versions.at(-1);
+    if (!latest) return null;
+    return {
+      name: latest.fileName || fileName,
+      path: latest.fileName || fileName,
+      type: 'file',
+      size: latest.size,
+      mtime: latest.createdAt,
+      kind: latest.kind,
+      mime: latest.mime,
+    };
+  }
+
   // Lets a browser (or the desktop export window, which shares the same Chromium
   // session/cache as the web UI) reuse already-downloaded fonts/CSS/images
   // across loads instead of re-fetching them every time — covers, live preview,
@@ -3017,11 +3033,26 @@ export function registerProjectFileRoutes(app: Express, ctx: RegisterProjectFile
       if (!project) {
         return sendApiError(res, 404, 'PROJECT_NOT_FOUND', 'project not found');
       }
-      const file = await readProjectFile(PROJECTS_DIR, project.id, fileName, project.metadata);
-      if (!/\.html?$/i.test(file.name)) {
+      if (!/\.html?$/i.test(fileName)) {
         return sendApiError(res, 400, 'BAD_REQUEST', 'versions are only available for HTML files');
       }
-      const versions = await listProjectFileVersions(PROJECTS_DIR, project.id, file.name, project.metadata);
+      let file: ProjectFile | null = null;
+      let historyFileName = fileName;
+      try {
+        const workingFile = await readProjectFile(PROJECTS_DIR, project.id, fileName, project.metadata);
+        if (!/\.html?$/i.test(workingFile.name)) {
+          return sendApiError(res, 400, 'BAD_REQUEST', 'versions are only available for HTML files');
+        }
+        file = workingFile;
+        historyFileName = workingFile.name;
+      } catch (err: any) {
+        if (err?.code !== 'ENOENT') throw err;
+      }
+      const versions = await listProjectFileVersions(PROJECTS_DIR, project.id, historyFileName, project.metadata);
+      file ??= fileFromVersionHistory(historyFileName, versions);
+      if (!file) {
+        return sendApiError(res, 404, 'FILE_NOT_FOUND', 'file not found');
+      }
       /** @type {import('@open-design/contracts').ProjectFileVersionsResponse} */
       const body = { file, versions };
       res.setHeader('Cache-Control', 'no-store');

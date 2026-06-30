@@ -156,6 +156,33 @@ describe('project file versions', () => {
     });
   });
 
+  it('preserves every checkpoint saved concurrently for the same HTML file', async () => {
+    await withProject(async (projectsRoot, projectId) => {
+      const labels = Array.from({ length: 12 }, (_, index) => `Concurrent checkpoint ${index + 1}`);
+
+      const created = await Promise.all(
+        labels.map((label, index) =>
+          createProjectFileVersion(
+            projectsRoot,
+            projectId,
+            'brand.html',
+            `<html><body>v${index + 1}</body></html>`,
+            { source: 'manual', promptSource: 'manual', label },
+          ),
+        ),
+      );
+
+      expect(new Set(created.map((version) => version.id)).size).toBe(labels.length);
+      const versions = await listProjectFileVersions(projectsRoot, projectId, 'brand.html');
+      expect(versions).toHaveLength(labels.length);
+      expect(new Set(versions.map((version) => version.label))).toEqual(new Set(labels));
+      expect(versions.map((version) => version.version).sort((a, b) => a - b)).toEqual(
+        labels.map((_, index) => index + 1),
+      );
+      expect(versions.filter((version) => version.current)).toHaveLength(1);
+    });
+  });
+
   it('moves HTML version history when a project file is renamed', async () => {
     await withProject(async (projectsRoot, projectId) => {
       const first = await createProjectFileVersion(

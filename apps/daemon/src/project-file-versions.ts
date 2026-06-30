@@ -13,6 +13,7 @@ import { isSafeId, kindFor, mimeFor, resolveProjectDir, validateProjectPath } fr
 const VERSION_ROOT = '.file-versions';
 const VERSION_MANIFEST = 'manifest.json';
 const VERSION_ID_RE = /^[A-Za-z0-9_-]+$/u;
+const versionFileLocks = new Map<string, Promise<void>>();
 
 type VersionPromptSource = ProjectFileVersionPromptSource;
 type VersionSource = ProjectFileVersionSource;
@@ -60,6 +61,36 @@ function fileVersionKey(fileName: string): string {
 function versionRootFor(projectsRoot: string, projectId: string, fileName: string): string {
   if (!isSafeId(projectId)) throw new Error('invalid project id');
   return path.join(projectsRoot, projectId, VERSION_ROOT, fileVersionKey(fileName));
+}
+
+function versionLockKey(projectsRoot: string, projectId: string, fileName: string): string {
+  return `${path.resolve(projectsRoot)}\0${projectId}\0${fileName}`;
+}
+
+async function withVersionFileLock<T>(
+  projectsRoot: string,
+  projectId: string,
+  fileName: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const key = versionLockKey(projectsRoot, projectId, fileName);
+  const previous = versionFileLocks.get(key) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const chained = previous.then(() => current, () => current);
+  versionFileLocks.set(key, chained);
+
+  await previous.catch(() => undefined);
+  try {
+    return await fn();
+  } finally {
+    release();
+    if (versionFileLocks.get(key) === chained) {
+      versionFileLocks.delete(key);
+    }
+  }
 }
 
 function normalizePrompt(value: unknown): string | null {
@@ -259,6 +290,18 @@ export async function createProjectFileVersion(
 ): Promise<ProjectFileVersion> {
   const safeName = validateUserFileName(fileName);
   assertProjectAvailable(projectsRoot, projectId, metadata);
+  return withVersionFileLock(projectsRoot, projectId, safeName, () =>
+    createProjectFileVersionUnlocked(projectsRoot, projectId, safeName, content, options),
+  );
+}
+
+async function createProjectFileVersionUnlocked(
+  projectsRoot: string,
+  projectId: string,
+  safeName: string,
+  content: string,
+  options: CreateProjectFileVersionOptions,
+): Promise<ProjectFileVersion> {
   const root = versionRootFor(projectsRoot, projectId, safeName);
   await mkdir(root, { recursive: true });
   const entries = await readVersionManifest(projectsRoot, projectId, safeName);
@@ -357,18 +400,20 @@ export async function ensureCurrentProjectFileVersion(
   const safeName = validateUserFileName(fileName);
   if (!/\.html?$/i.test(safeName)) return null;
   assertProjectAvailable(projectsRoot, projectId, metadata);
-  const entries = await readVersionManifest(projectsRoot, projectId, safeName);
   const text = String(content ?? '');
-  const latest = entries.at(-1);
-  if (latest?.contentPath) {
-    try {
-      const prior = await readFile(path.join(versionRootFor(projectsRoot, projectId, safeName), latest.contentPath), 'utf8');
-      if (prior === text) return publicVersion(latest, latest.id);
-    } catch (err) {
-      if (errorCode(err) !== 'ENOENT') throw err;
+  return withVersionFileLock(projectsRoot, projectId, safeName, async () => {
+    const entries = await readVersionManifest(projectsRoot, projectId, safeName);
+    const latest = entries.at(-1);
+    if (latest?.contentPath) {
+      try {
+        const prior = await readFile(path.join(versionRootFor(projectsRoot, projectId, safeName), latest.contentPath), 'utf8');
+        if (prior === text) return publicVersion(latest, latest.id);
+      } catch (err) {
+        if (errorCode(err) !== 'ENOENT') throw err;
+      }
     }
-  }
-  return createProjectFileVersion(projectsRoot, projectId, safeName, text, options, metadata);
+    return createProjectFileVersionUnlocked(projectsRoot, projectId, safeName, text, options);
+  });
 }
 
 export async function getProjectFileVersionRootStats(
