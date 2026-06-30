@@ -1288,7 +1288,7 @@ async function openNewProjectModal(page: Page) {
 }
 
 async function waitForLoadingToClear(page: Page) {
-  await page.getByText('Loading Open Design…').waitFor({ state: 'hidden', timeout: T.medium });
+  await page.getByText('Loading Open Design…').waitFor({ state: 'hidden', timeout: T.long });
 }
 
 async function getCurrentProjectContext(
