@@ -86,6 +86,7 @@ import {
   mentionTokenPresent,
   type InlineMentionEntity,
 } from '../utils/inlineMentions';
+import { workspaceContextLinkedDir, workspaceContextLinkedDirs } from './workspace-context';
 import {
   LexicalComposerInput,
   type LexicalComposerInputHandle,
@@ -124,7 +125,7 @@ function trackedWorkspaceLinkedDirsForContexts(
 ): Record<string, TrackedWorkspaceLinkedDir> {
   const out: Record<string, TrackedWorkspaceLinkedDir> = {};
   for (const item of items) {
-    const dir = item.absolutePath?.trim() ?? '';
+    const dir = workspaceContextLinkedDir(item) ?? '';
     if (!dir || !linkedDirs.includes(dir)) continue;
     out[item.id] = {
       dir,
@@ -598,14 +599,11 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
       for (const item of stagedWorkspaceContexts) push(item);
       return out;
     }, [stagedWorkspaceContexts, visibleWorkspaceContext]);
-    const selectedWorkspaceContextDirs = useMemo(
-      () =>
-        selectedWorkspaceContexts
-          .map((item) => item.absolutePath?.trim() ?? '')
-          .filter((dir) => dir.length > 0),
+    const selectedWorkspaceContextDirs = useMemo<string[]>(
+      () => workspaceContextLinkedDirs(selectedWorkspaceContexts),
       [selectedWorkspaceContexts],
     );
-    const workspaceContextMetadataLinkedDirList = useMemo(
+    const workspaceContextMetadataLinkedDirList = useMemo<string[]>(
       () =>
         Array.from(new Set([
           ...Object.values(workspaceLinkedDirAdds).map((tracked) => tracked.dir),
@@ -613,12 +611,12 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
         ])),
       [selectedWorkspaceContextDirs, workspaceLinkedDirAdds],
     );
-    const workspaceContextLinkedDirList = useMemo(
+    const workspaceContextLinkedDirList = useMemo<string[]>(
       () =>
         workspaceContextMetadataLinkedDirList.filter((dir) => dir !== promotedWorkspaceContextDir),
       [promotedWorkspaceContextDir, workspaceContextMetadataLinkedDirList],
     );
-    const workspaceContextLinkedDirs = useMemo(
+    const workspaceContextLinkedDirSet = useMemo<Set<string>>(
       () => new Set(workspaceContextLinkedDirList),
       [workspaceContextLinkedDirList],
     );
@@ -626,7 +624,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
     // (via `linkedDirs` → `--add-dir`). Shown in the WorkingDirPicker below
     // the input, mirroring Home. Context-only folders are still linked for
     // agent read access, but they should not become the displayed primary dir.
-    const workingDir = linkedDirs.find((dir) => !workspaceContextLinkedDirs.has(dir)) ?? null;
+    const workingDir = linkedDirs.find((dir) => !workspaceContextLinkedDirSet.has(dir)) ?? null;
     // Live-check whether the selected working directory still exists, so a
     // folder deleted from disk turns the picker red without a page reload.
     // Re-checked when the dir changes, when the window/tab regains focus
@@ -1289,27 +1287,33 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
     }
 
     async function handleReferenceProjects(selections: ProjectReferenceSelection[]) {
-      const trackedByDir = await addLinkedDirs(selections.map(({ resolvedDir }) => resolvedDir));
-      if (trackedByDir === false) return;
-      const trackedAdds: Record<string, TrackedWorkspaceLinkedDir> = {};
-      for (const { project, resolvedDir } of selections) {
+      const items = selections.map(({ project, resolvedDir }) => {
         const path = resolvedDir.trim();
-        const item: WorkspaceContextItem = {
+        return {
           id: `project:${project.id}`,
           kind: 'project',
           label: project.name || project.id,
           title: project.name || project.id,
           path: project.id,
           ...(path ? { absolutePath: path } : {}),
-        };
+        } satisfies WorkspaceContextItem;
+      });
+      for (const item of items) {
         appendWorkspacePrompt(item);
+      }
+      setProjectReferenceOpen(false);
+
+      const trackedByDir = await addLinkedDirs(items.map((item) => workspaceContextLinkedDir(item) ?? ''));
+      if (trackedByDir === false) return;
+      const trackedAdds: Record<string, TrackedWorkspaceLinkedDir> = {};
+      for (const item of items) {
+        const path = workspaceContextLinkedDir(item);
         const trackedLinkedDir = path ? trackedByDir.get(path) ?? null : null;
         if (trackedLinkedDir) trackedAdds[item.id] = trackedLinkedDir;
       }
       if (Object.keys(trackedAdds).length > 0) {
         setWorkspaceLinkedDirAdds((current) => ({ ...current, ...trackedAdds }));
       }
-      setProjectReferenceOpen(false);
     }
 
     async function handleLinkLocalCodeContext() {
@@ -1532,7 +1536,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(
       return Object.entries(workspaceLinkedDirAdds).some(
         ([candidateId, candidate]) => candidateId !== id && candidate.dir === dir,
       ) || selectedWorkspaceContexts.some((item) => (
-        item.id !== id && item.absolutePath?.trim() === dir
+        item.id !== id && workspaceContextLinkedDir(item) === dir
       )) || workingDir === dir;
     }
 

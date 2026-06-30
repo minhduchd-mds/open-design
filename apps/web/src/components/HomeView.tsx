@@ -58,7 +58,12 @@ import {
   mergeAihubmixImageModels,
   useAIHubMixImageModels,
 } from '../media/aihubmix-image-models';
-import { openFolderDialog, fetchRecentLinkedDirs, pushRecentLinkedDir, dirExists } from '../providers/registry';
+import {
+  dirExists,
+  fetchRecentLinkedDirs,
+  openFolderDialog,
+  pushRecentLinkedDir,
+} from '../providers/registry';
 import { isOpenDesignHostAvailable, pickHostWorkingDir } from '@open-design/host';
 import type {
   DesignSystemSummary,
@@ -1885,11 +1890,14 @@ export function HomeView({
           ...(item.connector.accountLabel ? { accountLabel: item.connector.accountLabel } : {}),
         }));
       const contextLinkedDirCandidates = workspaceContextLinkedDirs(contextWorkspaceItems);
-      const contextLinkedDirs = (
-        await Promise.all(
-          contextLinkedDirCandidates.map(async (dir) => ((await dirExists(dir)) ? dir : null)),
-        )
-      ).filter((dir): dir is string => Boolean(dir));
+      const contextLinkedDirs =
+        contextLinkedDirCandidates.length === 0
+          ? []
+          : (
+              await Promise.all(
+                contextLinkedDirCandidates.map(async (dir) => ((await dirExists(dir)) ? dir : null)),
+              )
+            ).filter((dir): dir is string => Boolean(dir));
       const submittedProjectKind =
         submittedActive?.projectKind ?? fallbackProjectKind ?? projectKindForSkill(activeSkill) ?? 'other';
       const submittedProjectMetadata = submittedActive?.mediaSurface

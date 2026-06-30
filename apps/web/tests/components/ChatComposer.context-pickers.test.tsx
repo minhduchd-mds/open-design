@@ -130,6 +130,7 @@ let skills = [SKILL];
 let servers = [MCP_SERVER];
 let openFolderPaths: string[];
 let deferNextProjectPatch = false;
+let rejectNextProjectPatch = false;
 let resolveDeferredProjectPatch: (() => void) | null = null;
 let referenceProjects: Array<{
   id: string;
@@ -202,6 +203,7 @@ beforeEach(() => {
   servers = [MCP_SERVER];
   openFolderPaths = ['/Users/me/reference-dir'];
   deferNextProjectPatch = false;
+  rejectNextProjectPatch = false;
   resolveDeferredProjectPatch = null;
   referenceProjects = [];
   referenceProjectDetails = {};
@@ -255,6 +257,15 @@ beforeEach(() => {
     }
     if (url === '/api/projects/project-1' && init?.method === 'PATCH') {
       const body = JSON.parse(String(init.body ?? '{}')) as { metadata?: unknown };
+      if (rejectNextProjectPatch) {
+        rejectNextProjectPatch = false;
+        return new Response(JSON.stringify({
+          error: { message: 'directory does not exist or is not accessible' },
+        }), {
+          status: 400,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
       if (deferNextProjectPatch) {
         deferNextProjectPatch = false;
         await new Promise<void>((resolve) => {
@@ -480,6 +491,30 @@ describe('ChatComposer context pickers', () => {
     expect(onSend.mock.calls[0]?.[3]?.context?.workspaceItems).toEqual([browserContext]);
   });
 
+  it('does not preserve active file paths as linked dirs when changing the working dir', async () => {
+    openFolderPaths = ['/Users/me/new-work-dir'];
+    renderComposer({
+      activeWorkspaceContext: {
+        id: 'file:index.html',
+        kind: 'file',
+        label: 'index.html',
+        path: 'index.html',
+        absolutePath: '/tmp/open-design/project-1/index.html',
+        tabId: 'index.html',
+      },
+      projectMetadata: { kind: 'prototype', linkedDirs: ['/Users/me/work-dir'] },
+    });
+    await flushMounts();
+
+    fireEvent.click(screen.getByTestId('working-dir-trigger'));
+    fireEvent.click(await screen.findByTestId('working-dir-pick'));
+
+    await waitFor(() => {
+      expect(projectPatchBodies()).toHaveLength(1);
+    });
+    expect(projectPatchBodies()[0]?.metadata?.linkedDirs).toEqual(['/Users/me/new-work-dir']);
+  });
+
   it('removes the linked dir added for a local-code context when its chip is cleared', async () => {
     const onProjectMetadataChange = vi.fn();
     renderComposer({
@@ -571,6 +606,52 @@ describe('ChatComposer context pickers', () => {
         ],
       }),
     );
+  });
+
+  it('still sends referenced project context when linking its directory is rejected', async () => {
+    const referenceA = {
+      id: 'reference-a',
+      name: 'Reference A',
+      skillId: null,
+      designSystemId: null,
+      createdAt: 1,
+      updatedAt: 1,
+      metadata: { kind: 'prototype' as const },
+    };
+    referenceProjects = [referenceA];
+    referenceProjectDetails = {
+      'reference-a': {
+        project: referenceA,
+        resolvedDir: '/tmp/open-design/missing-reference-a',
+      },
+    };
+    rejectNextProjectPatch = true;
+    const onSend = vi.fn();
+    renderComposer({ onSend });
+    await flushMounts();
+
+    fireEvent.click(screen.getByTestId('chat-plus-trigger'));
+    fireEvent.click(await screen.findByTestId('composer-plus-reference-project'));
+    await screen.findByText('Reference A');
+    fireEvent.click(screen.getByRole('button', { name: 'Reference project' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('staged-contexts').textContent).toContain('ProjectReference A');
+    });
+    await waitFor(() => {
+      expect(projectPatchBodies()).toHaveLength(1);
+    });
+    fireEvent.click(screen.getByTestId('chat-send'));
+
+    await waitFor(() => expect(onSend).toHaveBeenCalledTimes(1));
+    expect(onSend.mock.calls[0]?.[3]?.context?.workspaceItems).toEqual([
+      expect.objectContaining({
+        id: 'project:reference-a',
+        kind: 'project',
+        label: 'Reference A',
+        absolutePath: '/tmp/open-design/missing-reference-a',
+      }),
+    ]);
   });
 
   it('keeps sent linked-dir workspace context visible and removable after reset', async () => {
