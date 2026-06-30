@@ -470,4 +470,160 @@ test.describe('Settings media providers flows', () => {
     });
     expect(JSON.stringify(runBodies[0])).not.toContain('sk-openai-run-secret');
   });
+
+  test('[P1] configured video media model is carried into the first daemon run without leaking provider keys', async ({ page }) => {
+    test.setTimeout(60_000);
+
+    await seedSettingsBase(page);
+
+    const projectId = 'configured-video-run-project';
+    const conversationId = 'configured-video-run-conversation';
+    const runBodies: Array<Record<string, unknown>> = [];
+    await routeBootstrapApis(page, {
+      projectCreate: async (route) => {
+        const body = route.request().postDataJSON() as Record<string, unknown>;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            project: {
+              id: projectId,
+              name: body.name ?? 'Configured video run',
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+              metadata: body.metadata ?? {},
+            },
+            conversationId,
+          }),
+        });
+      },
+      runProject: {
+        id: projectId,
+        conversationId,
+        name: 'Configured video run',
+        metadata: { kind: 'video', videoModel: 'doubao-seedance-2-0-fast-260128' },
+        runBodies,
+      },
+    });
+
+    const dialog = await openMediaSettings(page);
+    await dialog.getByLabel(/Volcengine Ark.*API key/i).fill('volcengine-video-secret');
+    await page.waitForFunction(
+      ({ key }) => {
+        const raw = window.localStorage.getItem(key);
+        if (!raw) return false;
+        const parsed = JSON.parse(raw);
+        return parsed.mediaProviders?.volcengine?.apiKey === 'volcengine-video-secret';
+      },
+      { key: STORAGE_KEY },
+    );
+    await dialog.getByRole('button', { name: /Close/i }).click();
+    await expect(dialog).toHaveCount(0);
+
+    await ensureRailOpen(page);
+    await page.getByTestId('entry-nav-new-project').click();
+    await expect(page.getByTestId('new-project-modal')).toBeVisible();
+    await page.getByTestId('new-project-tab-media').click();
+    await page.getByTestId('new-project-media-surface-video').click();
+    await page.getByTestId('new-project-name').fill('Configured video run');
+    await page.getByTestId('model-picker-trigger').click();
+    const volcengineGroup = page.locator('.ds-picker-group').filter({ has: page.getByText('Volcengine Ark (Doubao)', { exact: true }) });
+    await expect(volcengineGroup).toContainText('Configured');
+    await volcengineGroup.getByTestId('model-picker-option-doubao-seedance-2-0-fast-260128').click();
+    await page.getByTestId('create-project').click();
+
+    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}`));
+    await page.getByTestId('chat-composer-input').fill('Generate a launch film using the configured video provider.');
+    await page.getByTestId('chat-send').click();
+
+    await expect.poll(() => runBodies.length, { timeout: 10_000 }).toBe(1);
+    expect(runBodies[0]).toMatchObject({
+      projectId,
+      conversationId,
+      mediaExecution: {
+        mode: 'enabled',
+        allowedSurfaces: ['video'],
+        allowedModels: ['doubao-seedance-2-0-fast-260128'],
+      },
+    });
+    expect(JSON.stringify(runBodies[0])).not.toContain('volcengine-video-secret');
+  });
+
+  test('[P1] configured audio media model is carried into the first daemon run without leaking provider keys', async ({ page }) => {
+    test.setTimeout(60_000);
+
+    await seedSettingsBase(page);
+
+    const projectId = 'configured-audio-run-project';
+    const conversationId = 'configured-audio-run-conversation';
+    const runBodies: Array<Record<string, unknown>> = [];
+    await routeBootstrapApis(page, {
+      projectCreate: async (route) => {
+        const body = route.request().postDataJSON() as Record<string, unknown>;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            project: {
+              id: projectId,
+              name: body.name ?? 'Configured audio run',
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+              metadata: body.metadata ?? {},
+            },
+            conversationId,
+          }),
+        });
+      },
+      runProject: {
+        id: projectId,
+        conversationId,
+        name: 'Configured audio run',
+        metadata: { kind: 'audio', audioKind: 'speech', audioModel: 'fish-speech-2' },
+        runBodies,
+      },
+    });
+
+    const dialog = await openMediaSettings(page);
+    await dialog.getByLabel('FishAudio API key').fill('fish-audio-run-secret');
+    await page.waitForFunction(
+      ({ key }) => {
+        const raw = window.localStorage.getItem(key);
+        if (!raw) return false;
+        const parsed = JSON.parse(raw);
+        return parsed.mediaProviders?.fishaudio?.apiKey === 'fish-audio-run-secret';
+      },
+      { key: STORAGE_KEY },
+    );
+    await dialog.getByRole('button', { name: /Close/i }).click();
+    await expect(dialog).toHaveCount(0);
+
+    await ensureRailOpen(page);
+    await page.getByTestId('entry-nav-new-project').click();
+    await expect(page.getByTestId('new-project-modal')).toBeVisible();
+    await page.getByTestId('new-project-tab-media').click();
+    await page.getByTestId('new-project-media-surface-audio').click();
+    await page.getByTestId('new-project-name').fill('Configured audio run');
+    await page.getByTestId('model-picker-trigger').click();
+    const fishAudioGroup = page.locator('.ds-picker-group').filter({ has: page.getByText('FishAudio', { exact: true }) });
+    await expect(fishAudioGroup).toContainText('Configured');
+    await fishAudioGroup.getByTestId('model-picker-option-fish-speech-2').click();
+    await page.getByTestId('create-project').click();
+
+    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}`));
+    await page.getByTestId('chat-composer-input').fill('Generate narration using the configured audio provider.');
+    await page.getByTestId('chat-send').click();
+
+    await expect.poll(() => runBodies.length, { timeout: 10_000 }).toBe(1);
+    expect(runBodies[0]).toMatchObject({
+      projectId,
+      conversationId,
+      mediaExecution: {
+        mode: 'enabled',
+        allowedSurfaces: ['audio'],
+        allowedModels: ['fish-speech-2'],
+      },
+    });
+    expect(JSON.stringify(runBodies[0])).not.toContain('fish-audio-run-secret');
+  });
 });
