@@ -172,17 +172,9 @@ export function AvatarMenu({
     [agents, config.agentId],
   );
 
-<<<<<<< HEAD
   const installedAgents = orderAgentsWithOpenDesignFirst(
     agents.filter((a) => a.available),
   );
-=======
-  // Pin Open Design (amr) to the top of the code-agent list; keep every other
-  // agent in its original daemon-provided order (Array.sort is stable).
-  const installedAgents = agents
-    .filter((a) => a.available)
-    .sort((a, b) => Number(b.id === 'amr') - Number(a.id === 'amr'));
->>>>>>> 3652fb723 ([codex] restore AMR wallet balance follow-ups (#4771))
   const amrAvailable = installedAgents.some((a) => a.id === 'amr');
   const amrProfile = config.agentCliEnv?.amr?.OPEN_DESIGN_AMR_PROFILE;
 

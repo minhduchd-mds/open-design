@@ -40,11 +40,8 @@ import type { Dict } from '../i18n/types';
 import { AgentIcon } from './AgentIcon';
 import { AgentDiagnosticRow } from './AgentDiagnosticRow';
 import { AmrLoginPill } from './AmrLoginPill';
-<<<<<<< HEAD
 import { orderAgentsWithOpenDesignFirst } from './agentOrdering';
-=======
 import { PlanBadge } from './PlanBadge';
->>>>>>> 3652fb723 ([codex] restore AMR wallet balance follow-ups (#4771))
 import {
   AMR_LOGIN_STATUS_EVENT,
   amrLoginStatusEventReason,
