@@ -2028,6 +2028,7 @@ export const zhTW: Dict = {
   'workspace.newTerminalDescription': '在新分頁中開啟專案目錄的終端機',
   'workspace.newBrowser': '新增瀏覽器',
   'workspace.newBrowserDescription': '在新分頁中開啟內建瀏覽器，用於參考網站與設計研究',
+  'workspace.newSketchDescription': '繪製粗略版面與標註，作為 agent 的設計脈絡',
   'workspace.terminalStarting': '正在啟動專案終端機…',
   'workspace.terminalStartingDescription': '正在連接專案目錄，通常只需幾秒。',
   'workspace.terminalSessionEnded': '工作階段已結束',

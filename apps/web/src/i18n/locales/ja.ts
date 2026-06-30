@@ -2028,6 +2028,7 @@ export const ja: Dict = {
   'workspace.newTerminalDescription': 'プロジェクトディレクトリのシェルを新しいタブで開く',
   'workspace.newBrowser': '新しいブラウザ',
   'workspace.newBrowserDescription': '参照サイトやブラウザ作業用の内蔵ブラウザタブを開く',
+  'workspace.newSketchDescription': 'ラフなレイアウトやメモを描き、エージェントのデザイン文脈にする',
   'workspace.terminalStarting': 'ターミナルを起動しています…',
   'workspace.terminalStartingDescription': 'プロジェクトのシェルを準備しています。通常は数秒で完了します。',
   'workspace.terminalSessionEnded': 'セッションが終了しました',

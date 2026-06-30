@@ -2028,6 +2028,7 @@ export const ar: Dict = {
   'workspace.newTerminalDescription': 'Open a shell in the project directory in a new tab',
   'workspace.newBrowser': 'New Browser',
   'workspace.newBrowserDescription': 'Open a built-in browser tab for reference sites and design research',
+  'workspace.newSketchDescription': 'Sketch rough layouts and notes for the agent to use as design context',
   'workspace.terminalStarting': 'جارٍ بدء تشغيل الطرفية…',
   'workspace.terminalStartingDescription': 'يتم تجهيز صدفة المشروع. يستغرق ذلك عادة بضع ثوانٍ.',
   'workspace.terminalSessionEnded': 'انتهت الجلسة',

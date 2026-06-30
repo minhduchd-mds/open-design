@@ -105,6 +105,7 @@ export function buildLauncherActions(ctx: LauncherContext): LauncherAction[] {
       id: 'new-sketch',
       iconName: 'pencil',
       labelKey: 'designFiles.newSketch',
+      descriptionKey: 'workspace.newSketchDescription',
       run: (runCtx) => {
         runCtx.createSketch?.();
       },

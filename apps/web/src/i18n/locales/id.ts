@@ -2028,6 +2028,7 @@ export const id: Dict = {
   'workspace.newTerminalDescription': 'Open a shell in the project directory in a new tab',
   'workspace.newBrowser': 'Browser Baru',
   'workspace.newBrowserDescription': 'Buka tab browser bawaan untuk situs referensi dan tugas browser',
+  'workspace.newSketchDescription': 'Buat sketsa tata letak dan catatan cepat sebagai konteks desain untuk agen',
   'workspace.terminalStarting': 'Memulai terminal…',
   'workspace.terminalStartingDescription': 'Menyiapkan shell proyek. Biasanya hanya butuh beberapa detik.',
   'workspace.terminalSessionEnded': 'Session ended',

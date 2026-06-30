@@ -2793,6 +2793,7 @@ export interface Dict {
   'workspace.newTerminalDescription': string;
   'workspace.newBrowser': string;
   'workspace.newBrowserDescription': string;
+  'workspace.newSketchDescription': string;
   'workspace.terminalStarting': string;
   'workspace.terminalStartingDescription': string;
   'workspace.terminalSessionEnded': string;

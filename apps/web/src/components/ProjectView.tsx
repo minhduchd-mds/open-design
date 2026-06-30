@@ -204,7 +204,7 @@ import {
 import { useIframeKeepAlivePool } from './IframeKeepAlivePool';
 import {
   decideAutoOpenAfterWrite,
-  selectAutoOpenProducedHtml,
+  selectAutoOpenProducedArtifact,
 } from './auto-open-file';
 import { buildRepoImportPrompt, designSystemNeedsRepoConnect } from './design-system-github-evidence';
 import { isDesignSystemProject, resolveProjectDesignSystemId } from './design-system-project';
@@ -3022,8 +3022,8 @@ export function ProjectView({
             }
             const diff = computeProducedFiles(beforeFileNames, nextFiles) ?? [];
             const produced = mergeRecoveredArtifact(diff, recoveredExistingArtifact);
-            const producedHtmlToOpen = selectAutoOpenProducedHtml(produced);
-            if (producedHtmlToOpen) requestOpenFile(producedHtmlToOpen);
+            const producedArtifactToOpen = selectAutoOpenProducedArtifact(produced);
+            if (producedArtifactToOpen) requestOpenFile(producedArtifactToOpen);
             if (produced.length > 0) {
               updateMessageById(
                 message.id,
@@ -3238,8 +3238,8 @@ export function ProjectView({
                   ) ?? [],
                   recoveredExistingArtifact,
                 );
-                const producedHtmlToOpen = selectAutoOpenProducedHtml(produced);
-                if (producedHtmlToOpen) requestOpenFile(producedHtmlToOpen);
+                const producedArtifactToOpen = selectAutoOpenProducedArtifact(produced);
+                if (producedArtifactToOpen) requestOpenFile(producedArtifactToOpen);
                 updateMessageById(
                   message.id,
                   (prev) => ({ ...prev, producedFiles: produced, traceObjectFiles }),
@@ -3315,8 +3315,8 @@ export function ProjectView({
                     if (produced.length > 0) {
                       recoveredArtifactMessagesRef.current.add(message.id);
                     }
-                    const producedHtmlToOpen = selectAutoOpenProducedHtml(produced);
-                    if (producedHtmlToOpen) requestOpenFile(producedHtmlToOpen);
+                    const producedArtifactToOpen = selectAutoOpenProducedArtifact(produced);
+                    if (producedArtifactToOpen) requestOpenFile(producedArtifactToOpen);
                     if (latestRunStatus?.status === 'succeeded') setError(null);
                     updateMessageById(
                       message.id,
@@ -3528,8 +3528,8 @@ export function ProjectView({
             continue;
           }
           recoveredArtifactMessagesRef.current.add(message.id);
-          const producedHtmlToOpen = selectAutoOpenProducedHtml(produced);
-          if (producedHtmlToOpen) requestOpenFile(producedHtmlToOpen);
+          const producedArtifactToOpen = selectAutoOpenProducedArtifact(produced);
+          if (producedArtifactToOpen) requestOpenFile(producedArtifactToOpen);
           updateMessageById(
             message.id,
             (prev) => ({
@@ -4266,8 +4266,8 @@ export function ProjectView({
                 nextFiles,
                 traceTouchedFilePaths,
               ) ?? [];
-              const producedHtmlToOpen = selectAutoOpenProducedHtml(produced);
-              if (producedHtmlToOpen) requestOpenFile(producedHtmlToOpen);
+              const producedArtifactToOpen = selectAutoOpenProducedArtifact(produced);
+              if (producedArtifactToOpen) requestOpenFile(producedArtifactToOpen);
               setMessages((curr) => {
                 const updated = curr.map((m) =>
                   m.id === assistantId

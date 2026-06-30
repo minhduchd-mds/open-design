@@ -2028,6 +2028,7 @@ export const de: Dict = {
   'workspace.newTerminalDescription': 'Eine Shell im Projektverzeichnis in einem neuen Tab öffnen',
   'workspace.newBrowser': 'Neuer Browser',
   'workspace.newBrowserDescription': 'Einen integrierten Browser-Tab für Referenzseiten und Browser-Aufgaben öffnen',
+  'workspace.newSketchDescription': 'Skizziere grobe Layouts und Notizen als Designkontext für den Agenten',
   'workspace.terminalStarting': 'Terminal wird gestartet…',
   'workspace.terminalStartingDescription': 'Projektshell wird vorbereitet. Das dauert normalerweise nur ein paar Sekunden.',
   'workspace.terminalSessionEnded': 'Sitzung beendet',

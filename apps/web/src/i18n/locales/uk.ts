@@ -2028,6 +2028,7 @@ export const uk: Dict = {
   'workspace.newTerminalDescription': 'Open a shell in the project directory in a new tab',
   'workspace.newBrowser': 'Новий браузер',
   'workspace.newBrowserDescription': 'Відкрити вбудовану вкладку браузера для довідкових сайтів і завдань',
+  'workspace.newSketchDescription': 'Накидайте чорнові макети й нотатки як дизайн-контекст для агента',
   'workspace.terminalStarting': 'Запуск термінала…',
   'workspace.terminalStartingDescription': 'Готуємо оболонку проєкту. Зазвичай це займає кілька секунд.',
   'workspace.terminalSessionEnded': 'Сеанс завершено',

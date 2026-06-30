@@ -2028,6 +2028,7 @@ export const tr: Dict = {
   'workspace.newTerminalDescription': 'Open a shell in the project directory in a new tab',
   'workspace.newBrowser': 'Yeni Tarayıcı',
   'workspace.newBrowserDescription': 'Referans siteleri ve tarayıcı görevleri için yerleşik bir tarayıcı sekmesi açın',
+  'workspace.newSketchDescription': 'Ajana tasarım bağlamı vermek için kaba düzenler ve notlar çizin',
   'workspace.terminalStarting': 'Terminal başlatılıyor…',
   'workspace.terminalStartingDescription': 'Proje kabuğu hazırlanıyor. Genellikle birkaç saniye sürer.',
   'workspace.terminalSessionEnded': 'Oturum sona erdi',

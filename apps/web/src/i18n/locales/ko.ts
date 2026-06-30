@@ -2028,6 +2028,7 @@ export const ko: Dict = {
   'workspace.newTerminalDescription': '새 탭에서 프로젝트 디렉터리의 셸 열기',
   'workspace.newBrowser': '새 브라우저',
   'workspace.newBrowserDescription': '참고 사이트 및 브라우저 작업을 위한 내장 브라우저 탭 열기',
+  'workspace.newSketchDescription': '대략적인 레이아웃과 메모를 그려 에이전트의 디자인 맥락으로 사용',
   'workspace.terminalStarting': '터미널을 시작하는 중…',
   'workspace.terminalStartingDescription': '프로젝트 셸을 준비하고 있습니다. 보통 몇 초 정도 걸립니다.',
   'workspace.terminalSessionEnded': '세션이 종료되었습니다',

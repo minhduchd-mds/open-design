@@ -2028,6 +2028,7 @@ export const ptBR: Dict = {
   'workspace.newTerminalDescription': 'Abrir um shell no diretório do projeto em uma nova aba',
   'workspace.newBrowser': 'Novo navegador',
   'workspace.newBrowserDescription': 'Abrir uma aba de navegador integrada para sites de referência e tarefas',
+  'workspace.newSketchDescription': 'Rascunhe layouts e notas rápidas como contexto de design para o agente',
   'workspace.terminalStarting': 'Iniciando terminal…',
   'workspace.terminalStartingDescription': 'Preparando o shell do projeto. Normalmente leva alguns segundos.',
   'workspace.terminalSessionEnded': 'Sessão encerrada',

@@ -64,7 +64,7 @@ import {
   type VelaLoginStatus,
 } from './providers/daemon';
 import { AMR_LOGIN_STATUS_EVENT } from './components/amrLoginPolling';
-import { navigate, useRoute } from './router';
+import { goBack, navigate, useRoute } from './router';
 import {
   fetchDaemonConfig,
   DEFAULT_PET,
@@ -1766,8 +1766,12 @@ function AppInner() {
     void patchProject(id, { name: trimmed });
   }, []);
 
+  // Return to wherever the user opened this project from (Projects, Tasks, a
+  // design system, …) by popping the history stack. Falls back to the Projects
+  // list only when there is no in-app history behind us (a deep link / fresh
+  // load straight onto the project URL) — see `goBack`.
   const handleBack = useCallback(() => {
-    navigate({ kind: 'home', view: 'home' });
+    goBack({ kind: 'home', view: 'projects' });
   }, []);
 
   const handleClearPendingPrompt = useCallback(() => {

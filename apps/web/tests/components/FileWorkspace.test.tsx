@@ -837,6 +837,9 @@ describe('FileWorkspace launcher tab creation', () => {
 
     expect(screen.queryByRole('button', { name: /New Terminal/i })).toBeNull();
     expect(screen.getByRole('button', { name: /New Browser/i })).toBeTruthy();
+    expect(
+      screen.getByText('Sketch rough layouts and notes for the agent to use as design context'),
+    ).toBeTruthy();
     expect(screen.getByText('Create new')).toBeTruthy();
   });
 

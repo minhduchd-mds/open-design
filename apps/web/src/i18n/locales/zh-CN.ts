@@ -2028,6 +2028,7 @@ export const zhCN: Dict = {
   'workspace.newTerminalDescription': '在新标签页中打开项目目录的终端',
   'workspace.newBrowser': '新建浏览器',
   'workspace.newBrowserDescription': '在新标签页中打开内置浏览器，用于参考站点和设计研究',
+  'workspace.newSketchDescription': '绘制粗略布局和标注，作为 agent 的设计上下文',
   'workspace.terminalStarting': '正在启动项目终端…',
   'workspace.terminalStartingDescription': '正在连接项目目录，通常只需几秒。',
   'workspace.terminalSessionEnded': '会话已结束',

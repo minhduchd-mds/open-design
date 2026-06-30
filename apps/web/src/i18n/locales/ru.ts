@@ -2028,6 +2028,7 @@ export const ru: Dict = {
   'workspace.newTerminalDescription': 'Открыть оболочку в каталоге проекта в новой вкладке',
   'workspace.newBrowser': 'Новый браузер',
   'workspace.newBrowserDescription': 'Открыть встроенную вкладку браузера для справочных сайтов и задач',
+  'workspace.newSketchDescription': 'Набросайте черновые макеты и заметки как дизайн-контекст для агента',
   'workspace.terminalStarting': 'Запуск терминала…',
   'workspace.terminalStartingDescription': 'Подготавливаем оболочку проекта. Обычно это занимает несколько секунд.',
   'workspace.terminalSessionEnded': 'Сеанс завершён',
