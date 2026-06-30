@@ -445,12 +445,26 @@ export function canFetchProviderModels(
   protocol: ApiProtocol,
 ): boolean {
   return (
+    !isProviderModelDiscoveryUnsupported(protocol, config.baseUrl) &&
     protocol !== 'azure' &&
     protocol !== 'ollama' &&
     (protocol === 'bedrock' || Boolean(config.apiKey.trim())) &&
     Boolean(config.baseUrl.trim()) &&
     isValidApiBaseUrl(config.baseUrl)
   );
+}
+
+export function isProviderModelDiscoveryUnsupported(
+  protocol: ApiProtocol,
+  baseUrl: string,
+): boolean {
+  if (protocol === 'azure' || protocol === 'ollama') return true;
+  try {
+    const host = new URL(baseUrl).hostname.toLowerCase();
+    return host === 'token-plan-cn.xiaomimimo.com';
+  } catch {
+    return false;
+  }
 }
 
 function missingByokConnectionFields(
@@ -2112,6 +2126,21 @@ export function SettingsDialog({
       }
       return;
     }
+    if (isProviderModelDiscoveryUnsupported(apiProtocol, cfg.baseUrl)) {
+      trackModelsFetchResult({
+        result: 'failed',
+        error_code: 'unsupported_provider_models',
+        error_kind: 'unsupported_provider_models',
+        duration_ms: 0,
+      });
+      if (!options.silent) {
+        setByokPreconditionNotice({
+          action: 'test',
+          message: t('settings.fetchModelsUnsupported'),
+        });
+      }
+      return;
+    }
     const modelFetchBlockingIssues = blockingByokDraftIssues(
       byokModelFetchDraftValidation,
     );
@@ -2987,7 +3016,7 @@ export function SettingsDialog({
   useEffect(() => {
     if (cfg.mode !== 'api') return;
     if (visualStabilityMode) return;
-    if (apiProtocol === 'azure' || apiProtocol === 'ollama') return;
+    if (isProviderModelDiscoveryUnsupported(apiProtocol, cfg.baseUrl)) return;
     if (byokFirstPartyBaseUrl?.hostTypo) return;
     if (blockingByokDraftIssues(byokModelFetchDraftValidation).length > 0) return;
     // AIHubMix needs no key and prefills its base URL, so there's nothing to
@@ -4790,7 +4819,10 @@ export function SettingsDialog({
                 }
                 providerModelsFailureMessage={providerModelsFailureMessage}
                 showAzureModelFetchHint={apiProtocol === 'azure'}
-                showFetchModelsUnsupportedHint={apiProtocol === 'ollama'}
+                showFetchModelsUnsupportedHint={
+                  apiProtocol !== 'azure' &&
+                  isProviderModelDiscoveryUnsupported(apiProtocol, cfg.baseUrl)
+                }
                 showSuggestedModelsHint={apiProtocol !== 'azure' && !selectedProvider}
                 azureModelFetchHint={t('settings.azureModelFetchHint')}
                 onCustomModelChange={(value) => updateApiConfig({ model: value })}

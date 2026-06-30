@@ -919,6 +919,15 @@ describe('SettingsDialog execution settings BYOK interactions', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Ollama Cloud' }));
     expect(screen.queryByRole('button', { name: 'Fetch models' })).toBeNull();
     expect(screen.getByText('Model discovery is not available for this protocol.')).toBeTruthy();
+
+    fetchProviderModelsMock.mockClear();
+    fireEvent.click(screen.getByRole('tab', { name: '小米 MiMo' }));
+    await new Promise((resolve) => window.setTimeout(resolve, 350));
+
+    expect(fetchProviderModelsMock).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Fetch models' })).toBeNull();
+    expect(screen.getByText('Model discovery is not available for this protocol.')).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'Model' }).textContent).toContain('mimo-v2.5-pro');
   });
 
   it('auto-loads provider models after a pasted dirty key is cleaned on blur', async () => {
