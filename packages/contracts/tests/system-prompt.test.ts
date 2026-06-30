@@ -55,6 +55,8 @@ describe('DISCOVERY_AND_PHILOSOPHY (contracts copy) — TodoWrite plan item coun
     expect(prompt).toContain('`<question-form id="task-type">`');
     expect(prompt).toContain('Quick brief — 30 seconds');
     expect(prompt).toContain('<question-form id="plan-brief">');
+    expect(prompt).toContain('substantial plan-document work still starts with a real TodoWrite/task-list tool call');
+    expect(prompt).toContain('show progress through the Todo card');
     expect(prompt.indexOf('# Plan mode — editable document first')).toBeLessThan(
       prompt.indexOf(DISCOVERY_AND_PHILOSOPHY),
     );

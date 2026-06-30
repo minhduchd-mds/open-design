@@ -1087,10 +1087,10 @@
   color: var(--text-muted);
 }
 .prose-block .md-inline-code {
-  background: var(--bg-fill-tertiary);
+  background: transparent;
   border: none;
   border-radius: var(--radius-xs);
-  padding: 2px 6px;
+  padding: 0;
   font-family: var(--mono);
   font-size: 0.86em;
   color: var(--text);
@@ -1099,9 +1099,9 @@
 .prose-block .md-code-block {
   position: relative;
   margin: 16px 0;
-  border: none;
+  border: 1px solid var(--border-soft);
   border-radius: var(--radius);
-  background: var(--bg-fill-tertiary);
+  background: transparent;
   overflow: hidden;
   box-shadow: none;
 }
@@ -1159,7 +1159,7 @@
   position: absolute;
   inset: auto 0 0 0;
   height: 3.2em;
-  background: linear-gradient(to bottom, transparent, var(--bg-fill-tertiary));
+  background: linear-gradient(to bottom, transparent, var(--bg));
   pointer-events: none;
 }
 .prose-block .md-color-token {
@@ -1697,7 +1697,7 @@
 .live-code-box {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--bg-fill-secondary);
+  background: transparent;
   overflow: hidden;
 }
 .live-code-box .live-code-head {
@@ -1716,6 +1716,7 @@
   font-size: 12px;
   line-height: 1.55;
   color: var(--text);
+  background: transparent;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   border-top: 1px solid var(--border);

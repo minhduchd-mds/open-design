@@ -1190,7 +1190,7 @@
 .app .live-code-box {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--bg-fill-secondary);
+  background: transparent;
 }
 .app .live-code-box .live-code-head {
   cursor: default;
