@@ -479,6 +479,8 @@ describe('HomeView prompt handoff', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     cleanup();
+    window.localStorage.clear();
+    window.sessionStorage.clear();
   });
 
   it('consumes a plugin authoring handoff once and focuses the textarea', async () => {

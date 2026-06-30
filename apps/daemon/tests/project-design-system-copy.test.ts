@@ -212,6 +212,45 @@ describe('project design-system copy route', () => {
     expect(copiedTabs.tabs).toEqual(['index.html']);
     expect(copiedTabs.active).toBe('index.html');
   }, 60_000);
+
+  it('rejects generic duplication for design-system-like projects', async () => {
+    dataDir = await mkdtemp(join(tmpdir(), 'od-project-copy-brand-'));
+    started = await startIsolatedServer(dataDir);
+
+    const sourceId = `source-brand-${Date.now()}`;
+    await postJson(`${started.url}/api/projects`, {
+      id: sourceId,
+      name: 'Brand Workspace',
+      metadata: {
+        kind: 'brand',
+        importedFrom: 'brand-extraction',
+        brandId: 'brand-workspace',
+        brandDesignSystemId: 'user:brand-workspace',
+      },
+      pendingPrompt: null,
+    });
+    await postJson(`${started.url}/api/projects/${sourceId}/files`, {
+      name: 'brand.html',
+      content: '<!doctype html><title>Brand workspace</title>',
+    });
+
+    const response = await fetch(`${started.url}/api/projects/${sourceId}/duplicate`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Brand Workspace Copy' }),
+    });
+
+    expect(response.status).toBe(400);
+    const body = await response.json() as { error?: { code?: string; message?: string } };
+    expect(body.error?.code).toBe('PROJECT_ALREADY_DESIGN_SYSTEM');
+    expect(body.error?.message).toContain('design-system workspace');
+
+    const projects = await fetchJson<{ projects: Array<{ id: string; name: string }> }>(
+      `${started.url}/api/projects`,
+    );
+    expect(projects.projects).toContainEqual(expect.objectContaining({ id: sourceId }));
+    expect(projects.projects).not.toContainEqual(expect.objectContaining({ name: 'Brand Workspace Copy' }));
+  }, 60_000);
 });
 
 async function startIsolatedServer(root: string): Promise<StartedServer> {

@@ -1683,6 +1683,14 @@ export function registerProjectRoutes(app: Express, ctx: RegisterProjectRoutesDe
       if (!sourceProject || !projectVisibleForLocations(sourceProject, locations)) {
         return sendApiError(res, 404, 'PROJECT_NOT_FOUND', 'not found');
       }
+      if (isDesignSystemLikeProject(sourceProject)) {
+        return sendApiError(
+          res,
+          400,
+          'PROJECT_ALREADY_DESIGN_SYSTEM',
+          'project is already a design-system workspace',
+        );
+      }
 
       const targetProjectId = randomId();
       const targetName = normalizeProjectDuplicateName(req.body?.name, sourceProject);

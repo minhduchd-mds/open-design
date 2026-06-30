@@ -55,6 +55,8 @@ const PROMPT_TEMPLATES: PromptTemplateSummary[] = [
 afterEach(() => {
   vi.unstubAllGlobals();
   cleanup();
+  window.localStorage.clear();
+  window.sessionStorage.clear();
 });
 
 describe('HomeView media composer options', () => {

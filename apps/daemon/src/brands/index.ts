@@ -690,6 +690,8 @@ export async function continueBrandExtraction(
     extractionTerminalRunId: undefined,
     extractionTerminalError: undefined,
     conversationId,
+    extractionConversationId: conversationId,
+    extractionRunId: undefined,
     extractionAttemptId,
   }) ?? { ...meta, status: 'extracting', conversationId, extractionAttemptId, updatedAt: now };
 

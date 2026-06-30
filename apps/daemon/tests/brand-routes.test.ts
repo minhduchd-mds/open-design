@@ -532,6 +532,84 @@ describe('brand routes', () => {
     }
   });
 
+  it('continues extraction against the retry conversation instead of a stale terminal run', async () => {
+    writeBrandFixture('brand-retry-route', {
+      projectId: 'project-retry-route',
+      conversationId: 'conversation-retry-route',
+      extractionConversationId: 'conversation-old-route',
+      extractionRunId: 'run-old-route',
+      logoPrimary: 'logos/missing.svg',
+      status: 'failed',
+      error: 'Old extraction failed.',
+    });
+    insertProject(db, {
+      id: 'project-retry-route',
+      name: 'Retry Route Brand Project',
+      skillId: null,
+      designSystemId: null,
+      createdAt: 1,
+      updatedAt: 1,
+      metadata: { kind: 'brand', brandId: 'brand-retry-route' },
+    });
+    insertConversation(db, {
+      id: 'conversation-old-route',
+      projectId: 'project-retry-route',
+      title: 'Old extraction',
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    upsertMessage(db, 'conversation-old-route', {
+      id: 'message-old-route',
+      role: 'assistant',
+      content: 'Old extraction failed.',
+      runId: 'run-old-route',
+      runStatus: 'failed',
+      startedAt: 1,
+      endedAt: 2,
+    });
+    insertConversation(db, {
+      id: 'conversation-retry-route',
+      projectId: 'project-retry-route',
+      title: 'Retry extraction',
+      createdAt: 3,
+      updatedAt: 3,
+    });
+
+    let releaseRetryPrefetch!: () => void;
+    const retryPrefetchGate = new Promise<PrefetchResult | null>((resolve) => {
+      releaseRetryPrefetch = () => resolve(null);
+    });
+    const server = await startBrandServer({
+      prefetch: vi.fn(async () => retryPrefetchGate),
+      logoFallback: NO_LOGO_FALLBACK,
+      imageryFallback: NO_IMAGERY_FALLBACK,
+    });
+    try {
+      const continued = await server.requestJson('/api/brands/brand-retry-route/continue-extraction', {
+        method: 'POST',
+        body: {},
+      });
+      expect(continued.status).toBe(200);
+      expect(continued.body.conversationId).toBe('conversation-retry-route');
+
+      const detail = await server.requestJson('/api/brands/brand-retry-route');
+      const list = await server.requestJson('/api/brands');
+
+      expect(detail.status).toBe(200);
+      expect(detail.body.meta.status).toBe('extracting');
+      expect(detail.body.meta.error).toBeUndefined();
+      expect(detail.body.meta.extractionConversationId).toBe('conversation-retry-route');
+      expect(detail.body.meta.extractionRunId).toBeUndefined();
+      expect(list.body.brands.find((brand: any) => brand.meta.id === 'brand-retry-route')?.meta.status).toBe(
+        'extracting',
+      );
+    } finally {
+      releaseRetryPrefetch();
+      await retryPrefetchGate.catch(() => null);
+      await server.close();
+    }
+  });
+
   it('aborts an active programmatic pass before extracting from browser HTML', async () => {
     let prefetchStarted!: () => void;
     const prefetchStartedPromise = new Promise<void>((resolve) => {
@@ -1087,6 +1165,7 @@ describe('brand routes', () => {
     options: {
       projectId?: string;
       extractionConversationId?: string;
+      conversationId?: string;
       logoPrimary: string;
       logoBody?: string;
       status?: string;
@@ -1110,6 +1189,7 @@ describe('brand routes', () => {
         ...(options.extractionTerminalRunId ? { extractionTerminalRunId: options.extractionTerminalRunId } : {}),
         ...(options.extractionTerminalError ? { extractionTerminalError: options.extractionTerminalError } : {}),
         ...(options.extractionRunId ? { extractionRunId: options.extractionRunId } : {}),
+        ...(options.conversationId ? { conversationId: options.conversationId } : {}),
         ...(options.projectId ? { projectId: options.projectId } : {}),
         ...(options.extractionConversationId ? { extractionConversationId: options.extractionConversationId } : {}),
       }),
