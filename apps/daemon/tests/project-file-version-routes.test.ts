@@ -5,6 +5,7 @@ import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { getProjectFileVersionRootStats } from '../src/project-file-versions.js';
+import { projectFileWriteTestHooks } from '../src/projects.js';
 import { startServer } from '../src/server.js';
 
 describe('project file version routes', () => {
@@ -229,5 +230,141 @@ describe('project file version routes', () => {
     } finally {
       await fs.chmod(stats.root, 0o755).catch(() => {});
     }
+  });
+
+  it('rejects invalid version source values before mutating HTML files', async () => {
+    const projectId = await createProject();
+    await writeProjectFile(projectId, 'brand.html', '<html><body>valid</body></html>');
+
+    const explicitResponse = await fetch(`${baseUrl}/api/projects/${projectId}/files/brand.html/versions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ source: 'typo' }),
+    });
+    expect(explicitResponse.status).toBe(400);
+    await expect(explicitResponse.json()).resolves.toMatchObject({
+      error: { code: 'BAD_REQUEST', message: expect.stringContaining('invalid source') },
+    });
+
+    const jsonSaveResponse = await fetch(`${baseUrl}/api/projects/${projectId}/files`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: 'bad-save.html',
+        content: '<html><body>should not persist</body></html>',
+        versionSource: 'typo',
+      }),
+    });
+    expect(jsonSaveResponse.status).toBe(400);
+    await expect(jsonSaveResponse.json()).resolves.toMatchObject({
+      error: { code: 'BAD_REQUEST', message: expect.stringContaining('invalid versionSource') },
+    });
+    const rejectedJsonRaw = await fetch(`${baseUrl}/api/projects/${projectId}/raw/bad-save.html`);
+    expect(rejectedJsonRaw.status).toBe(404);
+
+    const form = new FormData();
+    form.append('source', 'typo');
+    form.append('file', new Blob(['<html><body>should not upload</body></html>'], { type: 'text/html' }), 'bad-upload.html');
+    const multipartResponse = await fetch(`${baseUrl}/api/projects/${projectId}/files`, {
+      method: 'POST',
+      body: form,
+    });
+    expect(multipartResponse.status).toBe(400);
+    await expect(multipartResponse.json()).resolves.toMatchObject({
+      error: { code: 'BAD_REQUEST', message: expect.stringContaining('invalid source') },
+    });
+    const rejectedMultipartRaw = await fetch(`${baseUrl}/api/projects/${projectId}/raw/bad-upload.html`);
+    expect(rejectedMultipartRaw.status).toBe(404);
+  });
+
+  it('rejects folder operations against internal version storage paths', async () => {
+    const projectId = await createProject();
+
+    const createResponse = await fetch(`${baseUrl}/api/projects/${projectId}/folders`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: '.file-versions' }),
+    });
+    expect(createResponse.status).toBe(400);
+
+    const deleteResponse = await fetch(`${baseUrl}/api/projects/${projectId}/folders`, {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ path: '.file-versions' }),
+    });
+    expect(deleteResponse.status).toBe(400);
+  });
+
+  it('captures concurrent JSON HTML writes as distinct recoverable checkpoints', async () => {
+    const projectId = await createProject();
+    let resolveSecondCommit!: () => void;
+    const secondCommitted = new Promise<void>((resolve) => {
+      resolveSecondCommit = resolve;
+    });
+    projectFileWriteTestHooks.afterCommit = async ({ safeName, body }) => {
+      if (safeName !== 'race.html') return;
+      const text = Buffer.isBuffer(body) ? body.toString('utf8') : String(body);
+      if (text.includes('second')) {
+        resolveSecondCommit();
+        return;
+      }
+      if (text.includes('first')) {
+        await Promise.race([
+          secondCommitted,
+          new Promise<void>((resolve) => setTimeout(resolve, 150)),
+        ]);
+      }
+    };
+    try {
+      const writeHtml = (label: string, content: string) =>
+        fetch(`${baseUrl}/api/projects/${projectId}/files`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            name: 'race.html',
+            content,
+            versionLabel: label,
+            versionSource: 'manual',
+          }),
+        });
+
+      const firstWrite = writeHtml('First write', '<html><body>first</body></html>');
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      const secondWrite = writeHtml('Second write', '<html><body>second</body></html>');
+      const [firstResponse, secondResponse] = await Promise.all([firstWrite, secondWrite]);
+      expect(firstResponse.status).toBe(200);
+      expect(secondResponse.status).toBe(200);
+    } finally {
+      projectFileWriteTestHooks.afterCommit = null;
+    }
+
+    const listResponse = await fetch(`${baseUrl}/api/projects/${projectId}/files/race.html/versions`);
+    expect(listResponse.status).toBe(200);
+    const listed = (await listResponse.json()) as {
+      versions: Array<{ id: string; label: string; current: boolean }>;
+    };
+    expect(listed.versions).toHaveLength(2);
+    expect(new Set(listed.versions.map((version) => version.label))).toEqual(
+      new Set(['First write', 'Second write']),
+    );
+
+    const contentByLabel = new Map<string, string>();
+    for (const version of listed.versions) {
+      const response = await fetch(`${baseUrl}/api/projects/${projectId}/files/race.html/versions/${version.id}`);
+      expect(response.status).toBe(200);
+      const body = (await response.json()) as { content: string };
+      contentByLabel.set(version.label, body.content);
+    }
+    expect(contentByLabel.get('First write')).toBe('<html><body>first</body></html>');
+    expect(contentByLabel.get('Second write')).toBe('<html><body>second</body></html>');
+
+    const current = listed.versions.find((version) => version.current);
+    expect(current).toBeDefined();
+    const currentVersionResponse = await fetch(`${baseUrl}/api/projects/${projectId}/files/race.html/versions/${current!.id}`);
+    expect(currentVersionResponse.status).toBe(200);
+    const currentVersion = (await currentVersionResponse.json()) as { content: string };
+    const rawResponse = await fetch(`${baseUrl}/api/projects/${projectId}/raw/race.html`);
+    expect(rawResponse.status).toBe(200);
+    expect(await rawResponse.text()).toBe(currentVersion.content);
   });
 });

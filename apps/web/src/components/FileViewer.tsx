@@ -2564,6 +2564,7 @@ function FileVersionManagerModal({
   const [versions, setVersions] = useState<ProjectFileVersion[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedContent, setSelectedContent] = useState<string | null>(currentSource);
+  const [selectedContentVersionId, setSelectedContentVersionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingContent, setLoadingContent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -2639,7 +2640,9 @@ function FileVersionManagerModal({
   const selectedRestoredFrom = selectedVersion?.restoreFromVersionId
     ? versionById.get(selectedVersion.restoreFromVersionId)
     : null;
-  const restoreDisabled = !selectedVersion || selectedVersion.current || restoring || loadingContent || !selectedContent;
+  const selectedContentMatchesVersion = Boolean(selectedId && selectedContentVersionId === selectedId && selectedContent);
+  const restoreDisabled =
+    !selectedVersion || selectedVersion.current || restoring || loadingContent || !selectedContentMatchesVersion;
   const srcDoc = useMemo(() => {
     if (!selectedContent) return '';
     const previewOptions = fileVersionPreviewOptions(projectId, file.name, selectedContent);
@@ -2711,12 +2714,14 @@ function FileVersionManagerModal({
   useEffect(() => {
     if (!selectedId) {
       setSelectedContent(null);
+      setSelectedContentVersionId(null);
       return;
     }
     // Cache hit: swap instantly with no fetch, no flash.
     const cached = contentCacheRef.current.get(selectedId);
     if (cached !== undefined) {
       setSelectedContent(cached);
+      setSelectedContentVersionId(selectedId);
       setLoadingContent(false);
       setError(null);
       return;
@@ -2730,9 +2735,12 @@ function FileVersionManagerModal({
       if (cancelled) return;
       const next = contentCacheRef.current.get(selectedId);
       if (next === undefined) {
+        setSelectedContent(null);
+        setSelectedContentVersionId(null);
         setError(tRef.current('fileViewer.versions.previewFailed'));
       } else {
         setSelectedContent(next);
+        setSelectedContentVersionId(selectedId);
       }
       setLoadingContent(false);
     });
@@ -2795,7 +2803,7 @@ function FileVersionManagerModal({
   }
 
   function openVersionInNewTab() {
-    if (loadingContent || !selectedContent || !selectedVersion) return;
+    if (loadingContent || !selectedContentMatchesVersion || !selectedContent || !selectedVersion) return;
     openSandboxedPreviewInNewTab(
       selectedContent,
       `${file.name} · v${selectedVersion.version}`,
@@ -2804,7 +2812,7 @@ function FileVersionManagerModal({
   }
 
   async function restoreVersion() {
-    if (restoreDisabled || !selectedVersion || !selectedContent) return;
+    if (restoreDisabled || !selectedVersion || !selectedContentMatchesVersion || !selectedContent) return;
     setRestoring(true);
     setError(null);
     let closingAfterRestore = false;
@@ -3061,7 +3069,7 @@ function FileVersionManagerModal({
                 title={t('fileViewer.versions.open')}
                 data-tooltip={t('fileViewer.versions.open')}
                 data-tooltip-placement="bottom"
-                disabled={!selectedContent || loadingContent}
+                disabled={!selectedContentMatchesVersion || loadingContent}
                 onClick={openVersionInNewTab}
               >
                 <RemixIcon name="external-link-line" size={15} />

@@ -42,6 +42,9 @@ export const RUN_ARTIFACT_RECONCILE_MTIME_GRACE_MS = 1000;
 export const projectFileRenameTestHooks = {
   beforeCommit: null as null | ((paths: { source: string; target: string }) => Promise<void> | void),
 };
+export const projectFileWriteTestHooks = {
+  afterCommit: null as null | ((write: { safeName: string; target: string; body: Buffer | string }) => Promise<void> | void),
+};
 
 export function isRunTouchedProjectFile(fileMtimeMs, runStartTimeMs) {
   if (!Number.isFinite(fileMtimeMs) || !Number.isFinite(runStartTimeMs)) return false;
@@ -834,6 +837,7 @@ export async function writeProjectFile(
     }
   }
   await writeFile(target, body);
+  await projectFileWriteTestHooks.afterCommit?.({ safeName, target, body });
   if (validatedManifest) {
     const manifestFileName = artifactManifestNameFor(safeName);
     const manifestTarget = await resolveSafeReal(dir, manifestFileName);
