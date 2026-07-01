@@ -297,7 +297,7 @@ export const ptBR: Dict = {
   'settings.amrActivationOpen': 'Abrir página de login',
   'settings.amrCancelSignIn': 'Cancelar login',
   'settings.amrAccountStatus': 'Status da conta Open Design',
-  'settings.amrConsole': 'Gerenciar',
+  'settings.amrConsole': 'Console',
   'settings.amrBalance': 'Saldo',
   'settings.amrPlan': 'Plano',
   'settings.amrUpgrade': 'Fazer upgrade',

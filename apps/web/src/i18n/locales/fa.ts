@@ -297,7 +297,7 @@ export const fa: Dict = {
   'settings.amrActivationOpen': 'باز کردن صفحهٔ ورود',
   'settings.amrCancelSignIn': 'لغو ورود',
   'settings.amrAccountStatus': 'وضعیت حساب Open Design',
-  'settings.amrConsole': 'مدیریت',
+  'settings.amrConsole': 'کنسول',
   'settings.amrBalance': 'موجودی',
   'settings.amrPlan': 'طرح',
   'settings.amrUpgrade': 'ارتقا',

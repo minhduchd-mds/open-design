@@ -297,7 +297,7 @@ export const hu: Dict = {
   'settings.amrActivationOpen': 'Bejelentkezési oldal megnyitása',
   'settings.amrCancelSignIn': 'Bejelentkezés megszakítása',
   'settings.amrAccountStatus': 'Open Design fiók állapota',
-  'settings.amrConsole': 'Kezelés',
+  'settings.amrConsole': 'Konzol',
   'settings.amrBalance': 'Egyenleg',
   'settings.amrPlan': 'Csomag',
   'settings.amrUpgrade': 'Frissítés',

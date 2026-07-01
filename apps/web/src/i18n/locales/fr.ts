@@ -297,7 +297,7 @@ export const fr: Dict = {
   'settings.amrActivationOpen': 'Ouvrir la page de connexion',
   'settings.amrCancelSignIn': 'Annuler la connexion',
   'settings.amrAccountStatus': 'Statut du compte Open Design',
-  'settings.amrConsole': 'Gérer',
+  'settings.amrConsole': 'Console',
   'settings.amrBalance': 'Solde',
   'settings.amrPlan': 'Forfait',
   'settings.amrUpgrade': 'Mettre à niveau',

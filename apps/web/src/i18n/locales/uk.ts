@@ -297,7 +297,7 @@ export const uk: Dict = {
   'settings.amrActivationOpen': 'Відкрити сторінку входу',
   'settings.amrCancelSignIn': 'Скасувати вхід',
   'settings.amrAccountStatus': 'Статус облікового запису Open Design',
-  'settings.amrConsole': 'Керувати',
+  'settings.amrConsole': 'Консоль',
   'settings.amrBalance': 'Баланс',
   'settings.amrPlan': 'Тариф',
   'settings.amrUpgrade': 'Покращити',
