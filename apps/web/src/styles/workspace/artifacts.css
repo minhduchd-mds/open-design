@@ -1433,7 +1433,7 @@
 .agent-card-benefits {
   display: inline-flex;
   align-items: center;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   flex-wrap: nowrap;
   gap: 5px;
   min-width: 0;
