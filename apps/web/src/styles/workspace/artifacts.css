@@ -1075,9 +1075,6 @@
   align-items: stretch;
   min-width: 0;
 }
-.agent-card-installed:has(.agent-card-amr-auth) .agent-card-main {
-  flex-wrap: wrap;
-}
 .agent-card-select {
   flex: 1;
   min-width: 0;
@@ -1091,9 +1088,6 @@
   color: inherit;
   text-align: left;
   cursor: pointer;
-}
-.agent-card-installed:has(.agent-card-amr-auth) .agent-card-select {
-  flex: 1 1 420px;
 }
 .agent-card-test-btn {
   align-self: stretch;
@@ -1289,10 +1283,9 @@
 .agent-card-name--amr {
   align-items: center;
   gap: 8px;
-  row-gap: 5px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   max-width: 100%;
-  white-space: normal;
+  white-space: nowrap;
   overflow: hidden;
 }
 .agent-card-name.agent-card-name--amr .agent-card-title {
@@ -1304,8 +1297,8 @@
 .agent-card-benefits {
   display: inline-flex;
   align-items: center;
-  flex: 1 1 180px;
-  flex-wrap: wrap;
+  flex: 0 1 auto;
+  flex-wrap: nowrap;
   gap: 5px;
   min-width: 0;
   max-width: 100%;
@@ -1416,30 +1409,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.agent-card-amr-wallet-refresh {
-  align-self: center;
-  flex: 0 0 32px;
-  width: 32px;
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-md);
-  background: var(--bg-panel);
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: background-color 120ms var(--ease-out), border-color 120ms var(--ease-out), color 120ms var(--ease-out);
-}
-.agent-card-amr-wallet-refresh:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
-  background: color-mix(in srgb, var(--accent-tint) 62%, var(--bg-panel));
-  color: var(--accent-strong);
-}
-.agent-card-amr-wallet-refresh:disabled {
-  cursor: default;
-  opacity: 0.62;
 }
 .agent-card-amr-upgrade {
   appearance: none;
