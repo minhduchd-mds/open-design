@@ -277,11 +277,6 @@ export function WorkspaceInviteFlow({ scenario, initiallySignedIn = false }: Pro
             </div>
           ) : null}
         </div>
-
-        <p className={styles.securityNote}>
-          <Icon name="info" size={13} />
-          还没安装也没关系——若本地客户端未能打开，会自动显示下载入口。
-        </p>
       </div>
     </section>
   );
