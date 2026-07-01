@@ -39,10 +39,10 @@ const MOCK_MEMBERS: Member[] = [
 const ROLE_OPTIONS: Role[] = ['所有者', '管理员', '成员'];
 const MIN_TEAM_SEATS = 3;
 const TEAM_PLAN_COPY = [
+  'Workspace 基础功能费：20 美元 / 席 / 月',
+  '额度包：沿用个人 Plus / Pro / Max 档位',
   '资产共享与管理：项目 / 设计系统 / 插件',
   '协作：评论 / 变更 / 历史版本',
-  '基于角色的权限管理：Owner / Manager / Editor / Viewer',
-  '团队用量面板与计费管理',
 ];
 
 interface PendingInvite {
@@ -65,7 +65,7 @@ export function MembersView({ solo = false }: { solo?: boolean }) {
   );
   const [removedMemberIds, setRemovedMemberIds] = useState<Set<string>>(() => new Set());
   const [teamSeats, setTeamSeats] = useState(MIN_TEAM_SEATS);
-  const [teamTier, setTeamTier] = useState({ name: 'Team 80', tokens: 80 });
+  const [teamTier, setTeamTier] = useState({ name: 'Team Pro', pricePerSeat: 80, creditPack: 'Pro 额度包' });
 
   // A solo plan that hasn't locally upgraded behaves single-seat.
   const isSolo = solo && !upgraded;
@@ -75,7 +75,7 @@ export function MembersView({ solo = false }: { solo?: boolean }) {
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const seatsUsed = members.length + pendingInvites.length;
   const seatsTotal = isSolo ? 1 : teamSeats;
-  const teamTokenTotal = teamTier.tokens * teamSeats;
+  const teamMonthlyTotal = teamTier.pricePerSeat * teamSeats;
 
   function setRole(id: string, role: Role) {
     setRoles((prev) => ({ ...prev, [id]: role }));
@@ -120,12 +120,12 @@ export function MembersView({ solo = false }: { solo?: boolean }) {
 
   // "升级到团队版" confirmed → confetti, flip to team, then auto-send the
   // queued invites so they land in the member list as pending.
-  function handleUpgradeConfirm(config?: { seatCount: number; tierName: string; tokens: number }) {
+  function handleUpgradeConfirm(config?: { seatCount: number; tierName: string; pricePerSeat: number; creditPack: string }) {
     setUpgradeOpen(false);
     setUpgraded(true);
     if (config) {
       setTeamSeats(config.seatCount);
-      setTeamTier({ name: config.tierName, tokens: config.tokens });
+      setTeamTier({ name: config.tierName, pricePerSeat: config.pricePerSeat, creditPack: config.creditPack });
     }
     setConfettiOn(true);
     window.setTimeout(() => setConfettiOn(false), 2600);
@@ -164,9 +164,13 @@ export function MembersView({ solo = false }: { solo?: boolean }) {
           <div className="members__seats-copy">
             <span>
               席位 <strong>{seatsUsed}/{seatsTotal}</strong> 已用 ·{' '}
-              {isSolo ? '免费版仅含 1 个席位，升级团队版可邀请协作' : `${teamTier.name} · ${teamTokenTotal} Token / 团队`}
+              {isSolo ? '免费版仅含 1 个席位，升级团队版可邀请协作' : `${teamTier.name} · $${teamTier.pricePerSeat} / 席 / 月 · $${teamMonthlyTotal} / 月`}
             </span>
-            <small>{isSolo ? '团队版最少 3 个席位，按席位计费。' : '最少 3 个席位，可按团队增长继续增加。'}</small>
+            <small>
+              {isSolo
+                ? '团队版最少 3 个席位，按席位按月计费。'
+                : `包含 $20 Workspace 基础功能费 + ${teamTier.creditPack}，可按团队增长继续增加。`}
+            </small>
           </div>
           {!isSolo ? (
             <div className="members__seat-stepper" aria-label="团队席位数量">

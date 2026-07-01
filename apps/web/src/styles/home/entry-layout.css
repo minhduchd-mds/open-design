@@ -6412,6 +6412,22 @@
   line-height: 1.55;
   color: var(--text-muted);
 }
+.upgrade-team__pricing-rule {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, #8b5cf6 16%, var(--border));
+  border-radius: var(--radius-sm, 8px);
+  background: color-mix(in srgb, #8b5cf6 4%, var(--bg-subtle));
+  color: var(--text-muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.upgrade-team__pricing-rule strong {
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 680;
+}
 .upgrade-team__seat-summary {
   display: flex;
   align-items: center;
@@ -6522,6 +6538,7 @@
   font-weight: 550;
 }
 .upgrade-team__plan-total,
+.upgrade-team__plan-composition,
 .upgrade-team__plan-hint {
   font-size: 12px;
   color: var(--text-muted);
@@ -6529,6 +6546,12 @@
 .upgrade-team__plan-total {
   color: var(--text);
   font-weight: 650;
+}
+.upgrade-team__plan-composition {
+  min-height: 28px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-soft);
+  line-height: 1.35;
 }
 .upgrade-team__benefits {
   display: grid;
