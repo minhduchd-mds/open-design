@@ -84,6 +84,24 @@ body { font-family: 'Inter', system-ui, sans-serif; }
     expect(report.shadow.length).toBeGreaterThan(0);
   });
 
+  it('captures CSS gradients from backgrounds and custom properties', async () => {
+    await writeFile(path.join(repo, 'package.json'), JSON.stringify({ name: 'fixture' }));
+    await writeFile(path.join(repo, 'hero.css'), `
+:root {
+  --hero-gradient: linear-gradient(135deg, #006fff 0%, #00c2ff 100%);
+}
+.hero {
+  background: linear-gradient(90deg, #006fff, #0055e8);
+}
+`);
+    const report = await importThenExtract();
+    const values = report.gradients.map((t) => t.value);
+    expect(values).toEqual(expect.arrayContaining([
+      'linear-gradient(135deg, #006fff 0%, #00c2ff 100%)',
+      'linear-gradient(90deg, #006fff, #0055e8)',
+    ]));
+  });
+
   it('captures Tailwind config quoted hex palette entries', async () => {
     await writeFile(path.join(repo, 'package.json'), JSON.stringify({
       name: 'fixture',
