@@ -31,7 +31,7 @@ import {
   heroProductSrcset,
   PRECISE_LAZY_PLACEHOLDER,
 } from './image-assets';
-import { getHomeExtra } from './home-translations';
+import { getHomeExtra, getHomeCta } from './home-translations';
 
 /**
  * `<img>` wrapper for non-hero homepage images. Outputs `data-precise-src`
@@ -316,6 +316,7 @@ export default function Page({
   // once (the Chinese design); `t` supplies the translated text per locale so
   // all languages render the same structure. CJK locales use per-letter blur.
   const t = getHomeExtra(locale);
+  const cta = getHomeCta(locale);
   const cjk = locale === 'zh' || locale === 'zh-tw' || locale === 'ja' || locale === 'ko';
   // Short inline labels still fall back to English for non-Chinese locales.
   const tt = (zh: string, en: string) => (locale === 'zh' ? zh : en);
@@ -629,7 +630,7 @@ export default function Page({
                       they're intentionally not repeated here. */}
                   <div className='about-ctas cta-pair'>
                     <a className='btn btn-ghost' href={href('/plugins/systems/')}>
-                      {tt('浏览设计系统', 'Explore design systems')}
+                      {cta.systems}
                       <span className='arrow'>{arrowOut}</span>
                     </a>
                     <a className='btn btn-primary' href={href('/download/')} data-download-cta data-download-chip-target data-download-placement='about'>
@@ -715,7 +716,7 @@ export default function Page({
                       </ol>
                       <div className='cta-pair cap-steps-link'>
                         <a className='btn btn-ghost' href={href('/solutions/')}>
-                          {tt('浏览全部解决方案', 'Explore solutions')}
+                          {cta.solutions}
                           <span className='arrow'>{arrowOut}</span>
                         </a>
                         <a
@@ -775,7 +776,7 @@ export default function Page({
                 ) : null}
                 <div className='cta-pair' style={{ justifyContent: 'center', marginTop: 20 }}>
                   <a className='btn btn-ghost' href={href('/plugins/templates/')}>
-                    {tt('浏览全部模板', 'Browse all templates')}
+                    {cta.templates}
                     <span className='arrow'>{arrowOut}</span>
                   </a>
                   <a
@@ -887,7 +888,7 @@ export default function Page({
                 style={{ marginTop: 16 }}
                 data-reveal
               >
-                {tt('浏览全部 Agent', 'Browse all 21+ agents')}
+                {cta.agents}
                 <span className='arrow'>{arrowOut}</span>
               </a>
             </div>
@@ -936,7 +937,7 @@ export default function Page({
                 </h2>
                 <div className='cta-pair' style={{ marginTop: 16 }}>
                   <a className='btn btn-ghost' href='/community/contributors/'>
-                    {tt('查看全部贡献者', 'View all contributors')}
+                    {cta.contributors}
                     <span className='arrow'>{arrowOut}</span>
                   </a>
                   <a
@@ -973,7 +974,7 @@ export default function Page({
         {/* ====== SELECTED WORK ====== */}
         <section className='tight' data-od-id='work'>
           <h2 className='work-stats-title' data-reveal>
-            {tt('开源 vibe design workspace，用数据说话', 'The open-source vibe design workspace, by the numbers')}
+            {cta.statsTitle}
           </h2>
           <div className='work'>
             <div className='work-stats-grid' data-reveal>
@@ -1153,7 +1154,7 @@ export default function Page({
                       <p className='faq-a'>{a}</p>
                       {faqHref ? (
                         <p className='faq-more'>
-                          <a href={href(faqHref)}>{tt('了解更多 →', 'Learn more →')}</a>
+                          <a href={href(faqHref)}>{cta.learnMore}</a>
                         </p>
                       ) : null}
                     </details>

@@ -909,3 +909,127 @@ const TABLE: Partial<Record<LandingLocaleCode, HomeExtra>> = {
 export function getHomeExtra(locale: LandingLocaleCode): HomeExtra {
   return TABLE[locale] ?? en;
 }
+
+/**
+ * Localized CTA / hub-link labels for the homepage. Kept separate from
+ * `HomeExtra` so only the 11 live locales need entries (retired locales fall
+ * back to English via `getHomeCta`). Replaces the old `tt(zh, en)` helper,
+ * which only distinguished zh from English and left the other 9 locales in
+ * English. The umbrella term "vibe design workspace" stays in English.
+ */
+export interface HomeCta {
+  solutions: string;
+  templates: string;
+  agents: string;
+  contributors: string;
+  systems: string;
+  learnMore: string;
+  statsTitle: string;
+}
+
+const HOME_CTA: Partial<Record<LandingLocaleCode, HomeCta>> = {
+  en: {
+    solutions: 'Explore solutions',
+    templates: 'Browse all templates',
+    agents: 'Browse all 21+ agents',
+    contributors: 'View all contributors',
+    systems: 'Explore design systems',
+    learnMore: 'Learn more →',
+    statsTitle: 'The open-source vibe design workspace, by the numbers',
+  },
+  zh: {
+    solutions: '浏览全部解决方案',
+    templates: '浏览全部模板',
+    agents: '浏览全部 Agent',
+    contributors: '查看全部贡献者',
+    systems: '浏览设计系统',
+    learnMore: '了解更多 →',
+    statsTitle: '开源 vibe design workspace，用数据说话',
+  },
+  ja: {
+    solutions: 'すべてのソリューションを見る',
+    templates: 'すべてのテンプレートを見る',
+    agents: '21+ のエージェントをすべて見る',
+    contributors: 'すべてのコントリビューターを見る',
+    systems: 'デザインシステムを見る',
+    learnMore: '詳しく見る →',
+    statsTitle: 'オープンソースの vibe design workspace を数字で',
+  },
+  ko: {
+    solutions: '모든 솔루션 둘러보기',
+    templates: '모든 템플릿 둘러보기',
+    agents: '21개+ 에이전트 모두 보기',
+    contributors: '모든 기여자 보기',
+    systems: '디자인 시스템 둘러보기',
+    learnMore: '자세히 보기 →',
+    statsTitle: '오픈소스 vibe design workspace, 숫자로 보기',
+  },
+  de: {
+    solutions: 'Alle Lösungen ansehen',
+    templates: 'Alle Vorlagen ansehen',
+    agents: 'Alle 21+ Agents ansehen',
+    contributors: 'Alle Mitwirkenden ansehen',
+    systems: 'Design-Systeme ansehen',
+    learnMore: 'Mehr erfahren →',
+    statsTitle: 'Der quelloffene Vibe Design Workspace in Zahlen',
+  },
+  fr: {
+    solutions: 'Voir toutes les solutions',
+    templates: 'Voir tous les modèles',
+    agents: 'Voir les 21+ agents',
+    contributors: 'Voir tous les contributeurs',
+    systems: 'Voir les design systems',
+    learnMore: 'En savoir plus →',
+    statsTitle: 'Le vibe design workspace open source en chiffres',
+  },
+  ru: {
+    solutions: 'Все решения',
+    templates: 'Все шаблоны',
+    agents: 'Все 21+ агентов',
+    contributors: 'Все участники',
+    systems: 'Дизайн-системы',
+    learnMore: 'Подробнее →',
+    statsTitle: 'Открытый vibe design workspace в цифрах',
+  },
+  es: {
+    solutions: 'Ver todas las soluciones',
+    templates: 'Ver todas las plantillas',
+    agents: 'Ver los 21+ agentes',
+    contributors: 'Ver todos los colaboradores',
+    systems: 'Ver los design systems',
+    learnMore: 'Más información →',
+    statsTitle: 'El vibe design workspace open source en cifras',
+  },
+  'pt-br': {
+    solutions: 'Ver todas as soluções',
+    templates: 'Ver todos os templates',
+    agents: 'Ver os 21+ agentes',
+    contributors: 'Ver todos os contribuidores',
+    systems: 'Ver os design systems',
+    learnMore: 'Saiba mais →',
+    statsTitle: 'O vibe design workspace open source em números',
+  },
+  it: {
+    solutions: 'Esplora tutte le soluzioni',
+    templates: 'Esplora tutti i template',
+    agents: 'Vedi tutti i 21+ agent',
+    contributors: 'Vedi tutti i contributori',
+    systems: 'Esplora i design system',
+    learnMore: 'Scopri di più →',
+    statsTitle: 'Il vibe design workspace open source in numeri',
+  },
+  tr: {
+    solutions: 'Tüm çözümleri gör',
+    templates: 'Tüm şablonları gör',
+    agents: '21+ agent’ın tümünü gör',
+    contributors: 'Tüm katkıda bulunanları gör',
+    systems: 'Tasarım sistemlerini keşfet',
+    learnMore: 'Daha fazla bilgi →',
+    statsTitle: 'Sayılarla açık kaynaklı vibe design workspace',
+  },
+};
+
+/** Localized homepage CTA labels; falls back to English for retired locales. */
+export function getHomeCta(locale: LandingLocaleCode): HomeCta {
+  return HOME_CTA[locale] ?? (HOME_CTA.en as HomeCta);
+}
