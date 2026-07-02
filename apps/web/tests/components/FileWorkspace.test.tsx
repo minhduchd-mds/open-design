@@ -800,7 +800,7 @@ describe('FileWorkspace upload input', () => {
       />,
     );
 
-    expect(container.querySelector('.df-breadcrumb-current')?.textContent).toBe('Project');
+    expect(container.querySelector('.df-breadcrumb-current')?.textContent).toBe('All project files');
     expect(screen.getByTestId('design-file-row-home.html')).toBeTruthy();
   });
 
@@ -1026,7 +1026,7 @@ describe('FileWorkspace upload input', () => {
     );
   });
 
-  it('keeps the Design Files tab as the first workspace tab before opened files', () => {
+  it('keeps the pages switcher before opened file tabs', () => {
     const markup = renderToStaticMarkup(
       <FileWorkspace
         projectId="project-1"
@@ -1042,7 +1042,7 @@ describe('FileWorkspace upload input', () => {
 
     expect(markup).toContain('class="ws-tabs-bar"');
     expect(markup).toMatch(
-      /role="tablist"[\s\S]*data-testid="design-files-tab"[\s\S]*artifact\.html/,
+      /role="tablist"[\s\S]*data-testid="workspace-pages-menu-trigger"[\s\S]*artifact\.html/,
     );
   });
 
@@ -1178,12 +1178,8 @@ describe('FileWorkspace launcher tab creation', () => {
       />,
     );
 
-    expect(renderedTabLabels()).toEqual([
-      'Design Files',
-      'Browser',
-      'New Terminal',
-      'Side chat',
-    ]);
+    expect(screen.getByTestId('workspace-pages-menu-trigger').textContent).toContain('Pages');
+    expect(renderedTabLabels()).toEqual(['Browser', 'New Terminal', 'Side chat']);
   });
 
   it('opens Design Files from the browser snapshot toast action instead of the manifest file', async () => {
