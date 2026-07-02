@@ -62,7 +62,7 @@ const en: HomeExtra = {
     'From idea to prototype, web, slides, and HTML video — the entire product-design flow, finished on your own machine.',
   heroTitleSub: 'Open Source Claude Design Alternative',
   heroSub:
-    'Open Design is the open-source, local vibe design workspace — it turns the coding agents you already run into a design engine that carries you from idea to prototype, web, slides, and HTML video, all finished on your own machine. Agent-native and BYOK, with 21 coding agents, 129 design systems, and an Apache-2.0 license.',
+    'Open Design is the open-source, local vibe design workspace — it turns the coding agents you already run into a design engine that carries you from idea to prototype, web, slides, and HTML video, all finished on your own machine. Agent-native, with 21 coding agents, 129 design systems, and an Apache-2.0 license.',
   aboutKicker: 'Why Open Design?',
   aboutStatement:
     'Open Design is the open-source, agentic vibe design workspace — it turns the coding agent you already run into a design engine whose output you fully own. When an LLM first proved it can truly design — real design work, not just copy — that capability arrived closed, hosted, and model-locked. Open Design opens it up: local, BYOK, Apache-2.0.',
@@ -99,7 +99,7 @@ const en: HomeExtra = {
   newsBtn: 'Subscribe',
   newsDone: 'Thanks — you’re on the list!',
   newsError: 'Couldn’t subscribe just now — please try again.',
-  faqTitle: 'Open Design FAQ — open source, BYOK, and Claude Design alternative',
+  faqTitle: 'Open Design FAQ — open source, local-first, and Claude Design alternative',
   footProduct: 'Product',
   footCommunity: 'Community',
   footLegal: 'Legal',
@@ -110,7 +110,7 @@ const zh: HomeExtra = {
   heroLead: '从想法到原型、网页、Slides、HTML 视频——产品设计全流程，在你自己的设备上完成。',
   heroTitleSub: 'Claude Design最佳开源平替',
   heroSub:
-    'Open Design 是开源、本地的 vibe design workspace——把你已经在用的 coding agent 变成设计引擎，从想法到原型、网页、Slides、HTML 视频，全流程在你自己的设备上完成。\nAgent-native、BYOK，接入 21 个 Coding Agent、129 个 Design System，Apache-2.0。',
+    'Open Design 是开源、本地的 vibe design workspace——把你已经在用的 coding agent 变成设计引擎，从想法到原型、网页、Slides、HTML 视频，全流程在你自己的设备上完成。\nAgent-native，接入 21 个 Coding Agent、129 个 Design System，Apache-2.0。',
   aboutKicker: '为什么选择 Open Design？',
   aboutStatement:
     'Open Design 是开源、agentic 的 vibe design workspace——把你已经在用的 coding agent 变成一台产出完全归你的设计引擎。当 LLM 第一次证明它能真正做设计——是真的设计稿，不是写文案——这份能力却是闭源、托管、锁模型的。Open Design 把它打开：本地、BYOK、Apache-2.0。',
@@ -143,7 +143,7 @@ const zh: HomeExtra = {
   newsBtn: '订阅',
   newsDone: '已收到，感谢关注！',
   newsError: '订阅失败，请稍后重试。',
-  faqTitle: 'Open Design 常见问题 —— 开源、BYOK、Claude Design 替代',
+  faqTitle: 'Open Design 常见问题 —— 开源、本地优先、Claude Design 替代',
   footProduct: '产品',
   footCommunity: '社区',
   footLegal: '法律',
@@ -196,7 +196,7 @@ const ja: HomeExtra = {
     'アイデアからプロトタイプ、Web、スライド、HTML 動画まで——プロダクトデザインの全工程を、あなたの手元のマシンで完結。',
   heroTitleSub: 'Claude Design の最良のオープンソース代替',
   heroSub:
-    'Open Design はオープンソースでローカルな vibe design workspace——すでに使っているコーディングエージェントを設計エンジンに変え、アイデアからプロトタイプ、Web、スライド、HTML 動画まで、すべて自分のマシン上で完結します。\nエージェントネイティブかつ BYOK、21 のコーディングエージェント、129 のデザインシステム、Apache-2.0。',
+    'Open Design はオープンソースでローカルな vibe design workspace——すでに使っているコーディングエージェントを設計エンジンに変え、アイデアからプロトタイプ、Web、スライド、HTML 動画まで、すべて自分のマシン上で完結します。\nエージェントネイティブ、21 のコーディングエージェント、129 のデザインシステム、Apache-2.0。',
   aboutKicker: 'なぜ Open Design なのか？',
   aboutStatement:
     'Open Design はオープンソースで agentic な vibe design workspace です。すでに使っているコーディングエージェントを、成果物が完全に自分のものになる設計エンジンに変えます。LLM が初めて本当に設計できる——コピーではなく本物の設計——と証明したとき、その能力はクローズドでホスト型、モデル固定でした。Open Design はそれを開きます：ローカル、BYOK、Apache-2.0。',
@@ -231,7 +231,7 @@ const ja: HomeExtra = {
     '新しいテンプレート、デザインシステムの更新、アンバサダーイベント、プロダクトの最新情報を、あなたの受信箱へ直接お届けします。',
   newsBtn: '購読する',
   newsDone: 'ご登録ありがとうございます！',
-  faqTitle: 'Open Design のよくある質問 — オープンソース・BYOK・Claude Design 代替',
+  faqTitle: 'Open Design のよくある質問 — オープンソース・ローカルファースト・Claude Design 代替',
   footProduct: '製品',
   footCommunity: 'コミュニティ',
   footLegal: '法的情報',
@@ -243,7 +243,7 @@ const ko: HomeExtra = {
     '아이디어에서 프로토타입, 웹, 슬라이드, HTML 영상까지 — 제품 디자인 전 과정을 내 컴퓨터에서 완성합니다.',
   heroTitleSub: 'Claude Design의 최고의 오픈소스 대안',
   heroSub:
-    'Open Design는 오픈소스이자 로컬로 동작하는 vibe design workspace입니다——이미 사용 중인 코딩 에이전트를 디자인 엔진으로 바꿔, 아이디어에서 프로토타입, 웹, 슬라이드, HTML 비디오까지 전 과정을 내 컴퓨터에서 끝냅니다.\n에이전트 네이티브 및 BYOK, 21개 코딩 에이전트, 129개 디자인 시스템, Apache-2.0.',
+    'Open Design는 오픈소스이자 로컬로 동작하는 vibe design workspace입니다——이미 사용 중인 코딩 에이전트를 디자인 엔진으로 바꿔, 아이디어에서 프로토타입, 웹, 슬라이드, HTML 비디오까지 전 과정을 내 컴퓨터에서 끝냅니다.\n에이전트 네이티브, 21개 코딩 에이전트, 129개 디자인 시스템, Apache-2.0.',
   aboutKicker: '왜 Open Design인가?',
   aboutStatement:
     'Open Design은 오픈소스이자 agentic한 vibe design workspace입니다. 이미 쓰는 코딩 에이전트를, 결과물이 온전히 내 것이 되는 디자인 엔진으로 바꿉니다. LLM이 처음으로 진짜 디자인을——카피가 아니라 실제 디자인을——해낼 수 있음을 증명했을 때, 그 능력은 폐쇄적이고 호스팅형이며 모델에 묶여 있었습니다. Open Design은 그것을 엽니다: 로컬, BYOK, Apache-2.0.',
@@ -278,7 +278,7 @@ const ko: HomeExtra = {
     '새 템플릿, 디자인 시스템 업데이트, 앰배서더 이벤트, 제품 소식을 받은편지함으로 바로 보내드립니다.',
   newsBtn: '구독',
   newsDone: '구독해 주셔서 감사합니다!',
-  faqTitle: 'Open Design FAQ — 오픈소스, BYOK, Claude Design 대안',
+  faqTitle: 'Open Design FAQ — 오픈소스, 로컬 우선, Claude Design 대안',
   footProduct: '제품',
   footCommunity: '커뮤니티',
   footLegal: '법적 고지',
@@ -290,7 +290,7 @@ const de: HomeExtra = {
     'Von der Idee zu Prototyp, Web, Slides und HTML-Video — der gesamte Produktdesign-Flow, fertig auf deinem eigenen Rechner.',
   heroTitleSub: 'Die beste Open-Source-Alternative zu Claude Design',
   heroSub:
-    'Open Design ist der quelloffene, lokale vibe design workspace — er verwandelt die Coding-Agents, die du bereits nutzt, in eine Design-Engine, die dich von der Idee bis zu Prototyp, Web, Slides und HTML-Video bringt, alles auf deinem eigenen Rechner.\nAgent-native und BYOK, mit 21 Coding-Agents, 129 Design-Systemen und Apache-2.0-Lizenz.',
+    'Open Design ist der quelloffene, lokale vibe design workspace — er verwandelt die Coding-Agents, die du bereits nutzt, in eine Design-Engine, die dich von der Idee bis zu Prototyp, Web, Slides und HTML-Video bringt, alles auf deinem eigenen Rechner.\nAgent-native, mit 21 Coding-Agents, 129 Design-Systemen und Apache-2.0-Lizenz.',
   aboutKicker: 'Warum Open Design?',
   aboutStatement:
     'Open Design ist der quelloffene, agentische Vibe Design Workspace – er verwandelt den Coding-Agent, den du bereits nutzt, in eine Design-Engine, deren Ergebnisse ganz dir gehören. Als ein LLM erstmals bewies, dass es wirklich gestalten kann – echte Designarbeit, nicht nur Text –, kam diese Fähigkeit geschlossen, gehostet und modellgebunden. Open Design öffnet sie: lokal, BYOK, Apache-2.0.',
@@ -325,7 +325,7 @@ const de: HomeExtra = {
     'Neue Vorlagen, Design-System-Updates, Ambassador-Events und Produktneuigkeiten — direkt in dein Postfach.',
   newsBtn: 'Abonnieren',
   newsDone: 'Danke — du bist dabei!',
-  faqTitle: 'Open Design FAQ – Open Source, BYOK und Claude-Design-Alternative',
+  faqTitle: 'Open Design FAQ – Open Source, lokal und Claude-Design-Alternative',
   footProduct: 'Produkt',
   footCommunity: 'Community',
   footLegal: 'Rechtliches',
@@ -337,7 +337,7 @@ const fr: HomeExtra = {
     'De l’idée au prototype, au web, aux slides et à la vidéo HTML — tout le flux de design produit, réalisé sur votre propre machine.',
   heroTitleSub: "La meilleure alternative open source à Claude Design",
   heroSub:
-    'Open Design est le vibe design workspace open source et local — il transforme les agents de code que vous utilisez déjà en moteur de design, de l’idée au prototype, au web, aux slides et à la vidéo HTML, le tout sur votre propre machine.\nAgent-native et BYOK, avec 21 agents de code, 129 design systems et une licence Apache-2.0.',
+    'Open Design est le vibe design workspace open source et local — il transforme les agents de code que vous utilisez déjà en moteur de design, de l’idée au prototype, au web, aux slides et à la vidéo HTML, le tout sur votre propre machine.\nAgent-native, avec 21 agents de code, 129 design systems et une licence Apache-2.0.',
   aboutKicker: 'Pourquoi Open Design ?',
   aboutStatement:
     'Open Design est le vibe design workspace open source et agentique — il transforme l’agent de code que vous utilisez déjà en un moteur de design dont vous possédez entièrement le résultat. Quand un LLM a prouvé pour la première fois qu’il pouvait vraiment concevoir — du vrai design, pas juste du texte —, cette capacité est arrivée fermée, hébergée et verrouillée à un modèle. Open Design l’ouvre : local, BYOK, Apache-2.0.',
@@ -372,7 +372,7 @@ const fr: HomeExtra = {
     'Nouveaux modèles, mises à jour des design systems, événements ambassadeurs et actualités produit — directement dans votre boîte mail.',
   newsBtn: 'S’abonner',
   newsDone: 'Merci — vous êtes inscrit !',
-  faqTitle: 'FAQ Open Design — open source, BYOK et alternative à Claude Design',
+  faqTitle: 'FAQ Open Design — open source, local-first et alternative à Claude Design',
   footProduct: 'Produit',
   footCommunity: 'Communauté',
   footLegal: 'Mentions légales',
@@ -384,7 +384,7 @@ const ru: HomeExtra = {
     'От идеи до прототипа, веба, слайдов и HTML-видео — весь процесс продуктового дизайна, завершённый на вашей машине.',
   heroTitleSub: 'Лучшая open-source альтернатива Claude Design',
   heroSub:
-    'Open Design — это открытый локальный vibe design workspace: он превращает кодинг-агентов, которыми вы уже пользуетесь, в движок дизайна, ведущий от идеи к прототипу, вебу, слайдам и HTML-видео — всё на вашей машине.\nAgent-native и BYOK, 21 кодинг-агент, 129 дизайн-систем, лицензия Apache-2.0.',
+    'Open Design — это открытый локальный vibe design workspace: он превращает кодинг-агентов, которыми вы уже пользуетесь, в движок дизайна, ведущий от идеи к прототипу, вебу, слайдам и HTML-видео — всё на вашей машине.\nAgent-native, 21 кодинг-агент, 129 дизайн-систем, лицензия Apache-2.0.',
   aboutKicker: 'Почему Open Design?',
   aboutStatement:
     'Open Design — это открытый, агентный vibe design workspace: он превращает кодинг-агента, которым вы уже пользуетесь, в движок дизайна, результат которого полностью принадлежит вам. Когда LLM впервые доказал, что действительно умеет проектировать — настоящий дизайн, а не просто текст, — эта способность пришла закрытой, облачной и привязанной к модели. Open Design открывает её: локально, BYOK, Apache-2.0.',
@@ -419,7 +419,7 @@ const ru: HomeExtra = {
     'Новые шаблоны, обновления дизайн-систем, события амбассадоров и новости продукта — прямо на вашу почту.',
   newsBtn: 'Подписаться',
   newsDone: 'Спасибо — вы подписаны!',
-  faqTitle: 'FAQ Open Design — open source, BYOK и альтернатива Claude Design',
+  faqTitle: 'FAQ Open Design — open source, локальный и альтернатива Claude Design',
   footProduct: 'Продукт',
   footCommunity: 'Сообщество',
   footLegal: 'Правовая информация',
@@ -431,7 +431,7 @@ const es: HomeExtra = {
     'De la idea al prototipo, web, slides y vídeo HTML — todo el flujo de diseño de producto, terminado en tu propia máquina.',
   heroTitleSub: 'La mejor alternativa open source a Claude Design',
   heroSub:
-    'Open Design es el vibe design workspace open source y local: convierte los agentes de código que ya usas en un motor de diseño que te lleva de la idea al prototipo, la web, las slides y el vídeo HTML, todo en tu propia máquina.\nAgent-native y BYOK, con 21 agentes de código, 129 design systems y licencia Apache-2.0.',
+    'Open Design es el vibe design workspace open source y local: convierte los agentes de código que ya usas en un motor de diseño que te lleva de la idea al prototipo, la web, las slides y el vídeo HTML, todo en tu propia máquina.\nAgent-native, con 21 agentes de código, 129 design systems y licencia Apache-2.0.',
   aboutKicker: '¿Por qué Open Design?',
   aboutStatement:
     'Open Design es el vibe design workspace open source y agéntico: convierte el agente de código que ya usas en un motor de diseño cuyo resultado es totalmente tuyo. Cuando un LLM demostró por primera vez que podía diseñar de verdad —diseño real, no solo texto—, esa capacidad llegó cerrada, alojada y atada a un modelo. Open Design la abre: local, BYOK, Apache-2.0.',
@@ -466,7 +466,7 @@ const es: HomeExtra = {
     'Nuevas plantillas, actualizaciones de design systems, eventos de embajadores y novedades del producto — directo a tu bandeja de entrada.',
   newsBtn: 'Suscribirse',
   newsDone: '¡Gracias — ya estás en la lista!',
-  faqTitle: 'FAQ de Open Design — open source, BYOK y alternativa a Claude Design',
+  faqTitle: 'FAQ de Open Design — open source, local-first y alternativa a Claude Design',
   footProduct: 'Producto',
   footCommunity: 'Comunidad',
   footLegal: 'Legal',
@@ -478,7 +478,7 @@ const ptBr: HomeExtra = {
     'Da ideia ao protótipo, web, slides e vídeo HTML — todo o fluxo de design de produto, finalizado na sua própria máquina.',
   heroTitleSub: 'A melhor alternativa open source ao Claude Design',
   heroSub:
-    'Open Design é o vibe design workspace open source e local: transforma os agentes de código que você já usa em um motor de design que vai da ideia ao protótipo, web, slides e vídeo HTML, tudo na sua própria máquina.\nAgent-native e BYOK, com 21 agentes de código, 129 design systems e licença Apache-2.0.',
+    'Open Design é o vibe design workspace open source e local: transforma os agentes de código que você já usa em um motor de design que vai da ideia ao protótipo, web, slides e vídeo HTML, tudo na sua própria máquina.\nAgent-native, com 21 agentes de código, 129 design systems e licença Apache-2.0.',
   aboutKicker: 'Por que Open Design?',
   aboutStatement:
     'O Open Design é o vibe design workspace open source e agêntico: transforma o coding agent que você já usa em um motor de design cujo resultado é totalmente seu. Quando um LLM provou pela primeira vez que sabia projetar de verdade — design real, não só texto —, essa capacidade chegou fechada, hospedada e presa a um modelo. O Open Design a abre: local, BYOK, Apache-2.0.',
@@ -513,7 +513,7 @@ const ptBr: HomeExtra = {
     'Novos templates, atualizações de design systems, eventos de embaixadores e novidades do produto — direto na sua caixa de entrada.',
   newsBtn: 'Assinar',
   newsDone: 'Obrigado — você está na lista!',
-  faqTitle: 'FAQ do Open Design — open source, BYOK e alternativa ao Claude Design',
+  faqTitle: 'FAQ do Open Design — open source, local-first e alternativa ao Claude Design',
   footProduct: 'Produto',
   footCommunity: 'Comunidade',
   footLegal: 'Legal',
@@ -525,7 +525,7 @@ const it: HomeExtra = {
     'Dall’idea al prototipo, web, slide e video HTML — l’intero flusso di product design, completato sulla tua macchina.',
   heroTitleSub: "La migliore alternativa open source a Claude Design",
   heroSub:
-    'Open Design è il vibe design workspace open source e locale: trasforma i coding agent che già usi in un motore di design che ti porta dall’idea al prototipo, al web, alle slide e al video HTML, tutto sulla tua macchina.\nAgent-native e BYOK, con 21 coding agent, 129 design system e licenza Apache-2.0.',
+    'Open Design è il vibe design workspace open source e locale: trasforma i coding agent che già usi in un motore di design che ti porta dall’idea al prototipo, al web, alle slide e al video HTML, tutto sulla tua macchina.\nAgent-native, con 21 coding agent, 129 design system e licenza Apache-2.0.',
   aboutKicker: 'Perché Open Design?',
   aboutStatement:
     'Open Design è il vibe design workspace open source e agentico: trasforma il coding agent che già usi in un motore di design il cui risultato è interamente tuo. Quando un LLM ha dimostrato per la prima volta di saper progettare davvero — vero design, non solo testo —, quella capacità è arrivata chiusa, ospitata e legata a un modello. Open Design la apre: locale, BYOK, Apache-2.0.',
@@ -560,7 +560,7 @@ const it: HomeExtra = {
     'Nuovi template, aggiornamenti dei design system, eventi ambassador e novità di prodotto — direttamente nella tua casella.',
   newsBtn: 'Iscriviti',
   newsDone: 'Grazie — sei in lista!',
-  faqTitle: 'FAQ di Open Design — open source, BYOK e alternativa a Claude Design',
+  faqTitle: 'FAQ di Open Design — open source, local-first e alternativa a Claude Design',
   footProduct: 'Prodotto',
   footCommunity: 'Community',
   footLegal: 'Note legali',
@@ -797,7 +797,7 @@ const tr: HomeExtra = {
     'Fikirden prototipe, web’e, slaytlara ve HTML videoya — tüm ürün tasarım akışı, kendi makinende tamamlanır.',
   heroTitleSub: "Claude Design'ın en iyi açık kaynak alternatifi",
   heroSub:
-    'Open Design, açık kaynaklı ve yerel çalışan vibe design workspace’tir — hâlihazırda kullandığın kodlama ajanlarını, fikirden prototipe, web’e, slaytlara ve HTML videoya kadar her şeyi kendi makinende tamamlayan bir tasarım motoruna dönüştürür.\nAgent-native ve BYOK; 21 kodlama ajanı, 129 tasarım sistemi ve Apache-2.0 lisansı.',
+    'Open Design, açık kaynaklı ve yerel çalışan vibe design workspace’tir — hâlihazırda kullandığın kodlama ajanlarını, fikirden prototipe, web’e, slaytlara ve HTML videoya kadar her şeyi kendi makinende tamamlayan bir tasarım motoruna dönüştürür.\nAgent-native; 21 kodlama ajanı, 129 tasarım sistemi ve Apache-2.0 lisansı.',
   aboutKicker: 'Neden Open Design?',
   aboutStatement:
     'Open Design, açık kaynaklı ve agentic bir vibe design workspace’tir: hâlihazırda kullandığın kodlama ajanını, çıktısı tamamen sana ait olan bir tasarım motoruna dönüştürür. Bir LLM ilk kez gerçekten tasarlayabildiğini — metin değil, gerçek tasarım — kanıtladığında, bu yetenek kapalı, barındırılan ve modele kilitli geldi. Open Design onu açar: yerel, BYOK, Apache-2.0.',
@@ -832,7 +832,7 @@ const tr: HomeExtra = {
     'Yeni şablonlar, tasarım sistemi güncellemeleri, elçi etkinlikleri ve ürün haberleri — doğrudan gelen kutuna.',
   newsBtn: 'Abone ol',
   newsDone: 'Teşekkürler — listedesin!',
-  faqTitle: 'Open Design SSS — açık kaynak, BYOK ve Claude Design alternatifi',
+  faqTitle: 'Open Design SSS — açık kaynak, yerel öncelikli ve Claude Design alternatifi',
   footProduct: 'Ürün',
   footCommunity: 'Topluluk',
   footLegal: 'Yasal',
