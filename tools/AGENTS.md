@@ -9,16 +9,22 @@ Follow the root `AGENTS.md` first. This file only records module-level boundarie
 - `pnpm tools-dev run web` runs foreground daemon + web for the Playwright webServer flow.
 - `pnpm tools-dev inspect desktop ...` inspects the desktop runtime through sidecar IPC.
 - `tools/pack` provides `@open-design/tools-pack` and the `tools-pack` bin. The active slice is packaged artifact build/install/start/stop/logs/uninstall/cleanup/list/reset plus beta release artifact preparation for mac and Windows lanes, plus a Linux AppImage lane with optional containerized builds.
+- `tools/serve` provides `@open-design/tools-serve` and the `tools-serve` bin. It owns local fixture services such as `tools-serve start updater`.
+
+## Retired tools
+
+- `tools/pr` / `@open-design/tools-pr` / `pnpm tools-pr` has been retired from this repository. Maintainer PR-duty workflows now live outside the product workspace in `PerishCode/duty`; do not restore an Open Design-local PR-duty tool without a new explicit maintainer decision.
 
 ## Packaging scope
 
 - Keep `tools-pack` focused on packaging/runtime control and release artifact preparation. Runtime updater product integration remains a later phase.
 - Pack-specific Electron builder resources belong under `tools/pack/resources/`; do not reference app/docs/download assets directly from pack logic.
 - Namespace controls packaged data/log/runtime/cache paths. Ports are transient transport details and must not participate in path decisions.
-- The package/build boundary of root `pnpm build` is intentionally unchanged in this round and should be handled by the future `tools-pack` task.
+- There is no root `pnpm build` aggregate. Use package-scoped builds for source packages and `pnpm tools-pack ...` for packaged artifact build/install/release flows.
 
 ## Orchestration boundary
 
+- Tool tests live in each tool's `tests/` directory, sibling to `src/`; keep `src/` source-only and do not add new `*.test.ts` or `*.test.tsx` files under `src/`.
 - Orchestration layers must consume primitives from `@open-design/sidecar-proto`, `@open-design/sidecar`, and `@open-design/platform`.
 - Do not hand-build `--od-stamp-*` args, process-scan regexes, runtime tokens, process roles, or duplicate namespace/source args in `tools/dev`, future `tools/pack`, or packaged launchers.
 - Port flags are authoritative inputs: `--daemon-port` and `--web-port`. Internal env vars are `OD_PORT` and `OD_WEB_PORT`; do not introduce `NEXT_PORT`.
@@ -30,6 +36,8 @@ pnpm --filter @open-design/tools-dev typecheck
 pnpm --filter @open-design/tools-dev build
 pnpm --filter @open-design/tools-pack typecheck
 pnpm --filter @open-design/tools-pack build
+pnpm --filter @open-design/tools-serve typecheck
+pnpm --filter @open-design/tools-serve build
 pnpm tools-dev status --json
 pnpm tools-dev logs --json
 pnpm tools-dev check
@@ -42,5 +50,9 @@ pnpm tools-pack win inspect --expr "document.title"
 pnpm tools-pack win cleanup
 pnpm tools-pack linux build --to appimage
 pnpm tools-pack linux install
+pnpm tools-pack linux install --headless
+pnpm tools-pack linux start --headless
+pnpm tools-pack linux stop --headless
 pnpm tools-pack linux build --containerized
+pnpm tools-serve start updater
 ```

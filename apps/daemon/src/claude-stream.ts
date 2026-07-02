@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Parses Claude Code's `--output-format stream-json --verbose` JSONL stream
  * (with or without `--include-partial-messages`) into a small set of
@@ -20,27 +19,89 @@
  * `tool_use` event when that block stops.
  */
 
-export function createClaudeStreamHandler(onEvent) {
+import { createRoleMarkerGuard, type RoleMarkerGuard } from './role-marker-guard.js';
+
+type StreamEvent = Record<string, unknown>;
+type EventSink = (event: StreamEvent) => void;
+type BlockState = {
+  type?: unknown;
+  name?: unknown;
+  id?: unknown;
+  input: string;
+  inputValue?: unknown;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+export function createClaudeStreamHandler(onEvent: EventSink) {
   let buffer = '';
 
   // Per-content-block scratch, keyed by `${messageId}:${blockIndex}`.
-  const blocks = new Map();
+  const blocks = new Map<string, BlockState>();
+  // Tool uses already emitted from streamed `input_json_delta` data.
+  // Claude Code still repeats them in the final assistant wrapper, often with
+  // empty `{}` inputs, so we suppress that duplicate emission.
+  const streamedToolUseIds = new Set<string>();
   // Most recent assistant message id so content_block_* events without an id
   // can be attributed correctly.
-  let currentMessageId = null;
-  // Message ids that already streamed text via `stream_event` deltas.
+  let currentMessageId: string | null = null;
+  // Message ids that already streamed assistant text/thinking via
+  // `stream_event` deltas.
   // When `--include-partial-messages` is OFF (older Claude Code, e.g. 1.0.84
   // pre-flag), no deltas arrive — only the final `assistant` wrapper carries
-  // text. The fallback below emits that text once, but we must skip it for
+  // content. The fallback below emits that content once, but we must skip it for
   // newer builds that already streamed deltas, otherwise the message would
   // duplicate.
-  const textStreamed = new Set();
+  const textStreamed = new Set<string>();
+  const thinkingStreamed = new Set<string>();
+  let currentMessageStreamedText = false;
+  let currentMessageStreamedThinking = false;
+  // Per-message role-marker guards for cross-chunk detection (#3247).
+  const roleGuards = new Map<string, RoleMarkerGuard>();
 
-  function blockKey(index) {
+  function blockKey(index: unknown): string {
     return `${currentMessageId ?? 'anon'}:${index}`;
   }
 
-  function feed(chunk) {
+  // Per-message role-marker guard (#3247). Covers text_delta ONLY.
+  //
+  // Why not thinking_delta: extended thinking is rendered to a
+  // separate `kind: 'thinking'` payload and is never folded into
+  // `m.content` by `buildDaemonTranscript` (apps/web/src/providers/daemon.ts),
+  // so it cannot be re-serialized as a turn boundary on the next
+  // round-trip — it is not a #3247 re-injection vector. Models
+  // routinely emit literal `## user` / `## assistant` lines in
+  // chain-of-thought when reasoning about conversation structure,
+  // and with kill-on-detection wired in server.ts a guard on the
+  // thinking channel would abort otherwise-legitimate runs without
+  // any compensating security benefit. See PR #3303 review
+  // r3324xxxxxx. Thinking is passed through unguarded; only the
+  // user-visible text channel is policed.
+  function emitSafeText(msgId: string | null, text: string, eventType: string = 'text_delta') {
+    if (eventType !== 'text_delta' || !msgId) {
+      onEvent({ type: eventType, delta: text });
+      return;
+    }
+    let guard = roleGuards.get(msgId);
+    if (!guard) {
+      guard = createRoleMarkerGuard(msgId);
+      roleGuards.set(msgId, guard);
+    }
+    if (guard.contaminated) return;
+
+    const safe = guard.feedText(text);
+    if (safe.length > 0) {
+      onEvent({ type: eventType, delta: safe });
+    }
+    if (guard.contaminated) {
+      const warn = guard.warningEvent();
+      if (warn) onEvent(warn);
+    }
+  }
+
+  function feed(chunk: string) {
     buffer += chunk;
     let nl;
     while ((nl = buffer.indexOf('\n')) !== -1) {
@@ -69,8 +130,8 @@ export function createClaudeStreamHandler(onEvent) {
     }
   }
 
-  function handleObject(obj) {
-    if (!obj || typeof obj !== 'object') return;
+  function handleObject(obj: unknown) {
+    if (!isRecord(obj)) return;
 
     if (obj.type === 'system' && obj.subtype === 'init') {
       onEvent({
@@ -87,7 +148,7 @@ export function createClaudeStreamHandler(onEvent) {
       return;
     }
 
-    if (obj.type === 'stream_event' && obj.event) {
+    if (obj.type === 'stream_event' && isRecord(obj.event)) {
       handleStreamEvent(obj.event);
       return;
     }
@@ -98,12 +159,31 @@ export function createClaudeStreamHandler(onEvent) {
     // the text as a single delta — but only if no streaming deltas already
     // covered it (older Claude Code without --include-partial-messages
     // delivers text only here; newer builds stream it and would duplicate).
-    if (obj.type === 'assistant' && obj.message?.content) {
-      currentMessageId = obj.message.id ?? currentMessageId;
-      const msgId = obj.message.id ?? null;
-      const alreadyStreamed = msgId ? textStreamed.has(msgId) : false;
+    if (obj.type === 'assistant' && isRecord(obj.message) && Array.isArray(obj.message.content)) {
+      const explicitMsgId = typeof obj.message.id === 'string' ? obj.message.id : null;
+      const textMsgId = explicitMsgId ?? (currentMessageStreamedText ? currentMessageId : null);
+      const thinkingMsgId = explicitMsgId ?? (currentMessageStreamedThinking ? currentMessageId : null);
+      if (explicitMsgId) currentMessageId = explicitMsgId;
+      const textAlreadyStreamed = textMsgId ? textStreamed.has(textMsgId) : false;
+      const thinkingAlreadyStreamed = thinkingMsgId ? thinkingStreamed.has(thinkingMsgId) : false;
+      // Per-turn `stop_reason` is emitted as `turn_end` AFTER the content
+      // blocks have been processed (see below). When `--include-partial-
+      // messages` is unsupported, tool_use events surface only from the
+      // assistant wrapper here — emitting `turn_end` before that loop
+      // would let the daemon's stdin-close handler see an empty
+      // `pendingHostAnswers` set and close stdin before the
+      // AskUserQuestion tool_use was registered, which made the round
+      // trip silently fail. Read the stop_reason now, emit after.
+      const stopReason = typeof obj.message.stop_reason === 'string'
+        ? obj.message.stop_reason
+        : null;
       for (const block of obj.message.content) {
+        if (!isRecord(block)) continue;
         if (block.type === 'tool_use') {
+          if (typeof block.id === 'string' && streamedToolUseIds.has(block.id)) {
+            streamedToolUseIds.delete(block.id);
+            continue;
+          }
           onEvent({
             type: 'tool_use',
             id: block.id,
@@ -111,28 +191,38 @@ export function createClaudeStreamHandler(onEvent) {
             input: block.input ?? null,
           });
         } else if (
-          !alreadyStreamed &&
+          !textAlreadyStreamed &&
           block.type === 'text' &&
           typeof block.text === 'string' &&
           block.text.length > 0
         ) {
-          onEvent({ type: 'text_delta', delta: block.text });
+          emitSafeText(textMsgId, block.text);
         } else if (
-          !alreadyStreamed &&
+          !thinkingAlreadyStreamed &&
           block.type === 'thinking' &&
           typeof block.thinking === 'string' &&
           block.thinking.length > 0
         ) {
-          onEvent({ type: 'thinking_delta', delta: block.thinking });
+          emitSafeText(thinkingMsgId, block.thinking, 'thinking_delta');
         }
       }
+      // Surface the turn_end signal now that every tool_use in this
+      // assistant message has been emitted, so the daemon's stdin-close
+      // handler has the up-to-date `pendingHostAnswers` set before
+      // deciding whether to close stream-json input stdin.
+      if (stopReason) {
+        onEvent({ type: 'turn_end', stopReason });
+      }
+      currentMessageStreamedText = false;
+      currentMessageStreamedThinking = false;
       return;
     }
 
     // `user` messages in a stream-json transcript are usually tool_result
     // wrappers from prior turns.
-    if (obj.type === 'user' && obj.message?.content) {
+    if (obj.type === 'user' && isRecord(obj.message) && Array.isArray(obj.message.content)) {
       for (const block of obj.message.content) {
+        if (!isRecord(block)) continue;
         if (block.type === 'tool_result') {
           onEvent({
             type: 'tool_result',
@@ -157,37 +247,49 @@ export function createClaudeStreamHandler(onEvent) {
     }
   }
 
-  function handleStreamEvent(ev) {
+  function handleStreamEvent(ev: Record<string, unknown>) {
     if (ev.type === 'message_start') {
-      currentMessageId = ev.message?.id ?? null;
+      // Clean up per-message role-marker guard from the previous message.
+      if (currentMessageId) roleGuards.delete(currentMessageId);
+      currentMessageId = isRecord(ev.message) && typeof ev.message.id === 'string' ? ev.message.id : null;
+      currentMessageStreamedText = false;
+      currentMessageStreamedThinking = false;
       if (typeof ev.ttft_ms === 'number') {
         onEvent({ type: 'status', label: 'streaming', ttftMs: ev.ttft_ms });
       }
       return;
     }
 
-    if (ev.type === 'content_block_start' && ev.content_block) {
+    if (ev.type === 'content_block_start' && isRecord(ev.content_block)) {
       const key = blockKey(ev.index);
       const block = ev.content_block;
-      blocks.set(key, { type: block.type, name: block.name, id: block.id, input: '' });
+      blocks.set(key, {
+        type: block.type,
+        name: block.name,
+        id: block.id,
+        input: '',
+        inputValue: 'input' in block ? block.input : undefined,
+      });
       if (block.type === 'thinking') {
         onEvent({ type: 'thinking_start' });
       }
       return;
     }
 
-    if (ev.type === 'content_block_delta' && ev.delta) {
+    if (ev.type === 'content_block_delta' && isRecord(ev.delta)) {
       const state = blocks.get(blockKey(ev.index));
       const delta = ev.delta;
 
       if (delta.type === 'text_delta' && typeof delta.text === 'string') {
         if (currentMessageId) textStreamed.add(currentMessageId);
-        onEvent({ type: 'text_delta', delta: delta.text });
+        currentMessageStreamedText = true;
+        emitSafeText(currentMessageId, delta.text);
         return;
       }
       if (delta.type === 'thinking_delta' && typeof delta.thinking === 'string') {
-        if (currentMessageId) textStreamed.add(currentMessageId);
-        onEvent({ type: 'thinking_delta', delta: delta.thinking });
+        if (currentMessageId) thinkingStreamed.add(currentMessageId);
+        currentMessageStreamedThinking = true;
+        emitSafeText(currentMessageId, delta.thinking, 'thinking_delta');
         return;
       }
       if (delta.type === 'input_json_delta' && typeof delta.partial_json === 'string') {
@@ -199,7 +301,36 @@ export function createClaudeStreamHandler(onEvent) {
     }
 
     if (ev.type === 'content_block_stop') {
-      blocks.delete(blockKey(ev.index));
+      const key = blockKey(ev.index);
+      const state = blocks.get(key);
+      if (state && state.type === 'tool_use' && typeof state.id === 'string' && state.input.trim()) {
+        try {
+          onEvent({
+            type: 'tool_use',
+            id: state.id,
+            name: state.name,
+            input: JSON.parse(state.input),
+          });
+          streamedToolUseIds.add(state.id);
+        } catch {
+          // Fall through to the final assistant wrapper's input if the
+          // streamed JSON is malformed or incomplete.
+        }
+      } else if (
+        state &&
+        state.type === 'tool_use' &&
+        typeof state.id === 'string' &&
+        state.inputValue !== undefined
+      ) {
+        onEvent({
+          type: 'tool_use',
+          id: state.id,
+          name: state.name,
+          input: state.inputValue,
+        });
+        streamedToolUseIds.add(state.id);
+      }
+      blocks.delete(key);
       return;
     }
   }
@@ -207,11 +338,11 @@ export function createClaudeStreamHandler(onEvent) {
   return { feed, flush };
 }
 
-function stringifyToolResult(content) {
+function stringifyToolResult(content: unknown): string {
   if (typeof content === 'string') return content;
   if (Array.isArray(content)) {
     return content
-      .map((c) => (c?.type === 'text' ? c.text : JSON.stringify(c)))
+      .map((c) => (isRecord(c) && c.type === 'text' ? String(c.text) : JSON.stringify(c)))
       .join('\n');
   }
   return JSON.stringify(content);
