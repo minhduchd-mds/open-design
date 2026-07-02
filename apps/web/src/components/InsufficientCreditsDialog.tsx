@@ -95,8 +95,12 @@ export function InsufficientCreditsDialog({
 
   if (!open) return null;
 
+  // Proration only exists when the current cycle was already paid for — a
+  // free user starts a fresh subscription at sticker price, so the amount-due
+  // row and every "补差价" mention are hidden for them.
+  const isProratedUpgrade = plan !== 'free';
   const selectedOption = targets.find((tier) => tier.plan === selectedTier);
-  const payablePerSeat = selectedOption
+  const payablePerSeat = selectedOption && isProratedUpgrade
     ? proratedPrice(cycle === 'annual' ? selectedOption.annual : selectedOption.monthly)
     : null;
   const teamSelected = selectedOption?.plan === 'team';
@@ -119,7 +123,9 @@ export function InsufficientCreditsDialog({
               : isMemberRecharge
                 ? `为 ${autoRechargeMemberName} 单独开启额度。保存配置不会立即扣费；该成员余额低于阈值时才会自动补充。`
                 : '为全部成员开启自动充值，上限按人生效、人人相同；某位成员余额低于阈值时自动为其补充。保存配置不会立即扣费。'
-            : '继续使用需要更多积分。升级到更高版本可立即提升额度，费用按当前周期已使用天数补差价。'}
+            : isProratedUpgrade
+              ? '继续使用需要更多积分。升级到更高版本可立即提升额度，费用按当前周期已使用天数补差价。'
+              : '继续使用需要更多积分。升级到更高版本可立即提升额度，订阅今日开通、立即生效。'}
         </p>
 
         {isTopTier ? (
@@ -198,18 +204,20 @@ export function InsufficientCreditsDialog({
             <p className="credit-upgrade__prorate">
               <Icon name="info" size={13} />
               {cycle === 'annual' ? '按年付费，立省 20%；' : '按月付费；'}
-              升级按当前周期已使用天数补差价，立即生效。
+              {isProratedUpgrade ? '升级按当前周期已使用天数补差价，立即生效。' : '升级立即生效。'}
             </p>
-            <div className="credit-upgrade__payment">
-              <span>今日应付（本周期剩余 {CYCLE_DAYS_LEFT} 天的差价）</span>
-              <strong>
-                {payableToday === null
-                  ? '—'
-                  : teamSelected
-                    ? `$${payablePerSeat}/席 × ${TEAM_MIN_SEATS} 席 = $${payableToday}`
-                    : `$${payableToday}`}
-              </strong>
-            </div>
+            {isProratedUpgrade ? (
+              <div className="credit-upgrade__payment">
+                <span>今日应付（本周期剩余 {CYCLE_DAYS_LEFT} 天的差价）</span>
+                <strong>
+                  {payableToday === null
+                    ? '—'
+                    : teamSelected
+                      ? `$${payablePerSeat}/席 × ${TEAM_MIN_SEATS} 席 = $${payableToday}`
+                      : `$${payableToday}`}
+                </strong>
+              </div>
+            ) : null}
           </div>
         )}
 
