@@ -1134,7 +1134,7 @@ export default function Page({
                     {home.hero.download}
                   </a>
                   <p className='faq-download-note'>
-                    {tt('74K+ Star · Apache-2.0 · 免费', '74K+ stars · Apache-2.0 · Free')}
+                    {cta.downloadProof}
                   </p>
                 </div>
               </div>
