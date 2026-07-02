@@ -231,7 +231,6 @@ export function InsufficientCreditsDialog({
               className="entry-invite__btn is-primary"
               onClick={() => onUpgrade(selectedTier)}
             >
-              <Icon name="sparkles" size={14} />
               {payableToday === null ? '确认支付并升级' : `确认支付 $${payableToday} 并升级`}
             </button>
           )}
