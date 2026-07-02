@@ -11,7 +11,7 @@ import { Icon } from './Icon';
 import type { DemoPlan } from './DemoControlBar';
 
 type BillingCycle = 'annual' | 'monthly';
-type AutoRechargeLimit = '30' | '50' | '100' | '200' | 'custom' | 'unlimited';
+type AutoRechargeLimit = '30' | '50' | '100' | '200' | '1000' | 'unlimited';
 
 interface TierOption {
   plan: DemoPlan;
@@ -26,7 +26,10 @@ interface TierOption {
 const PLUS: TierOption = { plan: 'plus', label: '个人版 Plus', desc: '基础 Token 用量 · SOTA 模型', monthly: 39, annual: 29 };
 const PRO: TierOption = { plan: 'pro', label: '个人版 Pro', desc: '3 倍 Token 用量 · 顶级多模态', monthly: 99, annual: 79 };
 const MAX: TierOption = { plan: 'max', label: '个人版 Max', desc: '10 倍 Token 用量 · 顶级多模态', monthly: 199, annual: 159 };
-const TEAM: TierOption = { plan: 'team', label: '团队版', desc: '多人协作 · 资产共享 · 角色权限', monthly: 119, annual: 99 };
+const TEAM: TierOption = { plan: 'team', label: '团队版', desc: '多人协作 · 资产共享 · 角色权限 · 3 席起', monthly: 119, annual: 99 };
+
+// 团队版 3 账号起买（PRD 套餐方案），升级报价按最低 3 席计。
+const TEAM_MIN_SEATS = 3;
 
 // Tiers reachable from each plan, in order. Max / 团队版 use auto recharge.
 const UPGRADE_TARGETS: Record<DemoPlan, TierOption[]> = {
@@ -37,14 +40,26 @@ const UPGRADE_TARGETS: Record<DemoPlan, TierOption[]> = {
   team: [],
 };
 
+// Same currency as the upgrade tiers (¥) — the two halves of this dialog
+// must not quote money in different units.
 const AUTO_RECHARGE_LIMITS: Array<{ id: AutoRechargeLimit; label: string }> = [
-  { id: '30', label: '$30' },
-  { id: '50', label: '$50' },
-  { id: '100', label: '$100' },
-  { id: '200', label: '$200' },
-  { id: 'custom', label: '$ 100000' },
+  { id: '30', label: '¥30' },
+  { id: '50', label: '¥50' },
+  { id: '100', label: '¥100' },
+  { id: '200', label: '¥200' },
+  { id: '1000', label: '¥1000' },
   { id: 'unlimited', label: '∞ 不限额（无月度上限）' },
 ];
+
+// Demo billing math for the pro-rated upgrade: 12 of 30 days of the current
+// cycle are used, so confirming charges the remaining 18/30 of the new tier's
+// monthly price today. Real billing follows stripe's proration instead.
+const CYCLE_DAYS = 30;
+const CYCLE_DAYS_LEFT = 18;
+
+function proratedPrice(pricePerMonth: number): number {
+  return Math.round((pricePerMonth * CYCLE_DAYS_LEFT) / CYCLE_DAYS);
+}
 
 interface Props {
   open: boolean;
@@ -70,6 +85,9 @@ export function InsufficientCreditsDialog({
   const targets = UPGRADE_TARGETS[plan];
   const isTopTier = targets.length === 0;
   const isMemberRecharge = autoRechargeScope === 'member';
+  // 个人版 Max 也走自动充值分支，但对象是用户自己的账户——
+  // 不能用「员工/团队」口径，也没有作用范围可选。
+  const isPersonalRecharge = isTopTier && plan !== 'team';
 
   const [selectedTier, setSelectedTier] = useState<DemoPlan>(targets[0]?.plan ?? 'team');
   const [selectedLimit, setSelectedLimit] = useState<AutoRechargeLimit>('unlimited');
@@ -77,6 +95,14 @@ export function InsufficientCreditsDialog({
   const [cycle, setCycle] = useState<BillingCycle>('annual');
 
   if (!open) return null;
+
+  const selectedOption = targets.find((tier) => tier.plan === selectedTier);
+  const payablePerSeat = selectedOption
+    ? proratedPrice(cycle === 'annual' ? selectedOption.annual : selectedOption.monthly)
+    : null;
+  const teamSelected = selectedOption?.plan === 'team';
+  const payableToday =
+    payablePerSeat === null ? null : teamSelected ? payablePerSeat * TEAM_MIN_SEATS : payablePerSeat;
 
   return (
     <div className="entry-invite" role="dialog" aria-modal="true" aria-label="积分不足">
@@ -86,24 +112,19 @@ export function InsufficientCreditsDialog({
           <Icon name="close" size={16} />
         </button>
 
-        <div className="credit-upgrade__badge" aria-hidden>
-          <Icon name="sparkles" size={20} />
-        </div>
         <h2 className="credit-upgrade__title">{isTopTier ? '自动充值' : '积分已用尽'}</h2>
         <p className="credit-upgrade__subtitle">
           {isTopTier
-            ? isMemberRecharge
-              ? `为 ${autoRechargeMemberName} 单独开启额度。保存配置不会立即扣费；该成员余额低于阈值时才会自动补充。`
-              : '默认为所有员工开启额度。保存配置不会立即扣费；团队余额低于阈值时才会自动补充。'
+            ? isPersonalRecharge
+              ? 'Max 已是个人版最高档。为你的账户开启自动充值，余额低于阈值时自动补充，无需手动操作；保存配置不会立即扣费。'
+              : isMemberRecharge
+                ? `为 ${autoRechargeMemberName} 单独开启额度。保存配置不会立即扣费；该成员余额低于阈值时才会自动补充。`
+                : '为全部成员开启自动充值，上限按人生效、人人相同；某位成员余额低于阈值时自动为其补充。保存配置不会立即扣费。'
             : '继续使用需要更多积分。升级到更高版本可立即提升额度，费用按当前周期已使用天数补差价。'}
         </p>
 
         {isTopTier ? (
           <div className="credit-upgrade__auto">
-            <div className="credit-upgrade__payment">
-              <span>作用范围</span>
-              <strong>{isMemberRecharge ? `${autoRechargeMemberName} · 单成员额度` : '所有员工 · 统一额度'}</strong>
-            </div>
             <div className="credit-upgrade__payment">
               <span>默认用订阅支付方式，可随时管理。</span>
               <button
@@ -114,7 +135,9 @@ export function InsufficientCreditsDialog({
               </button>
             </div>
             <div className="credit-upgrade__auto-card">
-              <h3 className="credit-upgrade__section-title">每月上限</h3>
+              <h3 className="credit-upgrade__section-title">
+                {isPersonalRecharge || isMemberRecharge ? '每月上限' : '每人每月上限'}
+              </h3>
               <div className="credit-upgrade__limit-grid">
                 {AUTO_RECHARGE_LIMITS.map((limit) => (
                   <button
@@ -178,6 +201,16 @@ export function InsufficientCreditsDialog({
               {cycle === 'annual' ? '按年付费，立省 20%；' : '按月付费；'}
               升级按当前周期已使用天数补差价，立即生效。
             </p>
+            <div className="credit-upgrade__payment">
+              <span>今日应付（本周期剩余 {CYCLE_DAYS_LEFT} 天的差价）</span>
+              <strong>
+                {payableToday === null
+                  ? '—'
+                  : teamSelected
+                    ? `¥${payablePerSeat}/席 × ${TEAM_MIN_SEATS} 席 = ¥${payableToday}`
+                    : `¥${payableToday}`}
+              </strong>
+            </div>
           </div>
         )}
 
@@ -199,7 +232,8 @@ export function InsufficientCreditsDialog({
               className="entry-invite__btn is-primary"
               onClick={() => onUpgrade(selectedTier)}
             >
-              <Icon name="sparkles" size={14} /> 确认支付并升级
+              <Icon name="sparkles" size={14} />
+              {payableToday === null ? '确认支付并升级' : `确认支付 ¥${payableToday} 并升级`}
             </button>
           )}
         </div>

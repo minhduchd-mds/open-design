@@ -148,18 +148,23 @@ function Bar({ page, onPage, scenario, onScenario, plan, onPlan, useMode, onUseM
   }, [collapsed]);
 
   if (collapsed) {
+    // Keep the collapsed pill compact: the full state summary lives in the
+    // hover title instead of inline text, so the pill never grows wide enough
+    // to sit on top of page CTAs anchored to the same corner (e.g. the
+    // onboarding BYOK form's 继续 button at narrow viewports).
+    const summary = `${labelForPage(page)} · ${labelForUseMode(useMode)} · ${labelForPlan(plan)}`;
     return (
       <div className="demo-bar demo-bar--collapsed">
         <button
           type="button"
           className="demo-bar__summary"
           onClick={() => setCollapsed(false)}
-          aria-label="展开 Demo Control"
+          title={summary}
+          aria-label={`展开 Demo Control（${summary}）`}
           aria-expanded="false"
         >
           <span className="demo-bar__summary-dot" aria-hidden />
           <span className="demo-bar__summary-title">Control</span>
-          <span className="demo-bar__summary-meta">{labelForPage(page)} · {labelForUseMode(useMode)} · {labelForPlan(plan)}</span>
           <span className="demo-bar__summary-caret" aria-hidden>⌃</span>
         </button>
       </div>

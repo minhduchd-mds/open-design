@@ -6120,16 +6120,6 @@
   box-shadow: 0 22px 58px rgba(0, 0, 0, 0.2);
   animation: entry-invite-in 200ms cubic-bezier(0.23, 1, 0.32, 1);
 }
-.credit-upgrade__badge {
-  width: 40px;
-  height: 40px;
-  display: grid;
-  place-items: center;
-  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
-  border-radius: 11px;
-  background: color-mix(in srgb, var(--accent) 10%, var(--bg-panel));
-  color: var(--accent-strong);
-}
 .credit-upgrade__title {
   margin: 0;
   font-size: 18px;
@@ -6228,6 +6218,14 @@
   background: var(--text-strong);
   color: #fff;
   box-shadow: 0 8px 18px color-mix(in srgb, var(--text-strong) 14%, transparent);
+}
+.credit-upgrade__limit.is-active:hover {
+  /* Keep the dark fill on hover — the global `button:hover` rule in
+     primitives.css would otherwise repaint the background to --bg-subtle and
+     wash the white label away. Opacity alone carries the hover feedback. */
+  background: var(--text-strong);
+  border-color: var(--text-strong);
+  opacity: 0.88;
 }
 .credit-upgrade__limit--wide {
   grid-column: span 3;
