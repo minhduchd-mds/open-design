@@ -37,6 +37,7 @@ export interface ByokDraftValidation {
 interface ValidateByokDraftOptions {
   requiresApiKey?: boolean;
   requireModel?: boolean;
+  keyValidationBaseUrl?: string;
 }
 
 interface ByokDraftConfig {
@@ -64,6 +65,7 @@ export interface ByokModelPreference {
 }
 
 const ZERO_WIDTH_CHARS = /[\u200B-\u200D\uFEFF]/g;
+const GOOGLE_GEMINI_DEFAULT_BASE_URL = 'https://generativelanguage.googleapis.com';
 
 export function cleanByokApiKey(value: string): string {
   return value
@@ -145,7 +147,11 @@ export function validateByokDraft(
         action: 'focus_api_key',
       });
     }
-    const keyIssue = validateApiKeyShape(protocol, cleanedApiKey, baseUrl);
+    const keyIssue = validateApiKeyShape(
+      protocol,
+      cleanedApiKey,
+      options.keyValidationBaseUrl?.trim() || baseUrl,
+    );
     if (keyIssue) issues.push(keyIssue);
   }
 
@@ -165,6 +171,17 @@ export function validateByokDraft(
       message: 'Base URL must be a valid public http:// or https:// URL.',
       action: 'focus_base_url',
     });
+  } else if (protocol === 'google' && baseUrl) {
+    const host = baseUrlHostname(baseUrl);
+    if (host === 'api.anthropic.com' || host === 'api.openai.com') {
+      issues.push({
+        field: 'base_url',
+        level: 'error',
+        code: 'base_url_invalid',
+        message: `Base URL points to ${host}. For Google Gemini use ${GOOGLE_GEMINI_DEFAULT_BASE_URL}.`,
+        action: 'focus_base_url',
+      });
+    }
   }
 
   if (requireModel && !model) {
@@ -258,7 +275,7 @@ function validateApiKeyShape(
   }
 
   if (protocol === 'google' && isGoogleFirstPartyBaseUrl(baseUrl)) {
-    if (apiKey.startsWith('AIza')) return null;
+    if (isGoogleGeminiApiKeyShape(apiKey)) return null;
     return {
       field: 'api_key',
       level: 'error',
@@ -278,9 +295,16 @@ function validateApiKeyShape(
 
 function detectByokApiKeyProtocol(apiKey: string): ApiProtocol | null {
   if (apiKey.startsWith('sk-ant-')) return 'anthropic';
-  if (apiKey.startsWith('AIza')) return 'google';
+  if (isGoogleGeminiApiKeyShape(apiKey)) return 'google';
   if (apiKey.startsWith('sk-')) return 'openai';
   return null;
+}
+
+/** Legacy AI Studio keys (AIza…) and service-account-bound keys (AQ.…). */
+function isGoogleGeminiApiKeyShape(apiKey: string): boolean {
+  if (apiKey.startsWith('AIza')) return true;
+  // https://docs.cloud.google.com/docs/authentication/api-keys#api-keys-bound-sa
+  return /^AQ\.[A-Za-z0-9_-]{20,}$/.test(apiKey);
 }
 
 function isAnthropicFirstPartyBaseUrl(baseUrl: string): boolean {
@@ -300,9 +324,18 @@ function isOpenAiFirstPartyBaseUrl(baseUrl: string): boolean {
 }
 
 function isGoogleFirstPartyBaseUrl(baseUrl: string): boolean {
+  return baseUrlHostname(baseUrl) === 'generativelanguage.googleapis.com';
+}
+
+function baseUrlHostname(baseUrl: string): string | undefined {
+  const trimmed = baseUrl.trim();
+  if (!trimmed) return undefined;
+  const withProtocol = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`;
   try {
-    return new URL(baseUrl).hostname.toLowerCase() === 'generativelanguage.googleapis.com';
+    return new URL(withProtocol).hostname.toLowerCase();
   } catch {
-    return false;
+    return undefined;
   }
 }

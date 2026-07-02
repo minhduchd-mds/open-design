@@ -25,14 +25,16 @@ export interface UrlLoadDecision {
   mode: 'preview' | 'source';
   /** Treat as a slide deck — needs the deck postMessage bridge. */
   isDeck: boolean;
-  /** Comment mode is active. Needs either srcDoc injection or an artifact-owned URL-load bridge. */
+  /** Comment mode is active. Needs either srcDoc injection or a URL-load bridge. */
   commentMode: boolean;
   /** Inspect mode is active — needs the srcdoc selection bridge for live tuning. */
   inspectMode?: boolean;
-  /** Direct text edit is active. Needs either srcDoc injection or an artifact-owned URL-load bridge. */
+  /** Direct text edit is active. Needs host-owned srcDoc injection for source-path round trips. */
   editMode?: boolean;
-  /** The artifact has its own script that listens for host mode postMessages while URL-loaded. */
+  /** The artifact has its own script that listens for edit postMessages while URL-loaded. */
   urlModeBridge?: boolean;
+  /** The URL-loaded artifact response includes the comment/selection bridge. */
+  urlCommentBridge?: boolean;
   /** Tweaks palette popover open or palette committed — needs the palette bridge. */
   paletteActive?: boolean;
   /** Draw annotations need the srcDoc snapshot bridge for screenshot export. */
@@ -74,11 +76,11 @@ export function hasTweaksTemplate(source: string | null | undefined): boolean {
 export function shouldUrlLoadHtmlPreview(d: UrlLoadDecision): boolean {
   if (d.mode !== 'preview') return false;
   if (d.isDeck) return false;
-  if (d.commentMode && !d.urlModeBridge) return false;
+  if (d.commentMode && !(d.urlCommentBridge || d.urlModeBridge)) return false;
   // Inspect needs the selection bridge injected via buildSrcdoc; a raw
   // URL-loaded iframe has no listener to apply per-element overrides.
   if (d.inspectMode) return false;
-  if (d.editMode && !d.urlModeBridge) return false;
+  if (d.editMode) return false;
   // Palette tweaks need the srcDoc-side bridge — `<iframe src=URL>` has
   // no parent-injected listener to recolor against.
   if (d.paletteActive) return false;

@@ -109,6 +109,23 @@ async function runCli(
   }) as { stdout: string; stderr: string };
 }
 
+async function runCliResult(
+  args: string[],
+  options: { timeout?: number } = {},
+): Promise<{ stdout: string; stderr: string; code: number | null }> {
+  try {
+    const { stdout, stderr } = await runCli(args, options);
+    return { stdout, stderr, code: 0 };
+  } catch (err) {
+    const failed = err as { stdout?: string; stderr?: string; code?: number | null };
+    return {
+      stdout: failed.stdout ?? '',
+      stderr: failed.stderr ?? '',
+      code: failed.code ?? 1,
+    };
+  }
+}
+
 async function readSseUntilSuccess(resp: Response) {
   if (!resp.body) throw new Error('install: no body');
   const reader = resp.body.getReader();
@@ -133,6 +150,140 @@ async function readSseUntilSuccess(resp: Response) {
 }
 
 describe('Plan §8 e2e-3 (entry slice) — headless install → project → run', () => {
+  it('duplicates a bundled HTML example into a project without starting a run', async () => {
+    const listResp = await fetch(`${baseUrl}/api/plugins`);
+    expect(listResp.status).toBe(200);
+    const listBody = (await listResp.json()) as {
+      plugins?: Array<{
+        id: string;
+        title?: string;
+        manifest?: { name?: string; od?: { preview?: { entry?: string } } };
+      }>;
+    };
+    const plugin = (listBody.plugins ?? []).find((record) =>
+      record.id === 'example-mobile-app' ||
+      record.manifest?.name === 'example-mobile-app' ||
+      record.title === 'Mobile App',
+    );
+    expect(plugin).toBeTruthy();
+
+    const duplicateResp = await fetch(
+      `${baseUrl}/api/plugins/${encodeURIComponent(plugin!.id)}/duplicate-project`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'Duplicated mobile app' }),
+      },
+    );
+    expect(duplicateResp.status).toBe(201);
+    const duplicateBody = (await duplicateResp.json()) as {
+      ok: true;
+      projectId: string;
+      conversationId: string;
+      relPath: string;
+      sourcePluginId: string;
+      sourceEntry: string;
+      copiedFiles: number;
+      project: {
+        id: string;
+        name: string;
+        pendingPrompt?: string | null;
+        metadata?: {
+          kind?: string;
+          duplicatedFromPluginId?: string;
+          duplicatedFromPluginEntry?: string;
+          entryFile?: string;
+        };
+      };
+    };
+    expect(duplicateBody.ok).toBe(true);
+    expect(duplicateBody.projectId).toBeTruthy();
+    expect(duplicateBody.conversationId).toBeTruthy();
+    expect(duplicateBody.relPath).toBe('index.html');
+    expect(duplicateBody.sourcePluginId).toBe(plugin!.id);
+    expect(duplicateBody.sourceEntry).toMatch(/example\.html$/);
+    expect(duplicateBody.copiedFiles).toBeGreaterThan(0);
+    expect(duplicateBody.project.name).toBe('Duplicated mobile app');
+    expect(duplicateBody.project.pendingPrompt ?? null).toBeNull();
+    expect(duplicateBody.project.metadata).toMatchObject({
+      kind: 'prototype',
+      duplicatedFromPluginId: plugin!.id,
+      duplicatedFromPluginEntry: duplicateBody.sourceEntry,
+      entryFile: 'index.html',
+    });
+
+    const filesResp = await fetch(
+      `${baseUrl}/api/projects/${encodeURIComponent(duplicateBody.projectId)}/files`,
+    );
+    expect(filesResp.status).toBe(200);
+    const filesBody = (await filesResp.json()) as { files: Array<{ name: string }> };
+    const fileNames = filesBody.files.map((file) => file.name).sort();
+    expect(fileNames).toContain('index.html');
+    expect(fileNames).toContain('assets/template.html');
+
+    const runsResp = await fetch(
+      `${baseUrl}/api/runs?projectId=${encodeURIComponent(duplicateBody.projectId)}`,
+    );
+    expect(runsResp.status).toBe(200);
+    const runsBody = (await runsResp.json()) as { runs?: unknown[] };
+    expect(runsBody.runs ?? []).toHaveLength(0);
+
+    await fetch(`${baseUrl}/api/projects/${encodeURIComponent(duplicateBody.projectId)}`, {
+      method: 'DELETE',
+    }).catch(() => {});
+  });
+
+  it('rejects bundled examples that reference local files outside the duplicated directory', async () => {
+    const listResp = await fetch(`${baseUrl}/api/plugins`);
+    expect(listResp.status).toBe(200);
+    const listBody = (await listResp.json()) as {
+      plugins?: Array<{
+        id: string;
+        manifest?: { name?: string };
+      }>;
+    };
+    const plugin = (listBody.plugins ?? []).find((record) =>
+      record.id === 'example-open-design-landing-deck' ||
+      record.manifest?.name === 'example-open-design-landing-deck',
+    );
+    expect(plugin).toBeTruthy();
+
+    const duplicateResp = await fetch(
+      `${baseUrl}/api/plugins/${encodeURIComponent(plugin!.id)}/duplicate-project`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'Broken duplicate should fail' }),
+      },
+    );
+
+    expect(duplicateResp.status).toBe(422);
+    const body = (await duplicateResp.json()) as {
+      error?: { code?: string; message?: string };
+    };
+    expect(body.error).toMatchObject({
+      code: 'UNSUPPORTED_DUPLICATE_DEPENDENCIES',
+    });
+    expect(body.error?.message).toContain('../open-design-landing/assets/hero.png');
+  });
+
+  it('surfaces duplicate daemon errors through CLI structured stderr', async () => {
+    const result = await runCliResult([
+      'plugin',
+      'duplicate',
+      'example-open-design-landing-deck',
+      '--json',
+    ]);
+
+    expect(result.code).toBe(1);
+    expect(result.stdout).toBe('');
+    const body = JSON.parse(result.stderr.trim()) as {
+      error?: { code?: string; message?: string };
+    };
+    expect(body.error?.code).toBe('UNSUPPORTED_DUPLICATE_DEPENDENCIES');
+    expect(body.error?.message).toContain('../open-design-landing/assets/hero.png');
+  });
+
   it('walks install → project create → run start → status with snapshot pinned', async () => {
     // 1. Install a local fixture plugin via the SSE install endpoint.
     const installResp = await fetch(`${baseUrl}/api/plugins/install`, {
@@ -533,7 +684,11 @@ let input = '';
 process.stdin.setEncoding('utf8');
 process.stdin.on('data', (chunk) => { input += chunk; });
 process.stdin.on('end', () => {
-  fs.writeFileSync(process.env.OD_PROMPT_CAPTURE, input);
+  const capturePath = process.env.OD_PROMPT_CAPTURE;
+  fs.appendFileSync(capturePath + '.all', '--- prompt ---\\n' + input + '\\n');
+  if (input.includes('# Headless Local Skill') || input.includes('## Active plugin')) {
+    fs.writeFileSync(capturePath, input);
+  }
   console.log(JSON.stringify({ type: 'text', part: { text: 'headless-ok' } }));
 });
 `,
@@ -631,10 +786,10 @@ process.stdin.on('end', () => {
 
     const projectId = `pipeline-${Date.now()}`;
     // The fixture declares od.pipeline.stages and is installed under
-    // sourceKind='local' (default trust='restricted'). The required
-    // capabilities therefore include pipeline:*; the test grants it
-    // ephemerally via the resolver so the snapshot is created without
-    // re-asking the user.
+    // sourceKind='local', which is trusted by default (trust.ts
+    // defaultTrustForRecord). The trusted default grant therefore already
+    // includes pipeline:*, so the snapshot is created without any ephemeral
+    // grantCaps — exercising the stored/default grant path directly.
     const createResp = await fetch(`${baseUrl}/api/projects`, {
       method:  'POST',
       headers: { 'content-type': 'application/json' },
@@ -643,7 +798,6 @@ process.stdin.on('end', () => {
         name:         'Pipeline e2e-3',
         pluginId:     'pipeline-plugin',
         pluginInputs: { topic: 'agentic design' },
-        grantCaps:    ['pipeline:*'],
       }),
     });
     expect(createResp.status).toBe(200);
@@ -661,7 +815,6 @@ process.stdin.on('end', () => {
         projectId,
         pluginId:                'pipeline-plugin',
         appliedPluginSnapshotId: createBody.appliedPluginSnapshotId,
-        grantCaps:               ['pipeline:*'],
       }),
     });
     expect(runResp.status).toBe(202);

@@ -1,10 +1,13 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@/playwright/suite';
 import type { Locator, Page } from '@playwright/test';
+import { openSettingsDialog } from '../lib/playwright/amr.js';
+import { routeAgents } from '../lib/playwright/mock-factory.js';
+import { T } from '@/timeouts';
 
 const STORAGE_KEY = 'open-design:config';
-const OPEN_SETTINGS_LABEL = /Open settings|打开设置|開啟設定/i;
+const OPEN_SETTINGS_LABEL = /Open settings|打开设置|開啟設定|Account & settings/i;
 
-test.describe.configure({ timeout: 30_000 });
+test.describe.configure({ timeout: T.xlong });
 
 type ConnectorFixture = {
   id: string;
@@ -56,6 +59,8 @@ function baseConfig(): Record<string, unknown> {
     skillId: null,
     designSystemId: null,
     onboardingCompleted: true,
+    privacyDecisionAt: 1,
+    telemetry: { metrics: true, content: true },
     composio: {
       apiKey: '',
       apiKeyConfigured: true,
@@ -80,25 +85,21 @@ function connectorCard(scope: Page | Locator, id: string) {
 }
 
 async function waitForLoadingToClear(page: Page) {
-  await expect(page.getByText('Loading Open Design…')).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.getByText('Loading Open Design…')).toHaveCount(0, { timeout: T.long });
 }
 
 async function gotoEntryHome(page: Page) {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await waitForLoadingToClear(page);
-  const privacyDialog = page.getByRole('dialog').filter({ hasText: 'Help us improve Open Design' });
-  if (await privacyDialog.isVisible()) {
-    await privacyDialog.getByRole('button', { name: /not now|don't share/i }).click();
+  const privacyRegion = page.getByRole('region', { name: /Help us improve Open Design/i });
+  if (await privacyRegion.isVisible().catch(() => false)) {
+    await privacyRegion.getByRole('button', { name: /I get it|not now|got it/i }).click();
   }
   await expect(page.getByTestId('home-hero')).toBeVisible();
 }
 
 async function openSettingsDialogFromEntry(page: Page) {
-  await waitForLoadingToClear(page);
-  await page.getByRole('button', { name: OPEN_SETTINGS_LABEL }).click();
-  const dialog = page.getByRole('dialog');
-  await expect(dialog).toBeVisible();
-  return dialog;
+  return openSettingsDialog(page);
 }
 
 async function openConnectorsSettings(
@@ -175,22 +176,16 @@ async function openConnectorsSettings(
     });
   });
 
-  await page.route('**/api/agents', async (route) => {
-    await route.fulfill({
-      json: {
-        agents: [
-          {
-            id: 'codex',
-            name: 'Codex CLI',
-            bin: 'codex',
-            available: true,
-            version: '0.130.0',
-            models: [{ id: 'default', label: 'Default' }],
-          },
-        ],
-      },
-    });
-  });
+  await routeAgents(page, [
+    {
+      id: 'codex',
+      name: 'Codex CLI',
+      bin: 'codex',
+      available: true,
+      version: '0.130.0',
+      models: [{ id: 'default', label: 'Default' }],
+    },
+  ]);
 
   await page.route('**/api/app-config', async (route) => {
     if (route.request().method() === 'GET') {
@@ -257,7 +252,7 @@ async function openConnectorsSettings(
 }
 
 test.describe('Settings connectors auth recovery', () => {
-  test('keeps a pending authorization visible when the connector enters authorization-pending state', async ({ page }) => {
+  test('[P0] keeps a pending authorization visible when the connector enters authorization-pending state', async ({ page }) => {
     const { dialog } = await openConnectorsSettings(page, {
       pendingAuthorization: pendingAuthorizationStorage(),
     });
@@ -277,7 +272,7 @@ test.describe('Settings connectors auth recovery', () => {
   });
 
 
-  test('shows a continue-in-browser CTA for pending authorizations that include a redirect URL', async ({ page }) => {
+  test('[P0] shows a continue-in-browser CTA for pending authorizations that include a redirect URL', async ({ page }) => {
     const { dialog } = await openConnectorsSettings(page, {
       pendingAuthorization: {
         github: {
@@ -292,7 +287,7 @@ test.describe('Settings connectors auth recovery', () => {
     await expect(githubCard.getByRole('button', { name: 'Continue in browser' })).toBeVisible();
   });
 
-  test('settles a pending authorization into Disconnect when status polling reports the connector as connected', async ({ page }) => {
+  test('[P0] settles a pending authorization into Disconnect when status polling reports the connector as connected', async ({ page }) => {
     let statusRequests = 0;
     const { dialog } = await openConnectorsSettings(page, {
       pendingAuthorization: pendingAuthorizationStorage(),
@@ -321,7 +316,7 @@ test.describe('Settings connectors auth recovery', () => {
       .toBe(null);
   });
 
-  test('returns a pending authorization to Connect and clears session storage after a successful cancel', async ({ page }) => {
+  test('[P0] returns a pending authorization to Connect and clears session storage after a successful cancel', async ({ page }) => {
     const { dialog } = await openConnectorsSettings(page, {
       pendingAuthorization: pendingAuthorizationStorage(),
       onCancel: () => ({
@@ -351,7 +346,7 @@ test.describe('Settings connectors auth recovery', () => {
   });
 
 
-  test('surfaces a connector error state when credentials have degraded', async ({ page }) => {
+  test('[P0] surfaces a connector error state when credentials have degraded', async ({ page }) => {
     const githubConnector = CONNECTORS[0];
     const slackConnector = CONNECTORS[1];
     if (!githubConnector || !slackConnector) throw new Error('missing connector fixtures');

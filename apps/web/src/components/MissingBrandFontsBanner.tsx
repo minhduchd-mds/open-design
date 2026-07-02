@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
+import { Button } from '@open-design/components';
 
 import { Icon } from './Icon';
 
-// Per-project dismissal of the "Missing brand fonts" banner (issue #2814).
+// Per-project dismissal of the missing brand font files banner (issue #2814).
 // Stored in localStorage keyed by project id, mirroring the per-project
 // preference pattern already used in ProjectView. This is acknowledge-only:
 // it hides the banner for users who are fine with the fallback and does NOT
@@ -28,7 +29,7 @@ interface MissingBrandFontsBannerProps {
   projectId: string;
   /** Wrapper class so callers can match their surrounding card styling. */
   className?: string;
-  /** When provided, renders an "Upload fonts" action that invokes it. */
+  /** When provided, renders an action to add brand font files. */
   onUploadAssets?: () => void;
 }
 
@@ -48,7 +49,7 @@ export function MissingBrandFontsBanner({
   }, [projectId]);
   if (dismissed) return null;
 
-  function useSystemFonts(): void {
+  function keepSubstitutes(): void {
     if (projectId && typeof window !== 'undefined') {
       try {
         window.localStorage.setItem(fontBannerDismissKey(projectId), '1');
@@ -64,19 +65,19 @@ export function MissingBrandFontsBanner({
     <div className={className}>
       <Icon name="help-circle" size={16} />
       <span>
-        <strong>Missing brand fonts</strong>
-        <small>Open Design is rendering typography with substitute web fonts.</small>
+        <strong>Brand font files missing</strong>
+        <small>Typography previews are using substitute web fonts until brand font files are added.</small>
       </span>
       <div className="ds-warning-card-actions">
         {onUploadAssets ? (
-          <button type="button" className="ghost compact" onClick={onUploadAssets}>
+          <Button variant="ghost" className="compact" onClick={onUploadAssets}>
             <Icon name="upload" size={13} />
-            Upload fonts
-          </button>
+            Add brand font files
+          </Button>
         ) : null}
-        <button type="button" className="ghost compact" onClick={useSystemFonts}>
-          Use system fonts
-        </button>
+        <Button variant="ghost" className="compact" onClick={keepSubstitutes}>
+          Keep substitutes
+        </Button>
       </div>
     </div>
   );

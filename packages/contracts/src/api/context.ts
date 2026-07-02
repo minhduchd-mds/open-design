@@ -3,6 +3,30 @@ export interface RunContextSelection {
   pluginIds?: string[];
   mcpServerIds?: string[];
   connectorIds?: string[];
+  workspaceItems?: WorkspaceContextItem[];
+}
+
+export type WorkspaceContextKind =
+  | 'design-files'
+  | 'design-system'
+  | 'file'
+  | 'folder'
+  | 'project'
+  | 'local-code'
+  | 'browser'
+  | 'terminal'
+  | 'side-chat'
+  | 'live-artifact';
+
+export interface WorkspaceContextItem {
+  id: string;
+  kind: WorkspaceContextKind;
+  label: string;
+  tabId?: string;
+  path?: string;
+  absolutePath?: string;
+  url?: string;
+  title?: string;
 }
 
 export interface ProjectContextPluginRef {

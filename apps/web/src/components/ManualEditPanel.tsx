@@ -26,19 +26,21 @@ export function ManualEditPanel({
   selectedTarget,
   draft,
   error,
-  canUndo,
   busy,
+  resetAvailable = false,
   onDraftChange,
   onStyleChange,
   onInvalidStyle,
   onError,
   onCancelDraft,
   onSaveDraft,
+  onResetDraft,
   onExit,
   onApplyPatch,
   onPickImage,
   pageStylesEnabled = true,
   floatingStyle,
+  floatingClassName,
   onFloatingPositionChange,
 }: {
   targets: ManualEditTarget[];
@@ -49,6 +51,7 @@ export function ManualEditPanel({
   canUndo: boolean;
   canRedo: boolean;
   busy?: boolean;
+  resetAvailable?: boolean;
   pageStylesEnabled?: boolean;
   onSelectTarget: (target: ManualEditTarget) => void;
   onDraftChange: (draft: ManualEditDraft) => void;
@@ -57,17 +60,18 @@ export function ManualEditPanel({
   onApplyPatch: (patch: ManualEditPatch, label: string) => void;
   onPickImage?: (file: File) => Promise<string | null>;
   floatingStyle?: CSSProperties;
+  floatingClassName?: string;
   onFloatingPositionChange?: (position: { left: number; top: number }) => void;
   onError: (message: string) => void;
   onClearSelection: () => void;
   onExit?: () => void;
   onCancelDraft: () => void;
   onSaveDraft: () => void;
+  onResetDraft: () => void;
   onUndo: () => void;
   onRedo: () => void;
 }) {
   const t = useT();
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const selectedTargetRef = useRef<ManualEditTarget | null>(selectedTarget);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -85,7 +89,7 @@ export function ManualEditPanel({
       layoutEnabled: targetForInspector.isLayoutContainer,
     });
     if (!normalized.ok) {
-      onError(normalized.error);
+      onError('error' in normalized ? normalized.error : 'Invalid style value.');
       onInvalidStyle?.(targetForInspector.id, [key]);
       return;
     }
@@ -128,7 +132,7 @@ export function ManualEditPanel({
 
   return (
     <aside
-      className={`manual-edit-right${floatingStyle ? ' manual-edit-floating' : ''}`}
+      className={`manual-edit-right${floatingStyle ? ' manual-edit-floating' : ''}${floatingClassName ? ` ${floatingClassName}` : ''}`}
       style={floatingStyle}
     >
       <section className="manual-edit-modal cc-panel">
@@ -159,19 +163,26 @@ export function ManualEditPanel({
         </div>
         <div className="manual-edit-scroll">
           {targetForInspector ? (
-            <StyleInspector
-              targetKind={targetForInspector.kind}
-              styles={draft.styles}
-              layoutEnabled={targetForInspector.isLayoutContainer}
-              onChange={changeTargetStyle}
-            />
+            <>
+              <ContentInspector
+                target={targetForInspector}
+                draft={draft}
+                onDraftChange={onDraftChange}
+              />
+              <StyleInspector
+                targetKind={targetForInspector.kind}
+                styles={draft.styles}
+                layoutEnabled={targetForInspector.isLayoutContainer}
+                onChange={changeTargetStyle}
+              />
+            </>
           ) : !targetForInspector ? (
             <PageInspector
               enabled={pageStylesEnabled}
               onStyleChange={(styles) => {
                 const normalized = normalizeManualEditStyles(styles, { layoutEnabled: true });
                 if (!normalized.ok) {
-                  onError(normalized.error);
+                  onError('error' in normalized ? normalized.error : 'Invalid style value.');
                   onInvalidStyle?.('__body__', Object.keys(styles) as Array<keyof ManualEditStyles>);
                   return;
                 }
@@ -228,47 +239,34 @@ export function ManualEditPanel({
           <div className="manual-edit-footer-actions">
             <div className="manual-edit-footer-left">
               {targetForInspector ? (
-                confirmDelete ? (
-                  <div className="manual-edit-delete-confirm">
-                    <span>{canUndo ? t('manualEdit.deleteElementConfirm') : t('manualEdit.deleteElement')}</span>
-                    <button
-                      type="button"
-                      className="manual-edit-footer-btn danger"
-                      disabled={busy}
-                      onClick={() => {
-                        setConfirmDelete(false);
-                        onApplyPatch(
-                          { id: targetForInspector.id, kind: 'remove-element' },
-                          t('manualEdit.deleteElement'),
-                        );
-                      }}
-                    >
-                      {t('manualEdit.deleteElement')}
-                    </button>
-                    <button
-                      type="button"
-                      className="manual-edit-footer-btn subtle"
-                      disabled={busy}
-                      onClick={() => setConfirmDelete(false)}
-                    >
-                      {t('common.cancel')}
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="manual-edit-delete-btn"
-                    aria-label={t('manualEdit.deleteElement')}
-                    title={t('manualEdit.deleteElement')}
-                    disabled={busy}
-                    onClick={() => setConfirmDelete(true)}
-                  >
-                    <Icon name="trash" size={15} />
-                  </button>
-                )
+                <button
+                  type="button"
+                  className="manual-edit-delete-btn"
+                  aria-label={t('manualEdit.deleteElement')}
+                  title={t('manualEdit.deleteElement')}
+                  disabled={busy}
+                  onClick={() => {
+                    onApplyPatch(
+                      { id: targetForInspector.id, kind: 'remove-element' },
+                      t('manualEdit.deleteElement'),
+                    );
+                  }}
+                >
+                  <Icon name="trash" size={15} />
+                </button>
               ) : null}
             </div>
             <div className="manual-edit-footer-right">
+              {resetAvailable ? (
+                <button
+                  type="button"
+                  className="manual-edit-footer-btn subtle"
+                  disabled={busy}
+                  onClick={onResetDraft}
+                >
+                  {t('ds.reset')}
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="manual-edit-footer-btn subtle"
@@ -292,6 +290,77 @@ export function ManualEditPanel({
         </div>
       </section>
     </aside>
+  );
+}
+
+function ContentInspector({
+  target,
+  draft,
+  onDraftChange,
+}: {
+  target: ManualEditTarget;
+  draft: ManualEditDraft;
+  onDraftChange: (draft: ManualEditDraft) => void;
+}) {
+  const t = useT();
+  const update = (patch: Partial<ManualEditDraft>) => onDraftChange({ ...draft, ...patch });
+  if (target.kind === 'image') {
+    return (
+      <div className="cc-inspector manual-edit-content-inspector">
+        <Section title="CONTENT">
+          <label className="manual-edit-field compact">
+            <span>{t('manualEdit.imageUrl')}</span>
+            <input value={draft.src} onChange={(event) => update({ src: event.currentTarget.value })} />
+          </label>
+          <label className="manual-edit-field compact">
+            <span>{t('manualEdit.altText')}</span>
+            <input value={draft.alt} onChange={(event) => update({ alt: event.currentTarget.value })} />
+          </label>
+        </Section>
+      </div>
+    );
+  }
+  if (target.kind === 'link') {
+    return (
+      <div className="cc-inspector manual-edit-content-inspector">
+        <Section title="CONTENT">
+          <label className="manual-edit-field">
+            <span>{t('manualEdit.text')}</span>
+            <textarea value={draft.text} rows={3} onChange={(event) => update({ text: event.currentTarget.value })} />
+          </label>
+          <label className="manual-edit-field compact">
+            <span>{t('manualEdit.href')}</span>
+            <input value={draft.href} onChange={(event) => update({ href: event.currentTarget.value })} />
+          </label>
+        </Section>
+      </div>
+    );
+  }
+  if (target.kind === 'text' || target.kind === 'token') {
+    return (
+      <div className="cc-inspector manual-edit-content-inspector">
+        <Section title="CONTENT">
+          <label className="manual-edit-field">
+            <span>{t('manualEdit.text')}</span>
+            <textarea value={draft.text} rows={4} onChange={(event) => update({ text: event.currentTarget.value })} />
+          </label>
+        </Section>
+      </div>
+    );
+  }
+  return (
+    <div className="cc-inspector manual-edit-content-inspector">
+      <Section title="CONTENT">
+        <label className="manual-edit-field">
+          <span>{t('manualEdit.selectedHtml')}</span>
+          <textarea
+            className="manual-edit-code"
+            value={draft.outerHtml}
+            onChange={(event) => update({ outerHtml: event.currentTarget.value })}
+          />
+        </label>
+      </Section>
+    </div>
   );
 }
 

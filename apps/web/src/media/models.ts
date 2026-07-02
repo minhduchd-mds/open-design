@@ -29,6 +29,7 @@ import type { AudioKind, MediaAspect } from '../types';
  */
 export type MediaProviderId =
   | 'openai'
+  | 'codex'
   | 'volcengine'
   | 'grok'
   | 'hyperframes'
@@ -49,6 +50,7 @@ export type MediaProviderId =
   | 'elevenlabs'
   | 'fishaudio'
   | 'senseaudio'
+  | 'aihubmix'
   | 'tavily'
   | 'leonardo'
   | 'stub';
@@ -89,6 +91,14 @@ export const MEDIA_PROVIDERS: MediaProvider[] = [
     integrated: true,
     defaultBaseUrl: 'https://api.openai.com/v1',
     docsUrl: 'https://platform.openai.com/api-keys',
+  },
+  {
+    id: 'codex',
+    label: 'Codex Subscription',
+    hint: 'gpt-image-2 via local Codex CLI login',
+    integrated: true,
+    credentialsRequired: false,
+    docsUrl: 'https://developers.openai.com/codex',
   },
   {
     id: 'volcengine',
@@ -261,6 +271,18 @@ export const MEDIA_PROVIDERS: MediaProvider[] = [
     docsUrl: 'https://docs.senseaudio.cn',
   },
   {
+    id: 'aihubmix',
+    label: 'AIHubMix',
+    hint: 'OpenAI-compatible aggregator · image + speech',
+    integrated: true,
+    credentialsRequired: true,
+    settingsVisible: true,
+    defaultBaseUrl: 'https://aihubmix.com/v1',
+    docsUrl: 'https://docs.aihubmix.com',
+    supportsCustomModel: true,
+    customModelPlaceholder: 'gpt-image-1 or dall-e-3',
+  },
+  {
     id: 'tavily',
     label: 'Tavily Search',
     hint: 'Agent-callable web research',
@@ -348,6 +370,13 @@ export const IMAGE_MODELS: MediaModel[] = [
     provider: 'openai',
     caps: ['t2i'],
   },
+  {
+    id: 'codex-gpt-image-2',
+    label: 'gpt-image-2 (Codex)',
+    hint: 'Codex Subscription · local CLI imagegen',
+    provider: 'codex',
+    caps: ['t2i', 'i2i'],
+  },
 
   // Volcengine — Doubao Seedream image generation.
   {
@@ -386,6 +415,24 @@ export const IMAGE_MODELS: MediaModel[] = [
     hint: 'SenseAudio · ByteDance Seedream 5.0 hi-res',
     provider: 'senseaudio',
     caps: ['t2i', 'i2i'],
+  },
+
+  // AIHubMix — OpenAI-compatible /v1/images/generations. Prefixed ids stay
+  // unique against the openai-provider entries; the prefix is stripped to the
+  // real wire name daemon-side.
+  {
+    id: 'aihubmix-gpt-image-1',
+    label: 'gpt-image-1 (AIHubMix)',
+    hint: 'AIHubMix · OpenAI gpt-image-1',
+    provider: 'aihubmix',
+    caps: ['t2i', 'i2i'],
+  },
+  {
+    id: 'aihubmix-dall-e-3',
+    label: 'dall-e-3 (AIHubMix)',
+    hint: 'AIHubMix · OpenAI DALL·E 3',
+    provider: 'aihubmix',
+    caps: ['t2i'],
   },
 
   // xAI Grok Imagine — text-to-image (1k/2k, 11+ aspect ratios).
@@ -599,6 +646,7 @@ export const AUDIO_MODELS_BY_KIND: Record<AudioKind, MediaModel[]> = {
     { id: 'senseaudio-tts', label: 'senseaudio-tts', hint: 'SenseAudio', provider: 'senseaudio', caps: ['tts', 'voice-clone'] },
     { id: 'doubao-tts', label: 'doubao-tts', hint: 'Volcengine', provider: 'volcengine', caps: ['tts'] },
     { id: 'gpt-4o-mini-tts', label: 'gpt-4o-mini-tts', hint: 'OpenAI', provider: 'openai', caps: ['tts'] },
+    { id: 'aihubmix-tts-1', label: 'tts-1 (AIHubMix)', hint: 'AIHubMix · OpenAI tts-1', provider: 'aihubmix', caps: ['tts'] },
   ],
   sfx: [
     { id: 'elevenlabs-sfx', label: 'elevenlabs-sfx', hint: 'ElevenLabs SFX', provider: 'elevenlabs', caps: ['sfx'], default: true },
@@ -645,6 +693,17 @@ export function findMediaModel(id: string): MediaModel | null {
 
 export function findProvider(id: MediaProviderId): MediaProvider | null {
   return MEDIA_PROVIDERS.find((p) => p.id === id) ?? null;
+}
+
+/**
+ * Resolve the provider that owns a model id. Live AIHubMix catalogue ids are
+ * `aihubmix-` prefixed and absent from the static registry, so match that
+ * namespace first; every other id resolves through {@link findMediaModel}.
+ * Returns undefined for unknown ids.
+ */
+export function mediaModelProviderId(id: string): MediaProviderId | undefined {
+  if (id.startsWith('aihubmix-')) return 'aihubmix';
+  return findMediaModel(id)?.provider;
 }
 
 /** All model IDs grouped by surface, used for prompt-side disclosure. */

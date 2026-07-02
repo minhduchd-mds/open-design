@@ -1,6 +1,6 @@
 {
   "name": "open-design",
-  "version": "0.8.1",
+  "version": "0.12.1",
   "private": true,
   "packageManager": "pnpm@10.33.2",
   "type": "module",
@@ -13,6 +13,7 @@
     "postinstall": "node ./scripts/postinstall.mjs",
     "tools-dev": "pnpm exec tools-dev",
     "tools-pack": "pnpm exec tools-pack",
+<<<<<<< HEAD
     "build": "npm --filter @open-design/web build",
     "check:residual-js": "node --experimental-strip-types scripts/check-residual-js.ts",
     "sync:community-pets": "node --experimental-strip-types scripts/sync-community-pets.ts",
@@ -23,18 +24,30 @@
     "test:ui": "npm --filter @open-design/e2e test:ui",
     "test:ui:headed": "npm --filter @open-design/e2e test:ui:headed",
     "typecheck": "pnpm -r --workspace-concurrency=4 --if-present run typecheck && tsc -p scripts/tsconfig.json --noEmit",
+=======
+    "tools-release": "pnpm exec tools-release",
+>>>>>>> 0b88ef56144b5a42dc427c1292ae22676d698a34
     "tools-serve": "pnpm exec tools-serve",
     "nix:update-hash": "node --experimental-strip-types ./scripts/update-nix-pnpm-deps-hash.ts",
-    "guard": "tsx ./scripts/guard.ts && node --import tsx --test scripts/style-policy.test.ts scripts/product-neutrality.test.ts scripts/approve-fork-pr-workflows.test.ts scripts/postinstall.test.ts",
+    "guard": "tsx ./scripts/guard.ts && node --import tsx --test scripts/style-policy.test.ts scripts/product-neutrality.test.ts scripts/web-import-isolation.test.ts scripts/check-cross-app-imports.test.ts scripts/approve-fork-pr-workflows.test.ts scripts/lint-craft-references.test.ts",
+    "lint:craft": "tsx ./scripts/lint-craft-references.ts",
     "i18n:check": "tsx ./scripts/i18n-check.ts",
     "i18n:coverage": "tsx ./scripts/i18n-coverage-report.ts",
     "seed:test-projects": "node --experimental-strip-types scripts/seed-test-projects.ts",
+<<<<<<< HEAD
     "seed:curated-design-skills": "node --experimental-strip-types scripts/seed-curated-design-skills.ts"
+=======
+    "seed:curated-design-skills": "node --experimental-strip-types scripts/seed-curated-design-skills.ts",
+    "backfill:failed-runs": "node --experimental-strip-types scripts/backfill-failed-runs-with-artifacts.ts",
+    "typecheck": "pnpm -r --workspace-concurrency=4 --if-present run typecheck && tsc -p scripts/tsconfig.json --noEmit"
+>>>>>>> 0b88ef56144b5a42dc427c1292ae22676d698a34
   },
   "devDependencies": {
+    "@open-design/components": "workspace:*",
     "@open-design/daemon": "workspace:*",
     "@open-design/tools-dev": "workspace:*",
     "@open-design/tools-pack": "workspace:*",
+    "@open-design/tools-release": "workspace:*",
     "@open-design/tools-serve": "workspace:*",
     "@types/node": "20.19.39",
     "tsx": "4.22.3",
@@ -54,6 +67,7 @@
       "postcss": "8.5.15",
       "protobufjs": "8.4.0",
       "qs": "6.15.2",
+      "tmp": "0.2.7",
       "yaml": "2.9.0"
     },
     "onlyBuiltDependencies": [

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { decideAutoOpenAfterWrite } from '../../src/components/auto-open-file';
+import {
+  decideAutoOpenAfterWrite,
+  selectAutoOpenProducedArtifact,
+} from '../../src/components/auto-open-file';
 
 describe('decideAutoOpenAfterWrite', () => {
   it('returns shouldOpen=false when filePath is empty', () => {
@@ -135,5 +138,63 @@ describe('decideAutoOpenAfterWrite', () => {
       { moduleFileNames: new Set(['icons.jsx']) },
     );
     expect(result).toEqual({ shouldOpen: true, fileName: 'landing.html' });
+  });
+});
+
+describe('selectAutoOpenProducedArtifact', () => {
+  it('selects a newly produced html file for the turn-end auto-open fallback', () => {
+    const result = selectAutoOpenProducedArtifact([
+      { name: 'notes.txt', path: 'notes.txt', kind: 'text', mtime: 20 },
+      { name: 'mutuals-v2.html', path: 'mutuals-v2.html', kind: 'html', mtime: 30 },
+    ]);
+
+    expect(result).toBe('mutuals-v2.html');
+  });
+
+  it('prefers the newest produced html file when a turn writes multiple html files', () => {
+    const result = selectAutoOpenProducedArtifact([
+      { name: 'index.html', path: 'index.html', kind: 'html', mtime: 10 },
+      { name: 'mutuals-v2.html', path: 'mutuals-v2.html', kind: 'html', mtime: 30 },
+    ]);
+
+    expect(result).toBe('mutuals-v2.html');
+  });
+
+  it('auto-opens a produced markdown document (plan/report) when no html exists', () => {
+    // Plan mode: the turn produces only `plan.md`. It renders inline in the
+    // viewer, so it must auto-open rather than leave the viewer empty.
+    const result = selectAutoOpenProducedArtifact([
+      { name: 'plan.md', path: 'plan.md', kind: 'text', mtime: 30 },
+    ]);
+
+    expect(result).toBe('plan.md');
+  });
+
+  it('prefers the html page over a markdown note written in the same turn', () => {
+    // Even when the markdown file is the most recently written, the primary
+    // visual deliverable (html) takes focus.
+    const result = selectAutoOpenProducedArtifact([
+      { name: 'index.html', path: 'index.html', kind: 'html', mtime: 10 },
+      { name: 'README.md', path: 'README.md', kind: 'text', mtime: 30 },
+    ]);
+
+    expect(result).toBe('index.html');
+  });
+
+  it('leaves a plain .txt file alone (text kind is shared with markdown)', () => {
+    // `.md` and `.txt` both arrive as kind: 'text'; only markdown should open.
+    const result = selectAutoOpenProducedArtifact([
+      { name: 'notes.txt', path: 'notes.txt', kind: 'text', mtime: 30 },
+    ]);
+
+    expect(result).toBeNull();
+  });
+
+  it('returns null when the produced files are not previewable', () => {
+    const result = selectAutoOpenProducedArtifact([
+      { name: 'deck.pptx', path: 'deck.pptx', kind: 'presentation', mtime: 30 },
+    ]);
+
+    expect(result).toBeNull();
   });
 });

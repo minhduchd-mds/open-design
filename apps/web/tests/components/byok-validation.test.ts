@@ -102,6 +102,77 @@ describe('BYOK draft validation', () => {
     ).toBe(true);
   });
 
+  it('can enforce first-party key shape when the first-party Base URL looks mistyped', () => {
+    const withoutHint = validateByokDraft('anthropic', {
+      apiKey: 'sk-openai-key',
+      baseUrl: 'https://api.anthropic.comsssss',
+      model: 'claude-sonnet-4-5',
+    });
+    expect(withoutHint.issues).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          field: 'api_key',
+          code: 'api_key_wrong_protocol',
+        }),
+      ]),
+    );
+
+    const withHint = validateByokDraft(
+      'anthropic',
+      {
+        apiKey: 'sk-openai-key',
+        baseUrl: 'https://api.anthropic.comsssss',
+        model: 'claude-sonnet-4-5',
+      },
+      { keyValidationBaseUrl: 'https://api.anthropic.com' },
+    );
+    expect(withHint.ok).toBe(false);
+    expect(withHint.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          field: 'api_key',
+          level: 'error',
+          code: 'api_key_wrong_protocol',
+          detectedProtocol: 'openai',
+        }),
+      ]),
+    );
+  });
+
+  it('rejects Anthropic/OpenAI base URLs on the Google Gemini tab', () => {
+    const anthropicHost = validateByokDraft('google', {
+      apiKey: 'AQ.TestKeyForUnitTests01234567890123456789012',
+      baseUrl: 'https://api.anthropic.com',
+      model: 'gemini-2.0-flash',
+    });
+    expect(anthropicHost.ok).toBe(false);
+    expect(anthropicHost.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          field: 'base_url',
+          code: 'base_url_invalid',
+        }),
+      ]),
+    );
+  });
+
+  it('accepts Google Gemini AQ. service-account-bound keys on the first-party endpoint', () => {
+    expect(
+      validateByokDraft('google', {
+        apiKey: 'AQ.TestKeyForUnitTests01234567890123456789012',
+        baseUrl: 'https://generativelanguage.googleapis.com',
+        model: 'gemini-2.0-flash',
+      }).ok,
+    ).toBe(true);
+    expect(
+      validateByokDraft('google', {
+        apiKey: 'AIzaSyD-Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1',
+        baseUrl: 'https://generativelanguage.googleapis.com',
+        model: 'gemini-2.0-flash',
+      }).ok,
+    ).toBe(true);
+  });
+
   it('still enforces key shape on first-party OpenAI and Google endpoints', () => {
     const openai = validateByokDraft('openai', {
       apiKey: 'enterprise-openai-key',

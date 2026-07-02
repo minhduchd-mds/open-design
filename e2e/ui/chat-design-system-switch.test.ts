@@ -8,8 +8,9 @@
 // blocker for the feature; this spec is the regression boundary.
 
 import { randomUUID } from 'node:crypto';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@/playwright/suite';
 import type { Page } from '@playwright/test';
+import { routeAgents } from '@/playwright/mock-factory';
 
 const STORAGE_KEY = 'open-design:config';
 
@@ -63,29 +64,23 @@ test.beforeEach(async ({ page }) => {
     });
   });
 
-  await page.route('**/api/agents', async (route) => {
-    await route.fulfill({
-      json: {
-        agents: [
-          {
-            id: 'mock',
-            name: 'Mock Agent',
-            bin: 'mock-agent',
-            available: true,
-            version: 'test',
-            models: [{ id: 'default', label: 'Default' }],
-          },
-        ],
-      },
-    });
-  });
+  await routeAgents(page, [
+    {
+      id: 'mock',
+      name: 'Mock Agent',
+      bin: 'mock-agent',
+      available: true,
+      version: 'test',
+      models: [{ id: 'default', label: 'Default' }],
+    },
+  ]);
 
   await page.route('**/api/design-systems', async (route) => {
     await route.fulfill({ json: { designSystems: DESIGN_SYSTEMS } });
   });
 });
 
-test('chat composer switches the project design system mid-chat', async ({ page }) => {
+test('[P1] chat composer switches the project design system mid-chat', async ({ page }) => {
   // Capture every outbound run-create request so we can prove the chat
   // turn *after* the switch composes with the new design system rather
   // than stale in-memory state. The run + its SSE stream are stubbed so

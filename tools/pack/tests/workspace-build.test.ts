@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -9,9 +9,12 @@ import type { ToolPackConfig } from "../src/config.js";
 import { ensureWorkspaceBuildArtifacts } from "../src/workspace-build.js";
 
 const PACKAGE_DIRS = [
+  "packages/release",
+  "packages/components",
   "packages/contracts",
   "packages/registry-protocol",
   "packages/sidecar-proto",
+  "packages/launcher-proto",
   "packages/sidecar",
   "packages/platform",
   "packages/download",
@@ -26,12 +29,18 @@ const PACKAGE_DIRS = [
 ] as const;
 
 const OUTPUT_FILES = [
+  "packages/release/dist/index.mjs",
+  "packages/release/dist/index.d.ts",
+  "packages/components/dist/index.mjs",
+  "packages/components/dist/index.d.ts",
   "packages/contracts/dist/index.mjs",
   "packages/contracts/dist/index.d.ts",
   "packages/registry-protocol/dist/index.mjs",
   "packages/registry-protocol/dist/index.d.ts",
   "packages/sidecar-proto/dist/index.mjs",
   "packages/sidecar-proto/dist/index.d.ts",
+  "packages/launcher-proto/dist/index.mjs",
+  "packages/launcher-proto/dist/index.d.ts",
   "packages/sidecar/dist/index.mjs",
   "packages/sidecar/dist/index.d.ts",
   "packages/platform/dist/index.mjs",
@@ -73,6 +82,16 @@ async function writeOutputs(root: string, value: string): Promise<void> {
   for (const file of OUTPUT_FILES) {
     await mkdir(join(root, file, ".."), { recursive: true });
     await writeFile(join(root, file), `${value}\n`, "utf8");
+  }
+}
+
+async function writeStandalonePeerDeps(root: string): Promise<void> {
+  const pnpmRoot = join(root, "apps/web/.next/standalone/node_modules/.pnpm");
+  for (const directory of ["react@18.3.1", "react-dom@18.3.1_react@18.3.1", "styled-jsx@5.1.6_react@18.3.1"]) {
+    const packageName = directory.split("@")[0]!;
+    const packageRoot = join(pnpmRoot, directory, "node_modules", packageName);
+    await mkdir(packageRoot, { recursive: true });
+    await writeFile(join(packageRoot, "package.json"), `${JSON.stringify({ name: packageName }, null, 2)}\n`, "utf8");
   }
 }
 
@@ -138,6 +157,66 @@ describe("ensureWorkspaceBuildArtifacts", () => {
         "win.workspace-build",
       ]);
       expect(await readFile(join(root, "apps/packaged/dist/index.mjs"), "utf8")).toBe("build-1\n");
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("writes a Windows version-family alias after a successful build", async () => {
+    const root = await mkdtemp(join(tmpdir(), "open-design-workspace-build-alias-"));
+    const cache = new ToolPackCache(join(root, ".cache"));
+    const config: ToolPackConfig = { ...createConfig(root, cache.root), appVersion: "0.9.1-beta.1" };
+
+    try {
+      await writeWorkspace(root);
+      await ensureWorkspaceBuildArtifacts(config, cache, async () => {
+        await writeOutputs(root, "build");
+      });
+
+      const aliasesRoot = join(cache.root, "aliases", "win.workspace-build");
+      const aliasBuckets = await readdir(aliasesRoot);
+      expect(aliasBuckets).toHaveLength(1);
+      expect(await readFile(join(aliasesRoot, aliasBuckets[0]!, "alias.json"), "utf8")).toContain("win.workspace-build");
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("hoists standalone web peer deps with Windows-compatible directory links", async () => {
+    const root = await mkdtemp(join(tmpdir(), "open-design-workspace-build-peer-deps-"));
+    const cache = new ToolPackCache(join(root, ".cache"));
+    const config = createConfig(root, cache.root);
+
+    try {
+      await writeWorkspace(root);
+      await ensureWorkspaceBuildArtifacts(config, cache, async () => {
+        await writeOutputs(root, "build");
+        await writeStandalonePeerDeps(root);
+      });
+
+      expect(await readFile(join(root, "apps/web/.next/standalone/apps/web/node_modules/react/package.json"), "utf8"))
+        .toContain('"name": "react"');
+      expect(await readFile(join(root, "apps/web/.next/standalone/apps/web/node_modules/react-dom/package.json"), "utf8"))
+        .toContain('"name": "react-dom"');
+      expect(await readFile(join(root, "apps/web/.next/standalone/apps/web/node_modules/styled-jsx/package.json"), "utf8"))
+        .toContain('"name": "styled-jsx"');
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("does not write a version-family alias for mac workspace builds", async () => {
+    const root = await mkdtemp(join(tmpdir(), "open-design-workspace-build-mac-alias-"));
+    const cache = new ToolPackCache(join(root, ".cache"));
+    const config: ToolPackConfig = { ...createConfig(root, cache.root), appVersion: "0.9.1-beta.1", platform: "mac" };
+
+    try {
+      await writeWorkspace(root);
+      await ensureWorkspaceBuildArtifacts(config, cache, async () => {
+        await writeOutputs(root, "build");
+      });
+
+      await expect(readdir(join(cache.root, "aliases", "mac.workspace-build"))).rejects.toThrow();
     } finally {
       await rm(root, { force: true, recursive: true });
     }

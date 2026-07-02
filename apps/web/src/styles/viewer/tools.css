@@ -1,125 +1,9 @@
-/*
- * Inline rendering of Claude's AskUserQuestion tool. Question text reads
- * like a normal assistant message, options live as a row of chip buttons
- * the user picks from. Once an answer ships (or the user has moved past
- * the turn) the card locks into a read only state: chips remain visible
- * but unclickable so the user can see what was asked.
- */
-.op-ask-question .op-card-head { padding-bottom: 4px; }
-.op-ask-question-body {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 4px 12px 12px;
-}
-.op-ask-question-field {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.op-ask-question-header {
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-.op-ask-question-prompt {
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--text);
-}
-.op-ask-question-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.op-ask-question-option {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  padding: 7px 11px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-panel);
-  color: var(--text);
-  font-size: 12.5px;
-  font-family: inherit;
-  cursor: pointer;
-  text-align: left;
-  transition: border-color 120ms ease, background 120ms ease;
-}
-.op-ask-question-option:hover { border-color: var(--accent); }
-.op-ask-question-option.on {
-  border-color: var(--accent);
-  background: var(--accent-bg, var(--bg-subtle));
-}
-.op-ask-question-option:disabled {
-  cursor: default;
-  opacity: 0.85;
-}
-.op-ask-question-option-label { font-weight: 500; }
-.op-ask-question-option-desc {
-  font-size: 11px;
-  color: var(--text-muted);
-  white-space: normal;
-}
-.op-ask-question-foot {
-  display: flex;
-  justify-content: flex-end;
-  padding: 4px 12px 12px;
-}
-/* Match the composer's Send button styling so the two actions read as
- * the same control family. The composer-send is bordered with the
- * accent color and uses the same padding/typography; we drop the icon
- * by skipping the gap/svg children entirely. */
-.op-ask-question-submit {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--accent);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius);
-  color: white;
-  font-weight: 500;
-  padding: 4px 14px;
-  font-size: 12.5px;
-  cursor: pointer;
-}
-.op-ask-question-submit:hover:not(:disabled) {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
-}
-.op-ask-question-submit:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-/*
- * Locked card state: unchosen options fade back into the card surface
- * while the user's pick keeps its accent outline so the answer stays
- * legible after submission. Without the `:not(.on)` qualifier the lock
- * would wipe the selected state and the card would look unanswered.
- */
-.op-ask-question-locked .op-ask-question-option:not(.on) {
-  border-color: var(--border-soft);
-  background: transparent;
-  color: var(--text-muted);
-}
-.op-ask-question-locked .op-ask-question-option.on {
-  border-color: var(--accent);
-  background: var(--accent-bg, var(--bg-subtle));
-  cursor: default;
-}
-.op-ask-question-locked .op-ask-question-option.on .op-ask-question-option-desc {
-  color: var(--text-muted);
-}
 .op-meta { color: var(--text-muted); font-size: 11.5px; }
 .op-desc { font-style: italic; }
 .op-path {
-  background: var(--bg-subtle);
+  background: var(--bg-fill-tertiary);
   padding: 1px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-size: 11px;
   font-family: var(--mono);
   color: var(--text);
@@ -129,81 +13,80 @@
   max-width: min(220px, 100%);
 }
 .op-status {
-  margin-left: auto;
-  font-size: 10.5px;
-  padding: 2px 9px;
-  border-radius: var(--radius-pill);
-  letter-spacing: 0.02em;
-  border: 1px solid var(--border);
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  padding: 0;
+  border: 1px solid var(--border-soft);
+  background: var(--bg-panel);
   color: var(--text-muted);
-  background: var(--bg-subtle);
+  flex-shrink: 0;
+  font-size: 12px;
 }
-.op-status-running {
-  border-color: var(--purple-border);
-  background: var(--purple-bg);
-  color: var(--purple);
-  animation: pulse 1.6s ease-in-out infinite;
-}
-/*
- * Static waiting-for-input variant. Same purple chrome as `op-status-running`
- * but no pulse: an AskUserQuestion card is parked until the user clicks, not
- * actively working, so the animation is misleading.
- */
-.op-status-awaiting {
-  border-color: var(--purple-border);
-  background: var(--purple-bg);
-  color: var(--purple);
-}
-.op-status-ok { border-color: var(--green-border); background: var(--green-bg); color: var(--green); }
-.op-status-error { border-color: var(--red-border); background: var(--red-bg); color: var(--red); }
+.op-status-running { color: var(--purple); }
+.op-status-ok { color: var(--green); }
+.op-status-error { color: var(--red); }
 .op-toggle {
   font-size: 10.5px;
   padding: 2px 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
   color: var(--text-muted);
 }
 .op-open {
   font-size: 10.5px;
-  padding: 2px 9px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--text);
+  padding: 2px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
   cursor: pointer;
 }
 .op-open:hover {
-  background: var(--bg-subtle);
-  border-color: var(--accent);
-  color: var(--accent);
+  background: var(--bg-fill-tertiary);
+  color: var(--text);
 }
 
 .produced-files {
-  margin-top: 4px;
-  padding: 12px 14px;
-  background: var(--bg-subtle);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  margin-top: 6px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
 }
 .produced-files-label {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--text-muted);
-  margin-bottom: 8px;
-  font-weight: 600;
+  color: var(--text-soft);
+  margin-bottom: 6px;
+  font-weight: 500;
 }
-.produced-files-list { display: flex; flex-direction: column; gap: 4px; }
+.produced-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: min(34vh, 260px);
+  overflow-y: auto;
+}
 .produced-file {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
-  border-radius: 6px;
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  font-size: 12px;
+  border-radius: var(--radius);
+  background: none;
+  border: none;
+  font-size: 12.5px;
+  box-shadow: none;
+  transition: background 160ms var(--ease-out);
+}
+.produced-file:hover {
+  background: var(--bg-fill-tertiary);
 }
 .produced-file-icon { width: 22px; text-align: center; color: var(--text-muted); }
 .produced-file-name {
@@ -219,11 +102,20 @@
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
-.produced-file-actions { display: flex; gap: 6px; }
+.produced-file-actions { display: flex; gap: 4px; }
 .produced-file-actions .ghost,
 .produced-file-actions .ghost-link {
   font-size: 11px;
-  padding: 3px 9px;
+  padding: 2px 8px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+}
+.produced-file-actions .ghost:hover,
+.produced-file-actions .ghost-link:hover {
+  background: var(--bg-fill-tertiary);
+  color: var(--text);
 }
 
 .plugin-action-panel {
@@ -246,7 +138,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 7px;
+  border-radius: var(--radius);
   background: var(--accent-soft);
   color: var(--accent);
   flex-shrink: 0;
@@ -279,6 +171,10 @@
   padding-top: 0;
   border-top: none;
 }
+.plugin-action-panel > .plugin-action-card:only-child {
+  padding-top: 0;
+  border-top: none;
+}
 .plugin-action-card__main {
   display: flex;
   align-items: center;
@@ -291,7 +187,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--bg-subtle);
   color: var(--text-muted);
   flex-shrink: 0;
@@ -308,7 +204,7 @@
 .plugin-action-card__path {
   max-width: 220px;
   padding: 1px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: var(--bg-panel);
   border: 1px solid var(--border-soft);
   color: var(--text);
@@ -332,7 +228,7 @@
   max-width: 100%;
   padding: 5px 10px;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--radius);
   background: var(--bg-panel);
   color: var(--text);
   font-size: 11.5px;
@@ -357,8 +253,9 @@
   filter: brightness(0.85);
 }
 .plugin-action-card__notice {
+  margin-top: 8px;
   padding: 6px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--bg-panel);
   border: 1px solid var(--border-soft);
   color: var(--text-muted);
@@ -372,7 +269,7 @@
   word-break: break-all;
 }
 
-/* "Files this turn" summary — derived from Read/Write/Edit tool_use events
+/* "Files this turn" summary — derived from file operation tool_use events
    so users can scan every file the agent touched without expanding tool-
    group disclosures. Compact pill while streaming, full list once done. */
 .file-ops {
@@ -425,7 +322,7 @@
   font-variant-numeric: tabular-nums;
   color: var(--text-muted);
   padding: 1px 6px;
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--bg-subtle);
   border: 1px solid var(--border);
 }
@@ -441,6 +338,8 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
+  max-height: min(34vh, 260px);
+  overflow-y: auto;
   border-top: 1px solid var(--border-soft, var(--border));
 }
 .file-ops-row {
@@ -448,7 +347,7 @@
   align-items: center;
   gap: 8px;
   padding: 5px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 12px;
   min-width: 0;
 }
@@ -464,7 +363,7 @@
   min-width: 18px;
   height: 18px;
   padding: 0 4px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-size: 10px;
   font-weight: 700;
   font-family: var(--mono);
@@ -493,6 +392,11 @@
   border-color: color-mix(in oklab, #b26500 35%, var(--border));
   background: color-mix(in oklab, #b26500 8%, var(--bg-subtle));
 }
+.file-ops-badge--delete {
+  color: #b42318;
+  border-color: color-mix(in oklab, #b42318 35%, var(--border));
+  background: color-mix(in oklab, #b42318 8%, var(--bg-subtle));
+}
 .file-ops-row-path {
   flex: 1;
   min-width: 0;
@@ -516,7 +420,7 @@
   letter-spacing: 0.04em;
   font-weight: 600;
   padding: 1px 6px;
-  border-radius: 8px;
+  border-radius: var(--radius);
   flex-shrink: 0;
 }
 .file-ops-row-status--running {
@@ -532,7 +436,7 @@
   padding: 3px 9px;
   background: transparent;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--text);
   cursor: pointer;
   flex-shrink: 0;
@@ -548,13 +452,15 @@
   padding: 8px 12px;
   background: #1c1b1a;
   color: #f0eee9;
+  border-radius: var(--radius-md);
   font-family: var(--mono);
   font-size: 11px;
   line-height: 1.55;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   max-height: 220px;
-  overflow-y: auto;
+  overflow: auto;
+  scrollbar-width: thin;
 }
 .op-bash .op-output { background: #2a2926; }
 
@@ -575,7 +481,7 @@
   line-height: 1.45;
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
-  transition: background-color 120ms ease, border-color 120ms ease;
+  transition: background-color 120ms var(--ease-out), border-color 120ms var(--ease-out);
 }
 .todo-check {
   width: 16px;
@@ -622,6 +528,10 @@
 }
 
 /* Present / Share menus */
+.present-wrap,
+.share-menu {
+  --viewer-action-menu-z: 220;
+}
 .present-wrap { position: relative; display: inline-block; }
 .present-trigger .caret {
   margin-left: 4px;
@@ -632,7 +542,7 @@
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  z-index: 60;
+  z-index: var(--viewer-action-menu-z);
   min-width: 168px;
   padding: 4px;
   background: var(--bg-panel);
@@ -648,7 +558,7 @@
   padding: 8px 10px;
   font-size: 12px;
   text-align: left;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -729,7 +639,7 @@
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  z-index: 50;
+  z-index: var(--viewer-action-menu-z);
   min-width: 300px;
   padding: 4px;
   background: var(--bg-panel);
@@ -749,7 +659,7 @@
   text-align: left;
   background: transparent;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   color: var(--text);
 }
@@ -791,7 +701,7 @@
   gap: 3px;
   padding: 10px 10px 9px;
   border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--bg-subtle);
 }
 .template-share-summary__eyebrow {
@@ -847,7 +757,7 @@
   min-height: 36px;
   padding: 7px 9px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--bg-panel);
   color: var(--text);
   font-size: 12.5px;
@@ -870,7 +780,7 @@
   flex: 0 0 22px;
   width: 22px;
   height: 22px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -940,11 +850,29 @@
   max-height: calc(100vh - 32px);
   overflow: auto;
 }
-.deploy-flow-modal {
+.deploy-flow-backdrop.modal-backdrop {
+  box-sizing: border-box;
+  padding: clamp(48px, 7vh, 88px) 16px;
+}
+.viewer-modal-backdrop.modal-backdrop {
+  z-index: 1700;
+}
+.deploy-flow-modal.modal {
+  /* --modal-padding feeds the .deploy-form horizontal padding below. */
   --modal-padding: 22px;
-  max-height: min(760px, calc(100vh - 48px));
-  padding: 0;
+  max-height: min(760px, calc(100vh - 112px));
+  max-height: min(760px, calc(100dvh - 112px));
+  gap: 0;
   overflow: hidden;
+  padding: 0;
+}
+.deploy-flow-modal__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px 22px 18px;
+  scrollbar-width: thin;
 }
 .image-export-modal.modal {
   width: min(430px, calc(100vw - 32px));
@@ -988,7 +916,7 @@
   gap: 2px;
   padding: 2px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--bg-subtle);
 }
 .image-export-format-option {
@@ -1000,7 +928,7 @@
   min-height: 38px;
   padding: 0 8px;
   border: 1px solid transparent;
-  border-radius: 7px;
+  border-radius: var(--radius);
   background: transparent;
   cursor: pointer;
   transition:
@@ -1045,6 +973,72 @@
 .image-export-format-text span {
   display: none;
 }
+.pptx-export-mode-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.pptx-export-mode-option {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-subtle);
+  cursor: pointer;
+  transition:
+    border-color 140ms cubic-bezier(0.23, 1, 0.32, 1),
+    background 140ms cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 140ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.pptx-export-mode-option:hover {
+  background: color-mix(in srgb, var(--bg-panel) 70%, transparent);
+}
+.pptx-export-mode-option.active {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: var(--bg-panel);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 8%, transparent);
+}
+.pptx-export-mode-option input[type="radio"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.pptx-export-mode-option:has(input[type="radio"]:focus-visible) {
+  outline: 2px solid color-mix(in srgb, var(--accent) 42%, transparent);
+  outline-offset: 2px;
+}
+.pptx-export-mode-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pptx-export-mode-title {
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.pptx-export-mode-badge {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.pptx-export-mode-desc {
+  color: color-mix(in srgb, var(--text) 58%, transparent);
+  font-size: 12px;
+  line-height: 1.45;
+}
 .image-export-modal .modal-foot {
   padding: 14px 24px 20px;
   border-top: 1px solid var(--border);
@@ -1077,6 +1071,10 @@
   flex-direction: column;
   gap: 14px;
   margin-top: 18px;
+}
+.deploy-flow-modal .deploy-form {
+  gap: 12px;
+  margin-top: 16px;
 }
 .deploy-provider-field {
   display: flex;
@@ -1166,14 +1164,14 @@
   color: var(--text-muted);
   text-decoration: none;
   white-space: nowrap;
-  transition: color 120ms ease;
+  transition: color 120ms var(--ease-out);
 }
 .field-label-link:hover {
   color: var(--accent);
 }
 .field-label-link svg {
   opacity: 0.75;
-  transition: transform 120ms ease, opacity 120ms ease;
+  transition: transform 120ms var(--ease-out), opacity 120ms var(--ease-out);
 }
 .field-label-link:hover svg {
   opacity: 1;

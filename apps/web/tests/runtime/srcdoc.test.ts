@@ -37,11 +37,37 @@ describe('buildSrcdoc', () => {
     expect(srcdoc).toContain('foreignObject');
   });
 
+  it('paints an opaque background before drawing so empty rasters never flatten to black', () => {
+    const srcdoc = buildSrcdoc('<main style="color:red">Hero</main>');
+
+    // A fresh 2D canvas is transparent black; without an opaque base, a
+    // foreignObject that paints nothing flattens to a solid BLACK PNG in
+    // clipboards/viewers (the reported bug). The bridge must fill first.
+    expect(srcdoc).toContain('function snapshotBackgroundColor()');
+    expect(srcdoc).toContain('ctx.fillStyle = bgColor;');
+    expect(srcdoc).toContain('ctx.fillRect(0, 0, capW, capH);');
+    // The fill happens before the rasterized image is drawn over it.
+    const fillIdx = srcdoc.indexOf('ctx.fillRect(0, 0, capW, capH);');
+    const drawIdx = srcdoc.indexOf('ctx.drawImage(img, 0, 0, capW, capH);');
+    expect(fillIdx).toBeGreaterThan(-1);
+    expect(drawIdx).toBeGreaterThan(fillIdx);
+  });
+
+  it('reports an empty-render error instead of shipping a blank capture', () => {
+    const srcdoc = buildSrcdoc('<main style="color:red">Hero</main>');
+
+    // When the foreignObject paints nothing the canvas is uniform; the bridge
+    // must surface that as an honest failure (rejected promise → od:snapshot:result
+    // error) so the host can fall back / show an error rather than copy a (now
+    // white-filled but still empty) frame.
+    expect(srcdoc).toContain('function canvasLooksBlank(');
+    expect(srcdoc).toContain("reject(new Error('empty-render'))");
+  });
+
   it('renders snapshot SVGs through data URLs so canvas export stays origin-clean', () => {
     const srcdoc = buildSrcdoc('<main style="color:red">Hero</main>');
 
-    expect(srcdoc).toContain('function encodedSvgDataUrl()');
-    expect(srcdoc).toContain('img.src = encodedSvgDataUrl();');
+    expect(srcdoc).toContain("img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);");
     expect(srcdoc).not.toContain('createObjectURL');
     expect(srcdoc).not.toContain('snapshot too large');
   });
@@ -61,6 +87,15 @@ describe('buildSrcdoc', () => {
     expect(srcdoc).toContain('link[rel~="stylesheet"], link[rel~="preload"], link[rel~="preconnect"]');
     expect(srcdoc).toContain('.replace(/@import[^;]+;/gi,');
     expect(srcdoc).toContain('.replace(/@font-face\\s*\\{[^}]*\\}/gi,');
+  });
+
+  it('prunes hidden snapshot clone nodes before rasterizing decks', () => {
+    const srcdoc = buildSrcdoc(deckHtml, { deck: true });
+
+    expect(srcdoc).toContain('function pruneHiddenSnapshotNodes');
+    expect(srcdoc).toContain("computed.display === 'none'");
+    expect(srcdoc).toContain("computed.visibility === 'hidden'");
+    expect(srcdoc).toContain('pruneHiddenSnapshotNodes(document.documentElement, clone)');
   });
 
   it('can guard preview iframes against load-time focus stealing', () => {

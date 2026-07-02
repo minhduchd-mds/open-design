@@ -32,6 +32,7 @@ export interface ProjectFileStubGuardWarning {
 export interface ProjectFile {
   name: string;
   path?: string;
+  localPath?: string;
   type?: 'file' | 'dir';
   size: number;
   mtime: number;
@@ -40,10 +41,77 @@ export interface ProjectFile {
   artifactKind?: ArtifactKind;
   artifactManifest?: ArtifactManifest;
   stubGuardWarning?: ProjectFileStubGuardWarning;
+  traceObjectReason?: 'new' | 'modified' | 'recovered';
+}
+
+export interface ProjectFolder {
+  name: string;
+  path: string;
+  type: 'dir';
+  size: 0;
+  mtime: number;
 }
 
 export interface ProjectFilesResponse {
   files: ProjectFile[];
+}
+
+export type ProjectFileVersionSource = 'ai' | 'manual' | 'restore';
+export type ProjectFileVersionPromptSource = 'message' | 'project' | 'manual' | 'restore';
+
+export interface ProjectFileVersion {
+  id: string;
+  fileName: string;
+  version: number;
+  label: string;
+  createdAt: number;
+  source: ProjectFileVersionSource;
+  prompt: string | null;
+  promptSource?: ProjectFileVersionPromptSource;
+  restoreFromVersionId?: string;
+  size: number;
+  mime: string;
+  kind: ProjectFileKind;
+  current: boolean;
+}
+
+export interface ProjectFileVersionsResponse {
+  file: ProjectFile;
+  versions: ProjectFileVersion[];
+}
+
+export interface ProjectFileVersionResponse {
+  version: ProjectFileVersion;
+  content: string;
+}
+
+export interface CreateProjectFileVersionRequest {
+  prompt?: string | null;
+  label?: string | null;
+  source?: ProjectFileVersionSource;
+}
+
+export interface CreateProjectFileVersionResponse {
+  version: ProjectFileVersion;
+}
+
+export interface RestoreProjectFileVersionRequest {
+  prompt?: string | null;
+}
+
+export interface ProjectFileVersionWarning {
+  code: 'PROJECT_FILE_VERSION_CAPTURE_FAILED';
+  message: string;
+}
+
+export interface RestoreProjectFileVersionResponse {
+  file: ProjectFile;
+  version: ProjectFileVersion | null;
+  versionWarning?: ProjectFileVersionWarning;
+}
+
+export interface ProjectFoldersResponse {
+  folders: ProjectFolder[];
 }
 
 export type ProjectExportManifestFileRole =
@@ -71,8 +139,10 @@ export interface ProjectExportManifestArtifact {
   updatedAt: string | null;
 }
 
+export const PROJECT_EXPORT_MANIFEST_SCHEMA = 'open-design.project-export-manifest.v1' as const;
+
 export interface ProjectExportManifestResponse {
-  schema: 'open-design.project-export-manifest.v1';
+  schema: typeof PROJECT_EXPORT_MANIFEST_SCHEMA;
   projectId: string;
   projectName: string | null;
   generatedAt: string;
@@ -91,11 +161,18 @@ export interface ProjectPreviewUrlResponse {
 
 export interface ProjectFileResponse {
   file: ProjectFile;
+  versionWarning?: ProjectFileVersionWarning;
+}
+
+export interface ProjectFolderResponse {
+  folder: ProjectFolder;
 }
 
 export interface UploadProjectFilesResponse extends ProjectFilesResponse {}
 
 export interface DeleteProjectFileResponse extends OkResponse {}
+
+export interface DeleteProjectFolderResponse extends OkResponse {}
 
 export interface RenameProjectFileRequest {
   from: string;
@@ -106,4 +183,21 @@ export interface RenameProjectFileResponse {
   file: ProjectFile;
   oldName: string;
   newName: string;
+}
+
+export function buildProjectRawFileUrl(
+  baseUrl: string,
+  projectId: string,
+  filePath: unknown,
+): string | null {
+  if (typeof filePath !== 'string' || filePath.length === 0) return null;
+  const segments = filePath
+    .split('/')
+    .filter((segment) => segment.length > 0)
+    .map(encodeURIComponent)
+    .join('/');
+  if (segments.length === 0) return null;
+
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
+  return `${normalizedBaseUrl}/api/projects/${encodeURIComponent(projectId)}/raw/${segments}`;
 }

@@ -36,7 +36,10 @@ function clickAgentTool(testId: string) {
   fireEvent.click(screen.getByTestId(testId));
 }
 
-async function hoverManualEditTarget(target = heroTarget()) {
+// Pins the inspector to a target. Hover no longer auto-selects, so selection
+// rides the explicit click path (od-edit-select), matching the bridge sending
+// it when the user clicks the hover affordance or a container/image body.
+async function selectManualEditTarget(target = heroTarget()) {
   const frame = await waitFor(() => {
     const node = screen.getByTestId('artifact-preview-frame') as HTMLIFrameElement;
     if (!node.contentWindow) throw new Error('Preview frame not ready');
@@ -44,7 +47,7 @@ async function hoverManualEditTarget(target = heroTarget()) {
   });
   act(() => {
     window.dispatchEvent(new MessageEvent('message', {
-      data: { type: 'od-edit-hover', target },
+      data: { type: 'od-edit-select', target },
       source: frame.contentWindow,
     }));
   });
@@ -93,7 +96,7 @@ describe('FileViewer manual edit history regressions', () => {
     );
 
     clickManualTool('manual-edit-mode-toggle');
-    await hoverManualEditTarget();
+    await selectManualEditTarget();
 
     act(() => {
       panelState.props?.onStyleChange?.('hero', { color: '#ef4444' }, 'Style: Hero');
@@ -121,7 +124,7 @@ describe('FileViewer manual edit history regressions', () => {
     expect(screen.getByTestId('draw-overlay-toggle').getAttribute('aria-pressed')).toBe('true');
   });
 
-  it('remounts the srcDoc iframe when closing manual edit on a srcDoc-only preview', async () => {
+  it('keeps the srcDoc iframe mounted when closing manual edit on a srcDoc-only preview', async () => {
     const source = '<!doctype html><html><body><script>localStorage.getItem("od");</script><main data-od-id="hero">Hero</main></body></html>';
 
     render(
@@ -131,22 +134,22 @@ describe('FileViewer manual edit history regressions', () => {
     );
 
     clickManualTool('manual-edit-mode-toggle');
-    await hoverManualEditTarget();
+    await selectManualEditTarget();
 
     const editFrame = screen.getByTestId('artifact-preview-frame') as HTMLIFrameElement;
     expect(editFrame.getAttribute('data-od-render-mode')).toBe('srcdoc');
     expect(editFrame.srcdoc).toContain('data-od-edit-bridge');
 
-    act(() => {
-      panelState.props?.onExit?.();
-    });
+    // Exiting edit mode is the toolbar toggle's job — the panel's own close
+    // button only collapses the inspector and stays in edit.
+    clickManualTool('manual-edit-mode-toggle');
 
     await waitFor(() => {
       const previewFrame = screen.getByTestId('artifact-preview-frame') as HTMLIFrameElement;
-      expect(previewFrame).not.toBe(editFrame);
+      expect(previewFrame).toBe(editFrame);
       expect(previewFrame.getAttribute('data-od-render-mode')).toBe('srcdoc');
       expect(previewFrame.srcdoc).toContain('Hero');
-      expect(previewFrame.srcdoc).not.toContain('data-od-edit-bridge');
+      expect(previewFrame.srcdoc).toContain('data-od-edit-bridge');
     });
   });
 
@@ -185,7 +188,7 @@ describe('FileViewer manual edit history regressions', () => {
     );
 
     clickManualTool('manual-edit-mode-toggle');
-    await hoverManualEditTarget();
+    await selectManualEditTarget();
 
     act(() => {
       panelState.props?.onApplyPatch(
@@ -247,7 +250,7 @@ describe('FileViewer manual edit history regressions', () => {
     );
 
     fireEvent.click(screen.getByTestId('manual-edit-mode-toggle'));
-    await hoverManualEditTarget();
+    await selectManualEditTarget();
     const getActivePreviewFrame = () => screen.getByTestId('artifact-preview-frame') as HTMLIFrameElement;
 
     await waitFor(() => {
@@ -268,6 +271,49 @@ describe('FileViewer manual edit history regressions', () => {
     await waitFor(() => {
       expect(getActivePreviewFrame().srcdoc).toContain('Updated hero');
     });
+  });
+
+  it('only exposes reset after the selected element draft changes', async () => {
+    const initialSource = '<!doctype html><html><body><h1 data-od-id="hero">Hero</h1></body></html>';
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input);
+      if (url.includes('/api/projects/project-1/deployments')) {
+        return new Response(JSON.stringify({ deployments: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (url.includes('/api/projects/project-1/raw/preview.html')) {
+        return new Response(initialSource, { status: 200 });
+      }
+      return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <FileViewer projectId="project-1" projectKind="prototype" file={htmlPreviewFile()}
+        liveHtml={initialSource}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('manual-edit-mode-toggle'));
+    await selectManualEditTarget();
+
+    expect(panelState.props?.resetAvailable).toBe(false);
+
+    act(() => {
+      const currentDraft = panelState.props?.draft;
+      if (!currentDraft) throw new Error('Manual edit draft not found');
+      panelState.props?.onDraftChange({ ...currentDraft, text: 'Panel edited copy' });
+    });
+
+    await waitFor(() => expect(panelState.props?.resetAvailable).toBe(true));
+
+    await act(async () => {
+      panelState.props?.onResetDraft();
+    });
+
+    await waitFor(() => expect(panelState.props?.resetAvailable).toBe(false));
   });
 
   it('clears the selected target after deleting an element', async () => {
@@ -305,7 +351,7 @@ describe('FileViewer manual edit history regressions', () => {
     );
 
     fireEvent.click(screen.getByTestId('manual-edit-mode-toggle'));
-    await hoverManualEditTarget();
+    await selectManualEditTarget();
     const frame = screen.getByTestId('artifact-preview-frame') as HTMLIFrameElement;
     const postMessageSpy = vi.spyOn(frame.contentWindow!, 'postMessage');
 
@@ -322,8 +368,9 @@ describe('FileViewer manual edit history regressions', () => {
     await waitFor(() => expect(savedSources).toHaveLength(1));
     expect(savedSources[0]).not.toContain('data-od-id="hero"');
     expect(savedSources[0]).toContain('data-od-id="body"');
-    await waitFor(() => expect(panelState.props?.selectedTarget).toBeNull());
-    expect(screen.getByTestId('mock-manual-edit-panel')).toBeTruthy();
+    // Clearing the selection closes the inspector: edit mode returns to a clean
+    // canvas (no docked/pinned panel) and the iframe selection marker is reset.
+    await waitFor(() => expect(screen.queryByTestId('mock-manual-edit-panel')).toBeNull());
     expect(postMessageSpy).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'od-edit-selected-target', id: null }),
       '*',

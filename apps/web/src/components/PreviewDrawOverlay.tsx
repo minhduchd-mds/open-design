@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode, type WheelEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type ClipboardEvent, type CSSProperties, type PointerEvent, type ReactNode, type WheelEvent } from 'react';
+import { createPortal, flushSync } from 'react-dom';
 
 import { Icon } from './Icon';
 import { RemixIcon } from './RemixIcon';
@@ -20,17 +21,34 @@ interface CaptureTarget {
   position: { x: number; y: number; width: number; height: number };
   htmlHint?: string;
 }
+interface PreviewSnapshot {
+  dataUrl: string;
+  w: number;
+  h: number;
+}
+type CaptureFrameRect = Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>;
 
 export const ANNOTATION_EVENT = 'opendesign:annotation';
+export type AnnotationAction = 'draft' | 'queue' | 'send';
+export type DrawToolbarElement =
+  | 'rect'
+  | 'pen'
+  | 'undo'
+  | 'redo'
+  | 'attach_image'
+  | 'annotation_submit'
+  | 'exit';
 
 export interface AnnotationEventDetail {
   file: File | null;
   note: string;
-  action: 'queue' | 'send';
+  action: AnnotationAction;
   filePath?: string;
   markKind?: PreviewVisualMarkKind;
   bounds?: { x: number; y: number; width: number; height: number };
   target?: CaptureTarget | null;
+  /** Images the user attached in the markup composer to combine with the mark. */
+  extraFiles?: File[];
   ack?: (result: { ok: boolean; message?: string }) => void;
 }
 
@@ -40,14 +58,23 @@ interface Props {
   captureViewport?: boolean;
   onActiveChange?: (active: boolean) => void;
   captureTarget?: CaptureTarget | null;
+  captureSnapshot?: () => Promise<PreviewSnapshot | null>;
+  captureFrameRect?: () => CaptureFrameRect | null;
   filePath?: string;
+  hideChrome?: boolean;
   sendDisabled?: boolean;
   sendDisabledReason?: string;
+  onToolbarClick?: (element: DrawToolbarElement, submitAction?: AnnotationAction) => void;
 }
 
 const STROKE_COLOR = '#ff3b30';
 const STROKE_WIDTH = 4;
 const TARGET_COLOR = '#1677ff';
+
+// Render `node` into `host` via a portal when one is provided, otherwise inline.
+function maybePortal(node: ReactNode, host: HTMLElement | null) {
+  return host ? createPortal(node, host) : node;
+}
 
 export function PreviewDrawOverlay({
   children,
@@ -55,9 +82,13 @@ export function PreviewDrawOverlay({
   captureViewport = false,
   onActiveChange,
   captureTarget = null,
+  captureSnapshot,
+  captureFrameRect,
   filePath,
+  hideChrome = false,
   sendDisabled = false,
   sendDisabledReason,
+  onToolbarClick,
 }: Props) {
   const t = useT();
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -67,16 +98,36 @@ export function PreviewDrawOverlay({
   const strokesRef = useRef<Stroke[]>([]);
   const undoneStrokesRef = useRef<Stroke[]>([]);
   const drawingRef = useRef<Stroke | null>(null);
-  const selectionBoxRef = useRef<NormalizedRect | null>(null);
+  // Box-select accumulates: each drag commits another region, so the user can
+  // mark several areas in one pass instead of one box replacing the last.
+  const selectionBoxesRef = useRef<NormalizedRect[]>([]);
   const boxDraftRef = useRef<{ start: Point; current: Point } | null>(null);
   const composingRef = useRef(false);
   const [hasInk, setHasInk] = useState(false);
   const [hasBox, setHasBox] = useState(false);
   const [undoCount, setUndoCount] = useState(0);
   const [redoCount, setRedoCount] = useState(0);
-  const [pendingAction, setPendingAction] = useState<'queue' | 'send' | null>(null);
+  const [pendingAction, setPendingAction] = useState<AnnotationAction | null>(null);
+  // The submit control is one split button: the main half runs the selected
+  // action (default 'send', so nothing changes for existing users) and the
+  // chevron opens a menu to switch to Add-to-input / Queue / Send.
+  const [submitAction, setSubmitAction] = useState<AnnotationAction>('send');
+  const [submitMenuOpen, setSubmitMenuOpen] = useState(false);
+  const submitMenuRef = useRef<HTMLDivElement | null>(null);
+  // True only for the brief window while a host compositor capture is in
+  // flight: hides this overlay's strokes/toolbar so they don't appear in the
+  // screenshot (they're re-painted onto the result by compositeWithBackground).
+  const [capturing, setCapturing] = useState(false);
+  // Images the user attaches (picker/paste/drop) to combine with the mark.
+  const [extraFiles, setExtraFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Object-URL thumbnails for the attached (not-yet-uploaded) images, so the
+  // markup composer can preview/open/remove them just like the main chat
+  // composer's staged attachments. Revoked whenever the file set changes.
+  const [imagePreviews, setImagePreviews] = useState<{ file: File; url: string }[]>([]);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [captureWarning, setCaptureWarning] = useState<{
-    action: 'queue' | 'send';
+    action: AnnotationAction;
     message: string;
   } | null>(null);
   const sending = pendingAction !== null;
@@ -94,10 +145,11 @@ export function PreviewDrawOverlay({
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     const all = drawingRef.current ? [...strokesRef.current, drawingRef.current] : strokesRef.current;
-    const box = boxDraftRef.current
+    for (const box of selectionBoxesRef.current) drawNormalizedBox(ctx, box, cvs.width, cvs.height);
+    const draft = boxDraftRef.current
       ? normalizedRectFromPoints(boxDraftRef.current.start, boxDraftRef.current.current)
-      : selectionBoxRef.current;
-    if (box) drawNormalizedBox(ctx, box, cvs.width, cvs.height);
+      : null;
+    if (draft) drawNormalizedBox(ctx, draft, cvs.width, cvs.height);
     for (const s of all) {
       const first = s.points[0];
       if (!first) continue;
@@ -110,6 +162,24 @@ export function PreviewDrawOverlay({
       ctx.stroke();
     }
   }, []);
+
+  // rAF-coalesce redraws driven by the pointermove hot path so a high-Hz
+  // pointer (or trackpad) repaints the canvas at most once per frame instead of
+  // once per raw event. One-shot redraws (pointerup, undo, clear) stay sync.
+  const redrawFrameRef = useRef<number | null>(null);
+  const scheduleRedraw = useCallback(() => {
+    if (redrawFrameRef.current !== null) return;
+    redrawFrameRef.current = requestAnimationFrame(() => {
+      redrawFrameRef.current = null;
+      redraw();
+    });
+  }, [redraw]);
+  useEffect(
+    () => () => {
+      if (redrawFrameRef.current !== null) cancelAnimationFrame(redrawFrameRef.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     const wrap = wrapRef.current;
@@ -149,7 +219,7 @@ export function PreviewDrawOverlay({
 
   function syncHistoryState() {
     setHasInk(strokesRef.current.length > 0);
-    setHasBox(Boolean(selectionBoxRef.current));
+    setHasBox(selectionBoxesRef.current.length > 0);
     setUndoCount(strokesRef.current.length);
     setRedoCount(undoneStrokesRef.current.length);
   }
@@ -223,8 +293,8 @@ export function PreviewDrawOverlay({
     (e.target as Element).setPointerCapture?.(e.pointerId);
     const point = pointFromEvent(e);
     if (markTool === 'box') {
+      // Start a fresh draft on top of any already-committed boxes.
       boxDraftRef.current = { start: point, current: point };
-      selectionBoxRef.current = null;
       syncHistoryState();
       redraw();
       return;
@@ -236,20 +306,28 @@ export function PreviewDrawOverlay({
     if (!active || sending) return;
     if (boxDraftRef.current) {
       boxDraftRef.current.current = pointFromEvent(e);
-      redraw();
+      scheduleRedraw();
       return;
     }
     if (!drawingRef.current) return;
     drawingRef.current.points.push(pointFromEvent(e));
-    redraw();
+    scheduleRedraw();
   }
   function onPointerUp(e: PointerEvent) {
     if (!active || sending) return;
+    // A final synchronous redraw follows; drop any pending move-frame.
+    if (redrawFrameRef.current !== null) {
+      cancelAnimationFrame(redrawFrameRef.current);
+      redrawFrameRef.current = null;
+    }
     if (boxDraftRef.current) {
       boxDraftRef.current.current = pointFromEvent(e);
       const next = normalizedRectFromPoints(boxDraftRef.current.start, boxDraftRef.current.current);
       boxDraftRef.current = null;
-      selectionBoxRef.current = next.width >= 0.006 && next.height >= 0.006 ? next : null;
+      // Commit the drawn region; ignore accidental micro-drags (click without move).
+      if (next.width >= 0.006 && next.height >= 0.006) {
+        selectionBoxesRef.current = [...selectionBoxesRef.current, next];
+      }
       syncHistoryState();
       redraw();
       return;
@@ -277,23 +355,103 @@ export function PreviewDrawOverlay({
     strokesRef.current = [];
     undoneStrokesRef.current = [];
     drawingRef.current = null;
-    selectionBoxRef.current = null;
+    selectionBoxesRef.current = [];
     boxDraftRef.current = null;
     syncHistoryState();
     redraw();
   }
 
+  function addExtraFiles(files: FileList | File[] | null) {
+    if (!files) return;
+    const imgs = Array.from(files).filter((f) => f.type.startsWith('image/'));
+    if (imgs.length === 0) return;
+    setExtraFiles((cur) => [...cur, ...imgs]);
+  }
+  function onFileInputChange(e: ChangeEvent<HTMLInputElement>) {
+    addExtraFiles(e.target.files);
+    e.target.value = '';
+  }
+  function onNotePaste(e: ClipboardEvent<HTMLInputElement>) {
+    const files = e.clipboardData?.files;
+    if (!files || files.length === 0) return;
+    const imgs = Array.from(files).filter((f) => f.type.startsWith('image/'));
+    if (imgs.length === 0) return;
+    e.preventDefault();
+    addExtraFiles(imgs);
+  }
+  function removeExtraFile(index: number) {
+    setExtraFiles((cur) => cur.filter((_, i) => i !== index));
+    setPreviewIndex(null);
+  }
+
+  // Keep object-URL thumbnails in sync with the attached files; revoke on
+  // change/unmount so we never leak blob URLs.
+  useEffect(() => {
+    const next = extraFiles.map((file) => ({ file, url: URL.createObjectURL(file) }));
+    setImagePreviews(next);
+    return () => {
+      next.forEach((item) => URL.revokeObjectURL(item.url));
+    };
+  }, [extraFiles]);
+
+  // Escape closes the image preview first (capture phase so it runs before the
+  // overlay's own Escape-to-close handler).
+  useEffect(() => {
+    if (previewIndex === null) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        setPreviewIndex(null);
+      }
+    }
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [previewIndex]);
+
+  // Dismiss the submit menu on outside pointer / Escape. Capture phase + stop
+  // lets Escape close the menu first without also closing the whole overlay.
+  useEffect(() => {
+    if (!submitMenuOpen) return;
+    function onPointerDown(e: MouseEvent) {
+      if (submitMenuRef.current && !submitMenuRef.current.contains(e.target as Node)) {
+        setSubmitMenuOpen(false);
+      }
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        setSubmitMenuOpen(false);
+      }
+    }
+    window.addEventListener('mousedown', onPointerDown, true);
+    window.addEventListener('keydown', onKey, true);
+    return () => {
+      window.removeEventListener('mousedown', onPointerDown, true);
+      window.removeEventListener('keydown', onKey, true);
+    };
+  }, [submitMenuOpen]);
+
   function undoStroke() {
     if (sending) return;
-    if (selectionBoxRef.current || boxDraftRef.current) {
-      selectionBoxRef.current = null;
+    // Discard an in-progress draft first, then pop committed boxes one at a
+    // time (most recent first) before falling back to freehand strokes.
+    if (boxDraftRef.current) {
       boxDraftRef.current = null;
       syncHistoryState();
       redraw();
+      onToolbarClick?.('undo');
+      return;
+    }
+    if (selectionBoxesRef.current.length > 0) {
+      selectionBoxesRef.current = selectionBoxesRef.current.slice(0, -1);
+      syncHistoryState();
+      redraw();
+      onToolbarClick?.('undo');
       return;
     }
     const stroke = strokesRef.current.pop();
     if (!stroke) return;
+    onToolbarClick?.('undo');
     undoneStrokesRef.current.push(stroke);
     drawingRef.current = null;
     syncHistoryState();
@@ -304,6 +462,7 @@ export function PreviewDrawOverlay({
     if (sending) return;
     const stroke = undoneStrokesRef.current.pop();
     if (!stroke) return;
+    onToolbarClick?.('redo');
     strokesRef.current.push(stroke);
     drawingRef.current = null;
     syncHistoryState();
@@ -319,21 +478,29 @@ export function PreviewDrawOverlay({
     strokesRef.current = [];
     undoneStrokesRef.current = [];
     drawingRef.current = null;
-    selectionBoxRef.current = null;
+    selectionBoxesRef.current = [];
     boxDraftRef.current = null;
+    setExtraFiles([]);
+    setPreviewIndex(null);
     syncHistoryState();
     redraw();
   }, [active, redraw]);
 
   function boxBounds(): { x: number; y: number; width: number; height: number } | null {
     const rect = canvasRef.current?.getBoundingClientRect();
-    const box = selectionBoxRef.current;
-    if (!rect || rect.width <= 0 || rect.height <= 0 || !box) return null;
+    const boxes = selectionBoxesRef.current;
+    if (!rect || rect.width <= 0 || rect.height <= 0 || boxes.length === 0) return null;
+    // Collapse every committed box into one enclosing rect so the annotation
+    // bounds still describe a single region for the downstream capture crop.
+    const left = Math.min(...boxes.map((box) => box.x)) * rect.width;
+    const top = Math.min(...boxes.map((box) => box.y)) * rect.height;
+    const right = Math.max(...boxes.map((box) => box.x + box.width)) * rect.width;
+    const bottom = Math.max(...boxes.map((box) => box.y + box.height)) * rect.height;
     return {
-      x: box.x * rect.width,
-      y: box.y * rect.height,
-      width: Math.max(1, box.width * rect.width),
-      height: Math.max(1, box.height * rect.height),
+      x: left,
+      y: top,
+      width: Math.max(1, right - left),
+      height: Math.max(1, bottom - top),
     };
   }
 
@@ -380,7 +547,36 @@ export function PreviewDrawOverlay({
     return undefined;
   }
 
-  async function requestSnapshot(): Promise<{ dataUrl: string; w: number; h: number } | null> {
+  function waitForOverlayHidden(): Promise<void> {
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+  }
+
+  function snapshotFrameRect(): CaptureFrameRect | null {
+    return (
+      captureFrameRect?.() ??
+      (captureSnapshot
+        ? wrapRef.current?.getBoundingClientRect()
+        : activePreviewIframe()?.getBoundingClientRect()) ??
+      null
+    );
+  }
+
+  async function requestSnapshot(): Promise<PreviewSnapshot | null> {
+    if (captureSnapshot) {
+      // The host's captureSnapshot is a compositor screenshot of the on-screen
+      // region, which would otherwise include this overlay's own strokes +
+      // toolbar. Hide them for the capture; compositeWithBackground re-paints
+      // the marks onto the result afterwards.
+      flushSync(() => setCapturing(true));
+      try {
+        await waitForOverlayHidden();
+        return await captureSnapshot();
+      } finally {
+        flushSync(() => setCapturing(false));
+      }
+    }
     const iframe = snapshotHostIframe();
     if (!iframe) return null;
     // Capture mode may still be swapping the srcDoc frame to full content when
@@ -434,10 +630,10 @@ export function PreviewDrawOverlay({
     ctx.restore();
   }
 
-  async function compositeWithBackground(snap: { dataUrl: string; w: number; h: number }): Promise<Blob | null> {
-    const iframe = activePreviewIframe();
-    if (!iframe) return null;
-    const rect = iframe.getBoundingClientRect();
+  async function compositeWithBackground(snap: PreviewSnapshot): Promise<Blob | null> {
+    const frameRect = snapshotFrameRect();
+    if (!frameRect) return null;
+    const rect = frameRect;
     const out = document.createElement('canvas');
     out.width = snap.w;
     out.height = snap.h;
@@ -450,11 +646,16 @@ export function PreviewDrawOverlay({
       img.src = snap.dataUrl;
     });
     if (!bg) return null;
+    // Opaque base: even when the captured snapshot is transparent (web fallback
+    // rasterizer painted nothing) the composited annotation never flattens to
+    // black — it degrades to a white frame with the marks on top.
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, out.width, out.height);
     ctx.drawImage(bg, 0, 0, snap.w, snap.h);
     const sx = snap.w / Math.max(1, rect.width);
     const sy = snap.h / Math.max(1, rect.height);
     drawCaptureTarget(ctx, sx, sy, captureTarget);
-    if (selectionBoxRef.current) drawNormalizedBox(ctx, selectionBoxRef.current, snap.w, snap.h);
+    for (const box of selectionBoxesRef.current) drawNormalizedBox(ctx, box, snap.w, snap.h);
     ctx.strokeStyle = STROKE_COLOR;
     ctx.lineWidth = STROKE_WIDTH * Math.max(sx, sy);
     ctx.lineCap = 'round';
@@ -473,14 +674,15 @@ export function PreviewDrawOverlay({
     return new Promise((resolve) => out.toBlob((b) => resolve(b), 'image/png'));
   }
 
-  async function send(action: 'queue' | 'send') {
+  async function send(action: AnnotationAction) {
     const hasTarget = Boolean(captureTarget);
     const shouldCapture = hasInk || hasBox || hasTarget || captureViewport;
-    const canSubmit = shouldCapture || Boolean(note.trim());
+    const canSubmit = shouldCapture || Boolean(note.trim()) || extraFiles.length > 0;
     if (sending || !canSubmit) return;
     // While a task is running the primary Send is disabled (use Queue instead).
     // The note/attachment is not lost: Queue still stages it for the next turn.
     if (action === 'send' && sendDisabled) return;
+    onToolbarClick?.('annotation_submit', action);
     setCaptureWarning(null);
     setPendingAction(action);
     try {
@@ -489,7 +691,16 @@ export function PreviewDrawOverlay({
         let blob: Blob | null = null;
         const snap = await requestSnapshot();
         if (snap) blob = await compositeWithBackground(snap);
-        if (!blob) {
+        if (blob) {
+          const ts = new Date().toISOString().replace(/[:.]/g, '-');
+          file = new File([blob], `drawing-${ts}.png`, { type: 'image/png' });
+        } else if (!note.trim() && extraFiles.length === 0) {
+          // The snapshot pipeline is best-effort — the srcDoc foreignObject
+          // rasterizer legitimately fails on real-world artifacts (issue
+          // #4064), and retrying replays the same failure. Only block when
+          // the annotation has no meaning without pixels: ink/box-only marks
+          // are pure bitmap. A typed note or attached images still carry the
+          // user's intent, so those fall through and send without the shot.
           setCaptureWarning({
             action,
             message: captureViewport && !hasInk && !hasBox && !hasTarget
@@ -498,9 +709,8 @@ export function PreviewDrawOverlay({
           });
           return;
         }
-        const ts = new Date().toISOString().replace(/[:.]/g, '-');
-        file = new File([blob], `drawing-${ts}.png`, { type: 'image/png' });
       }
+      const sentWithoutScreenshot = shouldCapture && !file;
       const kind = markKind();
       const result = await new Promise<{ ok: boolean; message?: string }>((resolve) => {
         let settled = false;
@@ -520,6 +730,7 @@ export function PreviewDrawOverlay({
           markKind: kind,
           bounds: kind ? annotationBounds() : undefined,
           target: captureTarget,
+          extraFiles: extraFiles.length ? extraFiles : undefined,
           ack: finish,
         };
         window.dispatchEvent(new CustomEvent(ANNOTATION_EVENT, { detail }));
@@ -532,19 +743,86 @@ export function PreviewDrawOverlay({
         return;
       }
       clearInk();
-      setCaptureWarning(null);
+      // Degraded sends keep the user honest about what the agent received:
+      // the note went out, the pixels did not.
+      setCaptureWarning(
+        sentWithoutScreenshot
+          ? { action, message: t('chat.annotationSentWithoutScreenshot') }
+          : null,
+      );
       setNote('');
+      setExtraFiles([]);
+      setPreviewIndex(null);
     } finally {
       setPendingAction(null);
     }
   }
 
+  // In a scaled, clipped device frame (tablet/mobile viewports) the draw toolbar would
+  // be cut off by the frame, and an absolutely-positioned toolbar inside the preview
+  // scroll area scrolls away with the content. Portal it to the non-scrolling preview
+  // body (.viewer-body) so it stays fully visible and pinned; CSS then docks it in a
+  // reserved strip below the device frame. Falls back to inline when there is no
+  // .viewer-body ancestor. Resolve the host in a layout effect (pre-paint) so the very
+  // first `active` paint is already portaled — with a post-paint effect the clipped
+  // inline toolbar would flash for one frame before the host is found.
+  const [toolbarHost, setToolbarHost] = useState<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    if (!active) {
+      setToolbarHost(null);
+      return;
+    }
+    setToolbarHost((wrapRef.current?.closest('.viewer-body') as HTMLElement | null) ?? null);
+  }, [active]);
+
   const overlayPointer = active ? 'auto' : 'none';
   const showCanvas = active || hasInk || hasBox;
-  const canSubmit = hasInk || hasBox || Boolean(captureTarget) || captureViewport || Boolean(note.trim());
+  const canSubmit = hasInk || hasBox || Boolean(captureTarget) || captureViewport || Boolean(note.trim()) || extraFiles.length > 0;
+  const activePreview = previewIndex !== null ? imagePreviews[previewIndex] ?? null : null;
+  const canAddToInput = canSubmit;
   const canSend = canSubmit && !sendDisabled;
   const canUndo = (undoCount > 0 || hasBox) && !sending;
   const canRedo = redoCount > 0 && !sending;
+  const chromeHidden = capturing || hideChrome;
+  // Each submit action's icon, labels, and enable rule, driving the split
+  // button and its dropdown. `send` is gated while a task runs (Queue and
+  // Add-to-input stay usable then); the others only need something to submit.
+  const submitOptions: {
+    action: AnnotationAction;
+    label: string;
+    pendingLabel: string;
+    title: string;
+    icon: ReactNode;
+    enabled: boolean;
+  }[] = [
+    {
+      action: 'send',
+      label: t('chat.send'),
+      pendingLabel: t('chat.annotationSending'),
+      title: sendDisabled
+        ? sendDisabledReason ?? t('chat.annotationSendDisabledReason')
+        : t('chat.send'),
+      icon: <Icon name="send" size={14} />,
+      enabled: canSend,
+    },
+    {
+      action: 'draft',
+      label: t('chat.annotationAddToInput'),
+      pendingLabel: t('chat.annotationAddingToInput'),
+      title: t('chat.annotationAddToInput'),
+      icon: <RemixIcon name="input-field" size={15} />,
+      enabled: canAddToInput,
+    },
+    {
+      action: 'queue',
+      label: t('chat.annotationQueue'),
+      pendingLabel: t('chat.annotationQueueing'),
+      title: t('chat.annotationQueue'),
+      icon: <RemixIcon name="list-check-2" size={15} />,
+      enabled: canSubmit,
+    },
+  ];
+  const currentSubmit = submitOptions.find((opt) => opt.action === submitAction) ?? submitOptions[0]!;
 
   return (
     <div
@@ -554,6 +832,7 @@ export function PreviewDrawOverlay({
         inset: 0,
         width: '100%',
         height: '100%',
+        zIndex: 0,
       }}
     >
       {children}
@@ -570,186 +849,368 @@ export function PreviewDrawOverlay({
             inset: 0,
             pointerEvents: overlayPointer,
             cursor: active ? 'crosshair' : 'default',
+            visibility: chromeHidden ? 'hidden' : 'visible',
+            zIndex: 80,
           }}
         />
       ) : null}
-      {active ? (
+      {active ? maybePortal(
         <>
           <style>{tooltipStyle}</style>
+          <div className="preview-draw-dock" style={previewDrawDockStyle}>
           {captureWarning ? (
             <div
               role="status"
               aria-live="polite"
               style={{
-                position: 'absolute',
-                left: '50%',
-                bottom: 82,
-                transform: 'translateX(-50%)',
                 display: 'flex',
                 alignItems: 'center',
-                maxWidth: 'min(420px, calc(100% - 32px))',
+                maxWidth: '100%',
                 padding: '8px 12px',
                 borderRadius: 999,
                 background: 'rgba(20,20,20,0.92)',
                 color: '#fff',
                 boxShadow: '0 6px 24px rgba(0,0,0,0.18)',
                 backdropFilter: 'blur(8px)',
-                zIndex: 11,
+                zIndex: 92,
                 pointerEvents: 'none',
                 fontSize: 13,
                 lineHeight: 1.35,
+                visibility: chromeHidden ? 'hidden' : undefined,
               }}
             >
               <span>{captureWarning.message}</span>
             </div>
           ) : null}
+          {imagePreviews.length > 0 ? (
+            <div
+              aria-label={t('chat.annotationAttachedImages')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                maxWidth: '100%',
+                overflowX: 'auto',
+                padding: '6px 8px',
+                background: 'rgba(20,20,20,0.92)',
+                borderRadius: 12,
+                boxShadow: '0 6px 24px rgba(0,0,0,0.18)',
+                backdropFilter: 'blur(8px)',
+                zIndex: 90,
+                pointerEvents: 'auto',
+                visibility: chromeHidden ? 'hidden' : undefined,
+              }}
+            >
+              {imagePreviews.map((item, i) => (
+                <div key={item.url} style={{ position: 'relative', flex: '0 0 auto' }}>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewIndex(i)}
+                    disabled={sending}
+                    title={item.file.name}
+                    aria-label={item.file.name}
+                    style={{
+                      display: 'block',
+                      width: 44,
+                      height: 44,
+                      padding: 0,
+                      border: '1px solid rgba(255,255,255,0.22)',
+                      borderRadius: 8,
+                      overflow: 'hidden',
+                      background: 'rgba(255,255,255,0.08)',
+                      cursor: sending ? 'wait' : 'zoom-in',
+                    }}
+                  >
+                    <img
+                      src={item.url}
+                      alt=""
+                      aria-hidden
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeExtraFile(i)}
+                    disabled={sending}
+                    aria-label={t('chat.annotationAttachedRemove')}
+                    title={t('chat.annotationAttachedRemove')}
+                    style={{
+                      position: 'absolute',
+                      top: -6,
+                      right: -6,
+                      width: 18,
+                      height: 18,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: 999,
+                      border: '1px solid rgba(0,0,0,0.25)',
+                      background: '#1f1f1f',
+                      color: '#fff',
+                      cursor: sending ? 'wait' : 'pointer',
+                      padding: 0,
+                    }}
+                  >
+                    <Icon name="close" size={10} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
           <div
+            className="preview-draw-toolbar"
             style={{
-              position: 'absolute',
-              left: '50%',
-              bottom: 16,
-              transform: 'translateX(-50%)',
               display: 'flex',
               alignItems: 'center',
+              justifyContent: 'center',
+              alignContent: 'center',
+              flexWrap: 'wrap',
               gap: 8,
+              rowGap: 8,
+              boxSizing: 'border-box',
+              width: 'max-content',
+              maxWidth: '100%',
               padding: '6px 8px',
               background: 'rgba(20,20,20,0.92)',
               color: '#fff',
-              borderRadius: 999,
+              borderRadius: 24,
               boxShadow: '0 6px 24px rgba(0,0,0,0.18)',
               backdropFilter: 'blur(8px)',
-              zIndex: 10,
+              zIndex: 91,
               pointerEvents: 'auto',
               fontSize: 13,
+              visibility: chromeHidden ? 'hidden' : undefined,
             }}
           >
-          <button
-            type="button"
-            onClick={closeOverlay}
-            disabled={sending}
-            aria-label={t('common.close')}
-            title={t('common.close')}
-            style={closeButtonStyle}
-          >
-            <Icon name="close" size={13} />
-          </button>
-          <div style={subToolGroupStyle} aria-label={t('fileViewer.markTool')}>
+          <div className="preview-draw-tool-cluster" style={drawToolbarClusterStyle}>
             <button
               type="button"
-              onClick={() => setMarkTool('box')}
+              onClick={() => {
+                onToolbarClick?.('exit');
+                closeOverlay();
+              }}
               disabled={sending}
-              aria-label={t('fileViewer.boxSelect')}
-              title={t('fileViewer.boxSelect')}
-              data-tooltip={t('fileViewer.boxSelect')}
-              className="preview-draw-subtool-action"
-              style={subToolButtonStyle(markTool === 'box')}
+              aria-label={t('common.close')}
+              title={t('common.close')}
+              style={closeButtonStyle}
             >
-              <RemixIcon name="checkbox-blank-line" size={14} />
+              <Icon name="close" size={13} />
+            </button>
+            <div style={subToolGroupStyle} aria-label={t('fileViewer.markTool')}>
+              <button
+                type="button"
+                onClick={() => {
+                  onToolbarClick?.('rect');
+                  setMarkTool('box');
+                }}
+                disabled={sending}
+                aria-label={t('fileViewer.boxSelect')}
+                title={t('fileViewer.boxSelect')}
+                data-tooltip={t('fileViewer.boxSelect')}
+                className="preview-draw-subtool-action"
+                style={subToolButtonStyle(markTool === 'box')}
+              >
+                <RemixIcon name="checkbox-blank-line" size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onToolbarClick?.('pen');
+                  setMarkTool('pen');
+                }}
+                disabled={sending}
+                aria-label={t('sketch.toolPen')}
+                title={t('sketch.toolPen')}
+                data-tooltip={t('sketch.toolPen')}
+                className="preview-draw-subtool-action"
+                style={subToolButtonStyle(markTool === 'pen')}
+              >
+                <RemixIcon name="pencil-line" size={14} />
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={undoStroke}
+              disabled={!canUndo}
+              style={historyButtonStyle(canUndo)}
+              aria-label={t('manualEdit.undo')}
+              title={t('manualEdit.undo')}
+            >
+              <RemixIcon name="arrow-go-back-line" size={14} />
             </button>
             <button
               type="button"
-              onClick={() => setMarkTool('pen')}
-              disabled={sending}
-              aria-label={t('sketch.toolPen')}
-              title={t('sketch.toolPen')}
-              data-tooltip={t('sketch.toolPen')}
-              className="preview-draw-subtool-action"
-              style={subToolButtonStyle(markTool === 'pen')}
+              onClick={redoStroke}
+              disabled={!canRedo}
+              style={historyButtonStyle(canRedo)}
+              aria-label={t('manualEdit.redo')}
+              title={t('manualEdit.redo')}
             >
-              <RemixIcon name="pencil-line" size={14} />
+              <RemixIcon name="arrow-go-forward-line" size={14} />
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              style={{ display: 'none' }}
+              onChange={onFileInputChange}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                onToolbarClick?.('attach_image');
+                fileInputRef.current?.click();
+              }}
+              disabled={sending}
+              aria-label={t('chat.annotationAttachImage')}
+              title={t('chat.annotationAttachImage')}
+              data-tooltip={t('chat.annotationAttachImage')}
+              className="preview-draw-icon-action"
+              style={historyButtonStyle(!sending)}
+            >
+              <RemixIcon name="image-add-line" size={14} />
             </button>
           </div>
-          <button
-            type="button"
-            onClick={undoStroke}
-            disabled={!canUndo}
-            style={historyButtonStyle(canUndo)}
-            aria-label={t('manualEdit.undo')}
-            title={t('manualEdit.undo')}
-          >
-            <RemixIcon name="arrow-go-back-line" size={14} />
-          </button>
-          <button
-            type="button"
-            onClick={redoStroke}
-            disabled={!canRedo}
-            style={historyButtonStyle(canRedo)}
-            aria-label={t('manualEdit.redo')}
-            title={t('manualEdit.redo')}
-          >
-            <RemixIcon name="arrow-go-forward-line" size={14} />
-          </button>
-          <input
-            className="preview-draw-note-input"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            disabled={sending}
-            placeholder={t('chat.annotationNotePlaceholder')}
-            style={{
-              background: 'rgba(218, 97, 56, 0.18)',
-              border: '1px solid rgba(248, 150, 104, 0.82)',
-              borderRadius: 999,
-              outline: 'none',
-              boxShadow: '0 0 0 3px rgba(218, 97, 56, 0.22)',
-              color: 'inherit',
-              width: 280,
-              padding: '4px 8px',
-              fontSize: 13,
-              transition: 'background 120ms ease, border-color 120ms ease, box-shadow 120ms ease',
-            }}
-            onCompositionStart={() => {
-              composingRef.current = true;
-            }}
-            onCompositionEnd={() => {
-              composingRef.current = false;
-            }}
-            onKeyDown={(e) => {
-              if (isImeComposing(e, composingRef.current)) return;
-              if (e.key === 'Enter') void send('send');
-            }}
-          />
-          <button
-            type="button"
-            onClick={() => void send('queue')}
-            disabled={sending || !canSubmit}
-            aria-label={pendingAction === 'queue' ? t('chat.annotationQueueing') : t('chat.annotationQueue')}
-            title={pendingAction === 'queue' ? t('chat.annotationQueueing') : t('chat.annotationQueue')}
-            data-tooltip={pendingAction === 'queue' ? t('chat.annotationQueueing') : t('chat.annotationQueue')}
-            className="preview-draw-icon-action"
-            style={{
-              ...drawActionButtonStyle(false),
-              opacity: canSubmit ? 1 : 0.4,
-              cursor: sending ? 'wait' : (canSubmit ? 'pointer' : 'not-allowed'),
-            }}
-          >
-            {pendingAction === 'queue' ? (
-              <Icon name="spinner" size={14} />
-            ) : (
-              <RemixIcon name="list-check-2" size={15} />
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => void send('send')}
-            disabled={sending || !canSend}
-            aria-label={pendingAction === 'send' ? t('chat.annotationSending') : t('chat.send')}
-            title={sendDisabled ? sendDisabledReason : pendingAction === 'send' ? t('chat.annotationSending') : t('chat.send')}
-            data-tooltip={sendDisabled ? sendDisabledReason : pendingAction === 'send' ? t('chat.annotationSending') : t('chat.send')}
-            className="preview-draw-icon-action"
-            style={{
-              ...drawActionButtonStyle(true),
-              opacity: canSend ? 1 : 0.4,
-              cursor: sending ? 'wait' : (canSend ? 'pointer' : 'not-allowed'),
-            }}
-          >
-            {pendingAction === 'send' ? (
-              <Icon name="spinner" size={14} />
-            ) : (
-              <Icon name="send" size={14} />
-            )}
-          </button>
+          <div className="preview-draw-note-actions" style={drawToolbarNoteActionsStyle}>
+            <input
+              className="preview-draw-note-input"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              onPaste={onNotePaste}
+              disabled={sending}
+              placeholder={t('chat.annotationNotePlaceholder')}
+              style={{
+                background: 'rgba(218, 97, 56, 0.18)',
+                border: '1px solid rgba(248, 150, 104, 0.82)',
+                borderRadius: 999,
+                outline: 'none',
+                boxShadow: '0 0 0 3px rgba(218, 97, 56, 0.22)',
+                color: 'inherit',
+                flexGrow: 1,
+                flexShrink: 1,
+                flexBasis: 220,
+                minWidth: 0,
+                width: 'clamp(148px, 32vw, 280px)',
+                maxWidth: '100%',
+                padding: '4px 8px',
+                fontSize: 13,
+                transition: 'background 120ms ease, border-color 120ms ease, box-shadow 120ms ease',
+              }}
+              onCompositionStart={() => {
+                composingRef.current = true;
+              }}
+              onCompositionEnd={() => {
+                composingRef.current = false;
+              }}
+              onKeyDown={(e) => {
+                if (isImeComposing(e, composingRef.current)) return;
+                if (e.key === 'Enter') void send('queue');
+              }}
+            />
+            <div className="preview-draw-submit" ref={submitMenuRef} style={submitSplitStyle}>
+              <button
+                type="button"
+                onClick={() => void send(submitAction)}
+                disabled={sending || !currentSubmit.enabled}
+                aria-label={pendingAction === submitAction ? currentSubmit.pendingLabel : currentSubmit.label}
+                title={pendingAction === submitAction ? currentSubmit.pendingLabel : currentSubmit.title}
+                data-tooltip={pendingAction === submitAction ? currentSubmit.pendingLabel : currentSubmit.title}
+                className="preview-draw-icon-action"
+                style={{
+                  ...drawActionButtonStyle(true),
+                  width: 'auto',
+                  minWidth: 42,
+                  padding: '0 7px 0 13px',
+                  borderRadius: '999px 0 0 999px',
+                  opacity: currentSubmit.enabled ? 1 : 0.4,
+                  cursor: sending ? 'wait' : (currentSubmit.enabled ? 'pointer' : 'not-allowed'),
+                }}
+              >
+                {pendingAction === submitAction ? <Icon name="spinner" size={14} /> : currentSubmit.icon}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSubmitMenuOpen((open) => !open)}
+                disabled={sending || !canSubmit}
+                aria-haspopup="menu"
+                aria-expanded={submitMenuOpen}
+                aria-label={t('chat.annotationSubmitOptions')}
+                title={t('chat.annotationSubmitOptions')}
+                style={{
+                  ...drawActionButtonStyle(true),
+                  width: 26,
+                  borderRadius: '0 999px 999px 0',
+                  borderLeft: '1px solid rgba(255,255,255,0.28)',
+                  opacity: (!sending && canSubmit) ? 1 : 0.5,
+                  cursor: sending ? 'wait' : (canSubmit ? 'pointer' : 'not-allowed'),
+                }}
+              >
+                <RemixIcon name={submitMenuOpen ? 'arrow-down-s-line' : 'arrow-up-s-line'} size={14} />
+              </button>
+              {submitMenuOpen ? (
+                <div role="menu" aria-label={t('chat.annotationSubmitOptions')} style={submitMenuStyle}>
+                  {submitOptions.map((opt) => {
+                    const itemEnabled = !sending && opt.enabled;
+                    const active = submitAction === opt.action;
+                    return (
+                      <button
+                        key={opt.action}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={active}
+                        aria-label={opt.label}
+                        disabled={itemEnabled ? undefined : true}
+                        title={opt.title}
+                        onClick={() => {
+                          setSubmitAction(opt.action);
+                          setSubmitMenuOpen(false);
+                          void send(opt.action);
+                        }}
+                        style={submitMenuItemStyle(active, itemEnabled)}
+                      >
+                        <span style={submitMenuItemIconStyle}>{opt.icon}</span>
+                        <span style={{ flex: '1 1 auto' }}>{opt.label}</span>
+                        {active ? <RemixIcon name="check-line" size={14} /> : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
           </div>
-        </>
+          </div>
+          </div>
+          {activePreview ? createPortal(
+            <div
+              className="staged-preview-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-label={activePreview.file.name}
+              onMouseDown={(e) => {
+                if (e.target === e.currentTarget) setPreviewIndex(null);
+              }}
+            >
+              <div className="staged-preview-card">
+                <div className="staged-preview-head">
+                  <span title={activePreview.file.name}>{activePreview.file.name}</span>
+                  <button
+                    type="button"
+                    className="icon-only"
+                    onClick={() => setPreviewIndex(null)}
+                    aria-label={t('common.close')}
+                    title={t('common.close')}
+                  >
+                    <Icon name="close" size={14} />
+                  </button>
+                </div>
+                <img src={activePreview.url} alt={activePreview.file.name} />
+              </div>
+            </div>,
+            document.body,
+          ) : null}
+        </>,
+        toolbarHost,
       ) : null}
     </div>
   );
@@ -825,6 +1286,24 @@ const subToolGroupStyle: CSSProperties = {
   background: 'rgba(255,255,255,0.08)',
 };
 
+const drawToolbarClusterStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 8,
+  flex: '0 0 auto',
+};
+
+const drawToolbarNoteActionsStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 8,
+  flex: '1 1 360px',
+  minWidth: 0,
+  maxWidth: 412,
+};
+
 function subToolButtonStyle(active: boolean): CSSProperties {
   return {
     border: 'none',
@@ -889,4 +1368,73 @@ const closeButtonStyle: CSSProperties = {
   ...iconButtonStyle,
   border: 'none',
   background: 'transparent',
+};
+
+// Bottom-anchored column that stacks the capture warning, attached-image
+// strip, and toolbar with real spacing. Absolute per-element `bottom` offsets
+// used to collide once the toolbar wrapped taller, so the image strip visually
+// covered the controls; a flex column keeps them apart at any height.
+const previewDrawDockStyle: CSSProperties = {
+  position: 'absolute',
+  left: 'calc(50% - 52px)',
+  bottom: 16,
+  transform: 'translateX(-50%)',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: 8,
+  maxWidth: 'min(760px, calc(100% - 144px))',
+  zIndex: 91,
+  pointerEvents: 'none',
+};
+
+const submitSplitStyle: CSSProperties = {
+  position: 'relative',
+  display: 'inline-flex',
+  alignItems: 'center',
+  flex: '0 0 auto',
+};
+
+const submitMenuStyle: CSSProperties = {
+  position: 'absolute',
+  right: 0,
+  bottom: 'calc(100% + 8px)',
+  minWidth: 184,
+  padding: 4,
+  borderRadius: 12,
+  background: 'rgba(20,20,20,0.98)',
+  border: '1px solid rgba(255,255,255,0.10)',
+  boxShadow: '0 10px 30px rgba(0,0,0,0.32)',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 2,
+  zIndex: 12,
+};
+
+function submitMenuItemStyle(active: boolean, enabled: boolean): CSSProperties {
+  return {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    width: '100%',
+    padding: '7px 9px',
+    borderRadius: 8,
+    border: 'none',
+    background: active ? 'rgba(255,255,255,0.14)' : 'transparent',
+    color: '#fff',
+    fontSize: 12.5,
+    lineHeight: 1.2,
+    textAlign: 'left',
+    whiteSpace: 'nowrap',
+    opacity: enabled ? 1 : 0.4,
+    cursor: enabled ? 'pointer' : 'not-allowed',
+  };
+}
+
+const submitMenuItemIconStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 18,
+  flex: '0 0 auto',
 };
