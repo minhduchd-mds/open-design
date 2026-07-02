@@ -67,7 +67,9 @@
   padding: 7px 14px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--accent-contrast, #fff);
+  /* Text on the accent fill — repo convention is plain white (see
+     primitives.css primary button); there is no on-accent token. */
+  color: #fff;
   background: var(--accent);
   border: 1px solid var(--accent);
   border-radius: 999px;
