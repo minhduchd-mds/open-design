@@ -20,7 +20,11 @@ const TEXT_EXTENSIONS = new Set([
   '.css', '.scss', '.html', '.yml', '.yaml', '.toml', '.sql', '.sh', '.ps1',
 ]);
 
-const MARKERS = ['<<<<<<< ', '=======', '>>>>>>> '];
+const CONFLICT_MARKERS = [
+  /^<{7}(?:\s.*)?$/,
+  /^={7}$/,
+  /^>{7}(?:\s.*)?$/,
+];
 
 type Finding = {
   file: string;
@@ -51,14 +55,13 @@ async function scanFile(file: string): Promise<Finding[]> {
   const findings: Finding[] = [];
 
   source.split(/\r?\n/).forEach((line, index) => {
-    const trimmed = line.trimStart();
-    const marker = MARKERS.find((candidate) => trimmed.startsWith(candidate));
-    if (!marker) return;
+    const candidate = line.trim();
+    if (!CONFLICT_MARKERS.some((pattern) => pattern.test(candidate))) return;
 
     findings.push({
       file: relative(ROOT, file),
       line: index + 1,
-      marker: marker.trim(),
+      marker: candidate.slice(0, 7),
     });
   });
 
