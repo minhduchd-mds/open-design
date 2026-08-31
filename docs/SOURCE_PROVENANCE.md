@@ -18,6 +18,7 @@ This repository follows a **clean implementation** policy for architecture and a
 | Node.js release policy — https://nodejs.org/en/about/previous-releases | Runtime support policy; production uses an LTS line | Documentation | No |
 | Electron documentation — https://www.electronjs.org/docs/latest/ | Process isolation and desktop security API reference | Documentation; Electron is MIT-licensed | No |
 | Hono documentation — https://hono.dev/docs/ | HTTP boundary/API conventions | Documentation; Hono is MIT-licensed | No |
+| `davila7/claude-code-templates` — https://github.com/davila7/claude-code-templates (reviewed at upstream main commit `618365a60f59db76dd91693996dc6d5f5b1cd86d`) | Structural inspiration for repo-local Claude components: specialist agents, bounded commands, validation/security discipline | MIT; concept/format reference only | No |
 
 ## Repository-owned implementation
 
@@ -25,5 +26,6 @@ The following additions in the vNext architecture branch are original repository
 
 - `scripts/check-merge-markers.ts`: deterministic repository scanner that rejects unresolved Git conflict markers before build/test gates.
 - vNext architecture decisions and boundary definitions in `docs/architecture/VNEXT.md`.
+- `.claude/agents/product-planner.md`, `.claude/agents/change-reviewer.md`, and `.claude/commands/plan-upgrade.md`: repository-specific agent instructions written from the open-design architecture and product constraints.
 
-No external source code was copied for these additions.
+No external source code or prompt body was copied for these additions.
